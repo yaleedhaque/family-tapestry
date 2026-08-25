@@ -16,7 +16,7 @@ import ELK from "elkjs/lib/elk.bundled.js";
 
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
-import EditPanel from "@/components/EditPanel";
+import InfoPanel from "@/components/InfoPanel";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/EditPanel";
 import BrickBackground from "@/components/BrickBackground";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
@@ -495,7 +495,7 @@ export default function TapestryCanvas() {
           </ReactFlow>
         </div>
 
-        <EditPanel
+        <InfoPanel
           person={selectedPerson}
           persons={rawPersons}
           unions={rawUnions}
