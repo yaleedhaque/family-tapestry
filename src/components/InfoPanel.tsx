@@ -209,7 +209,7 @@ export default function InfoPanel({
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
 
-      <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[#1a1714] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[85vh] max-md:w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+      <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[var(--tapestry-bg-alt)] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[85vh] max-md:w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
         {/* Mobile drag handle */}
         <div className="hidden max-md:flex justify-center pt-2 pb-1">
           <div className="w-10 h-1 rounded-full bg-[var(--thread-gold-dim)]/30" />
@@ -266,19 +266,19 @@ export default function InfoPanel({
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-xs"
           >
-            ✕
+            âœ•
           </button>
         </div>
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {/* ── Profile tab ── */}
+          {/* â”€â”€ Profile tab â”€â”€ */}
           {tab === "profile" && (
             <div className="space-y-4">
               <div className="text-center">
                 <h2 className="font-display text-xl font-semibold text-[var(--parchment)]">{person.fullName}</h2>
                 <p className="text-xs text-[var(--parchment-dim)] italic mt-1">
-                  {person.birthYear} – {person.deathYear ?? "present"}
+                  {person.birthYear} â€“ {person.deathYear ?? "present"}
                 </p>
               </div>
 
@@ -384,10 +384,10 @@ export default function InfoPanel({
             </div>
           )}
 
-          {/* ── Relationship tabs ── */}
+          {/* â”€â”€ Relationship tabs â”€â”€ */}
           {tab === "parents" && (
             <RelSection
-              items={relatedData.parents.map((p) => ({ id: p.id, label: p.fullName, sub: `${p.birthYear} – ${p.deathYear ?? "present"}` }))}
+              items={relatedData.parents.map((p) => ({ id: p.id, label: p.fullName, sub: `${p.birthYear} â€“ ${p.deathYear ?? "present"}` }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddParent(person.id, id); resetAdd(); }}
@@ -401,7 +401,7 @@ export default function InfoPanel({
 
           {tab === "partners" && (
             <RelSection
-              items={relatedData.partners.map((pp) => ({ id: pp.person.id, label: pp.person.fullName, sub: `${pp.union.type} · ${pp.union.startYear ?? "?"} – ${pp.union.endYear ?? "present"}`, badge: pp.union.type === "divorced" ? "divorced" : undefined }))}
+              items={relatedData.partners.map((pp) => ({ id: pp.person.id, label: pp.person.fullName, sub: `${pp.union.type} Â· ${pp.union.startYear ?? "?"} â€“ ${pp.union.endYear ?? "present"}`, badge: pp.union.type === "divorced" ? "divorced" : undefined }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddPartner(person.id, id, newUnionType, newStartYear ? Number(newStartYear) : null); resetAdd(); }}
@@ -417,7 +417,7 @@ export default function InfoPanel({
 
           {tab === "children" && (
             <RelSection
-              items={relatedData.children.map((c) => ({ id: c.id, label: c.fullName, sub: `${c.birthYear} – ${c.deathYear ?? "present"}` }))}
+              items={relatedData.children.map((c) => ({ id: c.id, label: c.fullName, sub: `${c.birthYear} â€“ ${c.deathYear ?? "present"}` }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddChild(person.id, id); resetAdd(); }}
@@ -446,7 +446,7 @@ export default function InfoPanel({
       {/* Delete confirmation */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
-          <div className="bg-[#1a1714] border border-[var(--ember-red)]/40 rounded-xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--ember-red)]/40 rounded-xl p-6 max-w-sm w-full shadow-2xl">
             <h3 className="font-display text-lg text-[var(--parchment)] mb-2">Delete {person.fullName}?</h3>
             <p className="text-sm text-[var(--parchment-dim)] mb-5">This will remove the person and all their relationships from the tree. This cannot be undone.</p>
             <div className="flex justify-end gap-3">
@@ -471,7 +471,7 @@ export default function InfoPanel({
           )
         ) : (
           <p className="text-sm text-[var(--parchment)] font-body">
-            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : ((person as unknown as Record<string, unknown>)[key] as string) || "—"}
+            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "â€”") : ((person as unknown as Record<string, unknown>)[key] as string) || "â€”"}
           </p>
         )}
       </div>
@@ -525,7 +525,7 @@ function RelSection({
                   <p className="text-[10px] text-[var(--parchment-dim)]">{item.sub}</p>
                 </div>
               </div>
-              <button onClick={() => onRemove(item.id)} className="w-6 h-6 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
+              <button onClick={() => onRemove(item.id)} className="w-6 h-6 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">âœ•</button>
             </div>
           ))}
         </div>
@@ -542,7 +542,7 @@ function RelSection({
         <div className="bg-white/[0.03] rounded-lg border border-[var(--thread-gold-dim)]/20 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-body text-[var(--thread-gold)]">{addMode === "existing" ? `Link existing ${personLabel.toLowerCase()}` : `Create new ${personLabel.toLowerCase()}`}</span>
-            <button onClick={onCancelAdd} className="text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs">✕</button>
+            <button onClick={onCancelAdd} className="text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs">âœ•</button>
           </div>
 
           {addMode === "existing" ? (
@@ -552,7 +552,7 @@ function RelSection({
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {searchResults.map((p) => (
                     <button key={p.id} onClick={() => onPickExisting(p.id)} className="w-full text-left px-3 py-2 rounded hover:bg-[var(--thread-gold)]/10 text-sm text-[var(--parchment)] font-body transition-colors">
-                      {p.fullName} <span className="ml-2 text-[10px] text-[var(--parchment-dim)]">{p.birthYear} – {p.deathYear ?? "present"}</span>
+                      {p.fullName} <span className="ml-2 text-[10px] text-[var(--parchment-dim)]">{p.birthYear} â€“ {p.deathYear ?? "present"}</span>
                     </button>
                   ))}
                 </div>

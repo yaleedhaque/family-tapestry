@@ -210,7 +210,7 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
-      <div className="bg-[#1a1714] border border-[var(--thread-gold-dim)]/30 rounded-xl p-6 max-w-md w-full shadow-2xl">
+      <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/30 rounded-xl p-6 max-w-md w-full shadow-2xl">
         <h3 className="font-display text-lg text-[var(--parchment)] mb-1">Import GEDCOM</h3>
         <p className="text-xs text-[var(--parchment-dim)] mb-4">Upload a .ged file to import your family tree data.</p>
 

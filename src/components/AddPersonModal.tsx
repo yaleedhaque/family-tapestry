@@ -61,7 +61,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-[#1a1714] border border-[var(--thread-gold-dim)]/30 rounded-xl p-6 max-w-md w-full mx-4 max-h-[85vh] overflow-y-auto shadow-2xl"
+        className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/30 rounded-xl p-6 max-w-md w-full mx-4 max-h-[85vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">

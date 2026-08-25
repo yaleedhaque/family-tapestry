@@ -59,7 +59,7 @@ function LoginForm() {
           </p>
         </div>
 
-        <div className="bg-[#1a1714] border border-[var(--thread-gold-dim)]/20 rounded-xl p-6 shadow-2xl">
+        <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/20 rounded-xl p-6 shadow-2xl">
           {!hasSupabase && (
             <div className="mb-4 p-3 rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--thread-gold)]/20">
               <p className="text-xs text-[var(--thread-gold)]">
@@ -120,7 +120,7 @@ function LoginForm() {
 
         <p className="text-center mt-6">
           <Link href="/" className="text-xs text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">
-            ← Continue without signing in
+            â† Continue without signing in
           </Link>
         </p>
       </div>

@@ -28,7 +28,7 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
     <div className="absolute top-20 right-4 z-30">
       <button
         onClick={() => setExpanded((e) => !e)}
-        className="w-10 h-10 rounded-full bg-[#0E0B0A]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 flex items-center justify-center text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
+        className="w-10 h-10 rounded-full bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 flex items-center justify-center text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
         title="Tree info & export"
       >
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
@@ -40,22 +40,22 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
       </button>
 
       {expanded && (
-        <div className="absolute top-0 right-12 w-56 bg-[#0E0B0A]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+        <div className="absolute top-0 right-12 w-56 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
           <div className="px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
             <h3 className="font-display text-sm text-[var(--thread-gold)] font-semibold">Tree Overview</h3>
           </div>
 
           <div className="px-4 py-3 space-y-2.5">
-            <StatRow label="People" value={persons.length} icon="👤" />
-            <StatRow label="Living" value={stats.alive} icon="✦" color="var(--living-glow)" />
-            <StatRow label="Deceased" value={stats.deceased} icon="⚬" color="var(--deceased-frame)" />
-            <StatRow label="Generations" value={stats.generations} icon="↓" />
+            <StatRow label="People" value={persons.length} icon="ðŸ‘¤" />
+            <StatRow label="Living" value={stats.alive} icon="âœ¦" color="var(--living-glow)" />
+            <StatRow label="Deceased" value={stats.deceased} icon="âš¬" color="var(--deceased-frame)" />
+            <StatRow label="Generations" value={stats.generations} icon="â†“" />
 
             <div className="border-t border-[var(--thread-gold-dim)]/15 pt-2.5" />
 
-            <StatRow label="Marriages" value={stats.marriages} icon="◆" color="var(--thread-gold)" />
-            <StatRow label="Partnerships" value={stats.partnerships} icon="◆" color="var(--thread-gold-dim)" />
-            <StatRow label="Divorced" value={stats.divorced} icon="✕" color="var(--ember-red)" />
+            <StatRow label="Marriages" value={stats.marriages} icon="â—†" color="var(--thread-gold)" />
+            <StatRow label="Partnerships" value={stats.partnerships} icon="â—†" color="var(--thread-gold-dim)" />
+            <StatRow label="Divorced" value={stats.divorced} icon="âœ•" color="var(--ember-red)" />
           </div>
 
           <div className="px-4 py-3 border-t border-[var(--thread-gold-dim)]/20 space-y-2">

@@ -16,6 +16,19 @@
   --accent-emerald: #3E6B5C;
 }
 
+html.light {
+  --tapestry-bg: #F5F0E8;
+  --tapestry-bg-alt: #EBE3D5;
+  --thread-gold: #A67C1A;
+  --thread-gold-dim: #8A6A2E;
+  --ember-red: #9B3333;
+  --parchment: #2C2520;
+  --parchment-dim: #6B6058;
+  --living-glow: #C07830;
+  --deceased-frame: #8A8078;
+  --accent-emerald: #3E7B5C;
+}
+
 @layer base {
   body {
     background-color: var(--tapestry-bg);

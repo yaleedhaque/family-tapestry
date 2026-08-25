@@ -70,7 +70,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2.5 bg-[#0E0B0A]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+        className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2.5 bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
         title="Search people (press /)"
       >
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
@@ -84,8 +84,8 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
   }
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-[380px] max-w-[90vw]">
-      <div className="bg-[#0E0B0A]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/40 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.6)] overflow-hidden">
+    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 w-[380px] max-w-[90vw]">
+      <div className="bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/40 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
           <svg viewBox="0 0 20 20" fill="none" stroke="var(--thread-gold-dim)" strokeWidth="1.5" className="w-4 h-4 shrink-0">
             <circle cx="8.5" cy="8.5" r="5.5" />
@@ -125,7 +125,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
                 </div>
                 <div className="min-w-0">
                   <span className="text-sm text-[var(--parchment)] font-body block truncate">{p.fullName}</span>
-                  <span className="text-[10px] text-[var(--parchment-dim)]">{p.birthYear} – {p.deathYear ?? "present"}</span>
+                  <span className="text-[10px] text-[var(--parchment-dim)]">{p.birthYear} â€“ {p.deathYear ?? "present"}</span>
                 </div>
                 {p.isAlive === false && (
                   <span className="ml-auto text-[9px] text-[var(--deceased-frame)] italic shrink-0">deceased</span>
