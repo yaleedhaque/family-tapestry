@@ -18,7 +18,9 @@ import ELK from "elkjs/lib/elk.bundled.js";
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
 import DetailDrawer from "@/components/DetailDrawer";
-import { persons, unions, parentEdges, type Person } from "@/data/family";
+import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges, type Person } from "@/data/family";
+import { fetchFamilyData } from "@/lib/data";
+import type { DbPerson } from "@/lib/types";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
 
@@ -32,18 +34,101 @@ const ELK_OPTIONS = {
   "elk.padding": "40",
 };
 
+type PersonLike = {
+  id: string;
+  fullName: string;
+  birthYear: number | null;
+  deathYear: number | null;
+  isAlive: boolean;
+  bio: string;
+  birthPlace: string;
+  profession: string;
+};
+
+type UnionLike = {
+  id: string;
+  partnerA: string;
+  partnerB: string;
+  type: string;
+  startYear: number | null;
+  endYear: number | null;
+};
+
+type EdgeLike = {
+  unionId: string;
+  childId: string;
+};
+
+function toPersonLike(p: Person | DbPerson): PersonLike {
+  if ("fullName" in p) return p;
+  return {
+    id: p.id,
+    fullName: p.full_name,
+    birthYear: p.birth_year,
+    deathYear: p.death_year,
+    isAlive: p.is_alive,
+    bio: p.bio ?? "",
+    birthPlace: p.birth_place ?? "",
+    profession: p.profession ?? "",
+  };
+}
+
+function toUnionLike(u: { id: string; partnerA?: string; partner_b?: string; partner_a?: string; type?: string; union_type?: string; startYear?: number | null; start_year?: number | null; endYear?: number | null; end_year?: number | null }): UnionLike {
+  return {
+    id: u.id,
+    partnerA: u.partnerA ?? u.partner_a ?? "",
+    partnerB: u.partnerA ? "" : (u.partner_b ?? ""),
+    type: u.type ?? u.union_type ?? "marriage",
+    startYear: u.startYear ?? u.start_year ?? null,
+    endYear: u.endYear ?? u.end_year ?? null,
+  };
+}
+
+function toEdgeLike(e: { unionId?: string; union_id?: string; childId?: string; child_id?: string }): EdgeLike {
+  return {
+    unionId: e.unionId ?? e.union_id ?? "",
+    childId: e.childId ?? e.child_id ?? "",
+  };
+}
+
 export default function TapestryCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
 
   useEffect(() => {
     const buildGraph = async () => {
+      const hasSupabase = !!(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      let rawPersons: PersonLike[];
+      let rawUnions: UnionLike[];
+      let rawEdges: EdgeLike[];
+
+      if (hasSupabase) {
+        try {
+          const data = await fetchFamilyData();
+          rawPersons = data.persons.map(toPersonLike);
+          rawUnions = data.unions.map(toUnionLike);
+          rawEdges = data.parentEdges.map(toEdgeLike);
+        } catch (err) {
+          console.error("Supabase fetch failed, falling back to static data:", err);
+          rawPersons = staticPersons;
+          rawUnions = staticUnions.map(toUnionLike);
+          rawEdges = staticEdges;
+        }
+      } else {
+        rawPersons = staticPersons;
+        rawUnions = staticUnions.map(toUnionLike);
+        rawEdges = staticEdges;
+      }
+
       const flowNodes: Node[] = [];
       const flowEdges: Edge[] = [];
 
-      // Person nodes
-      for (const person of persons) {
+      for (const person of rawPersons) {
         flowNodes.push({
           id: person.id,
           type: "personNode",
@@ -52,40 +137,36 @@ export default function TapestryCanvas() {
         });
       }
 
-      // Union nodes + edges from union → children + edges from partners → union
-      for (const union of unions) {
-        const unionNodeId = union.id;
-
+      for (const union of rawUnions) {
         flowNodes.push({
-          id: unionNodeId,
+          id: union.id,
           type: "unionNode",
           data: { union },
           position: { x: 0, y: 0 },
         });
 
-        // Partner A → Union
         flowEdges.push({
-          id: `${union.partnerA}-${unionNodeId}`,
+          id: `${union.partnerA}-${union.id}`,
           source: union.partnerA,
-          target: unionNodeId,
+          target: union.id,
           type: "smoothstep",
           style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.6 },
           markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 12, height: 12 },
         });
 
-        // Partner B → Union
-        flowEdges.push({
-          id: `${union.partnerB}-${unionNodeId}`,
-          source: union.partnerB,
-          target: unionNodeId,
-          type: "smoothstep",
-          style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.6 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 12, height: 12 },
-        });
+        if (union.partnerB) {
+          flowEdges.push({
+            id: `${union.partnerB}-${union.id}`,
+            source: union.partnerB,
+            target: union.id,
+            type: "smoothstep",
+            style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.6 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 12, height: 12 },
+          });
+        }
       }
 
-      // Union → Children edges
-      for (const edge of parentEdges) {
+      for (const edge of rawEdges) {
         flowEdges.push({
           id: `${edge.unionId}-${edge.childId}`,
           source: edge.unionId,
@@ -96,7 +177,6 @@ export default function TapestryCanvas() {
         });
       }
 
-      // ELK layout
       const elkGraph = {
         id: "root",
         children: flowNodes.map((n) => ({ id: n.id })),
@@ -128,8 +208,7 @@ export default function TapestryCanvas() {
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       if (node.type === "personNode") {
-        const person = node.data.person as Person;
-        setSelectedPerson(person);
+        setSelectedPerson(node.data.person as PersonLike);
       }
     },
     []

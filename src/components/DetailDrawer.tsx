@@ -1,9 +1,18 @@
 "use client";
 
-import type { Person } from "@/data/family";
+interface PersonLike {
+  id: string;
+  fullName: string;
+  birthYear: number | null;
+  deathYear: number | null;
+  isAlive: boolean;
+  bio: string;
+  birthPlace: string;
+  profession: string;
+}
 
 interface DetailDrawerProps {
-  person: Person | null;
+  person: PersonLike | null;
   onClose: () => void;
 }
 
@@ -51,20 +60,16 @@ export default function DetailDrawer({ person, onClose }: DetailDrawerProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-8">
-          {/* Name */}
           <h2 className="font-display text-2xl font-semibold text-parchment text-center">
             {person.fullName}
           </h2>
 
-          {/* Life span */}
           <p className="text-center font-display text-sm text-parchment-dim mt-1 italic">
             {person.birthYear} – {person.deathYear ?? "present"}
           </p>
 
-          {/* Divider */}
           <div className="my-4 border-t border-thread-gold-dim/30" />
 
-          {/* Details */}
           <div className="space-y-3">
             <DetailRow label="Born" value={`${person.birthYear} · ${person.birthPlace}`} />
             {person.deathYear && (
@@ -73,10 +78,8 @@ export default function DetailDrawer({ person, onClose }: DetailDrawerProps) {
             <DetailRow label="Profession" value={person.profession} />
           </div>
 
-          {/* Divider */}
           <div className="my-4 border-t border-thread-gold-dim/30" />
 
-          {/* Bio */}
           <h3 className="font-display text-xs uppercase tracking-wider text-thread-gold mb-2">
             Biography
           </h3>
