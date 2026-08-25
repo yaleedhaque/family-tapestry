@@ -28,6 +28,7 @@ import KeyboardHelp from "@/components/KeyboardHelp";
 import AddPersonModal from "@/components/AddPersonModal";
 import { useAuth } from "@/components/AuthProvider";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
+import type { Source } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
 import type { DbPerson } from "@/lib/types";
 
@@ -169,6 +170,7 @@ export default function TapestryCanvas() {
   const [rawPersons, setRawPersons] = useState<PersonLike[]>([]);
   const [rawUnions, setRawUnions] = useState<UnionLike[]>([]);
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
+  const [rawSources, setRawSources] = useState<Source[]>([]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -262,6 +264,7 @@ export default function TapestryCanvas() {
       let persons: PersonLike[];
       let unions: UnionLike[];
       let parentEdges: EdgeLike[];
+      let sources: Source[] = [];
       let treeId = "default";
       let names: Record<string, string> = { "default": "The Haque Tapestry" };
 
@@ -276,6 +279,7 @@ export default function TapestryCanvas() {
             persons = tree.persons ?? staticPersons;
             unions = (tree.unions ?? staticUnions).map(toUnionLike);
             parentEdges = tree.edges ?? staticEdges;
+            sources = tree.sources ?? [];
           } else {
             persons = staticPersons;
             unions = staticUnions.map(toUnionLike);
@@ -310,6 +314,7 @@ export default function TapestryCanvas() {
       setRawPersons(persons);
       setRawUnions(unions);
       setRawEdges(parentEdges);
+      setRawSources(sources);
       await runLayout(persons, unions, parentEdges, true);
     })();
   }, [runLayout]);
@@ -322,7 +327,7 @@ export default function TapestryCanvas() {
     }
     const STORAGE_KEY = "family-tapestry-trees";
     const saved = localStorage.getItem(STORAGE_KEY);
-    let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[] }> = {};
+    let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[]; sources?: Source[] }> = {};
     let names: Record<string, string> = treeNames;
     if (saved) {
       try {
@@ -331,9 +336,9 @@ export default function TapestryCanvas() {
         names = { ...names, ...parsed.names };
       } catch { /* use defaults */ }
     }
-    trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges };
+    trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges, sources: rawSources };
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: activeTreeId }));
-  }, [rawPersons, rawUnions, rawEdges, activeTreeId, treeNames]);
+  }, [rawPersons, rawUnions, rawEdges, rawSources, activeTreeId, treeNames]);
 
   // ── Re-layout whenever raw data changes (after first load) ──
   const prevDataSig = useRef("");
@@ -490,6 +495,19 @@ export default function TapestryCanvas() {
     [rawEdges, rawUnions]
   );
 
+  // ── CRUD: Sources ──
+  const handleAddSource = useCallback((source: Source) => {
+    setRawSources((prev) => [...prev, source]);
+  }, []);
+
+  const handleUpdateSource = useCallback((source: Source) => {
+    setRawSources((prev) => prev.map((s) => (s.id === source.id ? source : s)));
+  }, []);
+
+  const handleDeleteSource = useCallback((sourceId: string) => {
+    setRawSources((prev) => prev.filter((s) => s.id !== sourceId));
+  }, []);
+
   // ── CRUD: Standalone add person (no link) ──
   const handleAddStandalonePerson = useCallback(
     (newPerson: PersonLike) => {
@@ -517,15 +535,14 @@ export default function TapestryCanvas() {
   const switchTree = useCallback(
     (newTreeId: string) => {
       if (newTreeId === activeTreeId) return;
-      // Save current tree
       const STORAGE_KEY = "family-tapestry-trees";
       const saved = localStorage.getItem(STORAGE_KEY);
-      let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[] }> = {};
-      let names = { ...treeNames };
+      let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[]; sources?: Source[] }> = {};
+      let names: Record<string, string> = treeNames;
       if (saved) {
         try { const p = JSON.parse(saved); trees = p.trees ?? {}; names = { ...names, ...p.names }; } catch { /* ok */ }
       }
-      trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges };
+      trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges, sources: rawSources };
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: newTreeId }));
 
       // Load new tree
@@ -534,17 +551,19 @@ export default function TapestryCanvas() {
         setRawPersons(tree.persons);
         setRawUnions(tree.unions);
         setRawEdges(tree.edges);
+        setRawSources(tree.sources ?? []);
       } else {
         setRawPersons(staticPersons);
         setRawUnions(staticUnions.map(toUnionLike));
         setRawEdges(staticEdges);
+        setRawSources([]);
       }
       setActiveTreeId(newTreeId);
       setSelectedPerson(null);
       initialLoadDone.current = false;
       layoutVersionRef.current++;
     },
-    [activeTreeId, rawPersons, rawUnions, rawEdges, treeNames]
+    [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames]
   );
 
   // ── Create new tree ──
@@ -823,6 +842,11 @@ export default function TapestryCanvas() {
           nextPersonId={() => nextPersonId(rawPersons)}
           onNavigate={handleNavigatePerson}
           canEdit={canEdit}
+          sources={rawSources.filter((s) => s.personId === selectedPerson?.id)}
+          onAddSource={handleAddSource}
+          onUpdateSource={handleUpdateSource}
+          onDeleteSource={handleDeleteSource}
+          nextSourceId={() => `src-${Date.now().toString(36)}`}
         />
       </div>
 

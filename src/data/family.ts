@@ -31,6 +31,16 @@ export interface ParentEdge {
   relationshipType: "biological" | "adopted" | "step";
 }
 
+export interface Source {
+  id: string;
+  personId: string;
+  type: "birth-certificate" | "marriage-certificate" | "death-certificate" | "census" | "newspaper" | "photograph" | "letter" | "book" | "website" | "other";
+  title: string;
+  url: string;
+  notes: string;
+  dateAdded: string;
+}
+
 export interface LifeEvent {
   id: string;
   personId: string;
