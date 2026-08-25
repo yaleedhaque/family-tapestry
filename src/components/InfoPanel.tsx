@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { Source } from "@/data/family";
+import { sanitizeField, validateEmail, validateUrl, validateYear } from "@/lib/validation";
 export interface PersonLike {
   id: string;
   fullName: string;
@@ -155,38 +156,50 @@ export default function InfoPanel({
   const switchTab = (t: Tab) => { setTab(t); resetAdd(); };
 
   const saveProfile = () => {
+    const fullName = sanitizeField("fullName", fields.fullName ?? person.fullName);
+    if (!fullName) return;
+    const birthYear = fields.birthYear ? Number(fields.birthYear) : person.birthYear;
+    const deathYear = fields.deathYear !== undefined ? (fields.deathYear === "" ? null : Number(fields.deathYear)) : person.deathYear;
+    if (!validateYear(birthYear) || !validateYear(deathYear)) return;
+    const email = sanitizeField("email", fields.email ?? person.email);
+    if (email && !validateEmail(email)) return;
+    const website = sanitizeField("website", fields.website ?? person.website);
+    if (website && !validateUrl(website)) return;
+
     onUpdatePerson({
       ...person,
-      fullName: fields.fullName ?? person.fullName,
-      birthYear: fields.birthYear ? Number(fields.birthYear) : person.birthYear,
-      deathYear: fields.deathYear !== undefined ? (fields.deathYear === "" ? null : Number(fields.deathYear)) : person.deathYear,
-      birthPlace: fields.birthPlace ?? person.birthPlace,
-      profession: fields.profession ?? person.profession,
-      bio: fields.bio ?? person.bio,
-      email: fields.email ?? person.email,
-      phone: fields.phone ?? person.phone,
-      address: fields.address ?? person.address,
-      website: fields.website ?? person.website,
+      fullName,
+      birthYear,
+      deathYear,
+      birthPlace: sanitizeField("birthPlace", fields.birthPlace ?? person.birthPlace),
+      profession: sanitizeField("profession", fields.profession ?? person.profession),
+      bio: sanitizeField("bio", fields.bio ?? person.bio),
+      email,
+      phone: sanitizeField("phone", fields.phone ?? person.phone),
+      address: sanitizeField("address", fields.address ?? person.address),
+      website,
     });
     setIsEditing(false);
     setFields({});
   };
 
   const handleCreateAndLink = () => {
+    const fullName = sanitizeField("fullName", newPersonFields.fullName);
+    if (!fullName) return;
     const id = nextPersonId();
     const np: PersonLike = {
       id,
-      fullName: newPersonFields.fullName,
+      fullName,
       birthYear: newPersonFields.birthYear ? Number(newPersonFields.birthYear) : null,
       deathYear: null,
       isAlive: true,
       bio: "",
-      birthPlace: newPersonFields.birthPlace,
-      profession: newPersonFields.profession,
-      email: newPersonFields.email,
-      phone: newPersonFields.phone,
-      address: newPersonFields.address,
-      website: newPersonFields.website,
+      birthPlace: sanitizeField("birthPlace", newPersonFields.birthPlace),
+      profession: sanitizeField("profession", newPersonFields.profession),
+      email: sanitizeField("email", newPersonFields.email),
+      phone: sanitizeField("phone", newPersonFields.phone),
+      address: sanitizeField("address", newPersonFields.address),
+      website: sanitizeField("website", newPersonFields.website),
       lat: null,
       lng: null,
       photoUrl: "",
@@ -663,12 +676,16 @@ function SourcesTab({
   };
 
   const handleSave = () => {
-    if (!formTitle.trim()) return;
+    const title = sanitizeField("title", formTitle);
+    if (!title) return;
+    const url = sanitizeField("url", formUrl);
+    if (url && !validateUrl(url)) return;
+    const notes = sanitizeField("notes", formNotes);
     if (editId) {
       const existing = sources.find((s) => s.id === editId);
-      if (existing) onUpdate({ ...existing, type: formType, title: formTitle, url: formUrl, notes: formNotes });
+      if (existing) onUpdate({ ...existing, type: formType, title, url, notes });
     } else {
-      onAdd({ id: nextId(), personId, type: formType, title: formTitle, url: formUrl, notes: formNotes, dateAdded: new Date().toISOString() });
+      onAdd({ id: nextId(), personId, type: formType, title, url, notes, dateAdded: new Date().toISOString() });
     }
     resetForm();
   };

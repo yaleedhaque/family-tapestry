@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PersonLike } from "./InfoPanel";
+import { sanitizeField, validateEmail, validateUrl } from "@/lib/validation";
 
 interface AddPersonModalProps {
   persons: PersonLike[];
@@ -26,7 +27,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
   const duplicate = fullName.trim() && persons.some((p) => p.fullName.toLowerCase() === fullName.trim().toLowerCase());
 
   const handleSubmit = () => {
-    const name = fullName.trim();
+    const name = sanitizeField("fullName", fullName);
     if (!name) { setError("Name is required."); return; }
     if (duplicate) { setError("A person with this name already exists."); return; }
 
@@ -35,19 +36,24 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
     if (by && by < 1400) { setError("Birth year seems too old (before 1400)."); return; }
     if (by && dy && dy < by) { setError("Death year cannot be before birth year."); return; }
 
+    const sanitizedEmail = sanitizeField("email", email);
+    if (sanitizedEmail && !validateEmail(sanitizedEmail)) { setError("Invalid email address."); return; }
+    const sanitizedWebsite = sanitizeField("website", website);
+    if (sanitizedWebsite && !validateUrl(sanitizedWebsite)) { setError("Invalid website URL."); return; }
+
     const person: PersonLike = {
       id: nextId(),
       fullName: name,
       birthYear: by,
       deathYear: dy,
       isAlive: !dy,
-      bio,
-      birthPlace,
-      profession,
-      email,
-      phone,
-      address,
-      website,
+      bio: sanitizeField("bio", bio),
+      birthPlace: sanitizeField("birthPlace", birthPlace),
+      profession: sanitizeField("profession", profession),
+      email: sanitizedEmail,
+      phone: sanitizeField("phone", phone),
+      address: sanitizeField("address", address),
+      website: sanitizedWebsite,
       lat: null,
       lng: null,
       photoUrl: "",
