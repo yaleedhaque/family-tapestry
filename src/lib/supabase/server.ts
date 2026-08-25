@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createServerSupabase() {
+export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -18,7 +18,7 @@ export async function createServerSupabase() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Ignore — called from a Server Component where cookies are read-only.
+            // Called from a Server Component — safe to ignore if middleware refreshes sessions.
           }
         },
       },

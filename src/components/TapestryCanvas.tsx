@@ -26,6 +26,7 @@ import TreeToolbar from "@/components/TreeToolbar";
 import GedcomImport from "@/components/GedcomImport";
 import KeyboardHelp from "@/components/KeyboardHelp";
 import AddPersonModal from "@/components/AddPersonModal";
+import { useAuth } from "@/components/AuthProvider";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
 import type { DbPerson } from "@/lib/types";
@@ -163,6 +164,7 @@ function nextPersonId(persons: PersonLike[]) {
 
 export default function TapestryCanvas() {
   const { fitView } = useReactFlow();
+  const { user, canEdit, loading: authLoading } = useAuth();
   const [rawPersons, setRawPersons] = useState<PersonLike[]>([]);
   const [rawUnions, setRawUnions] = useState<UnionLike[]>([]);
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
@@ -711,7 +713,7 @@ export default function TapestryCanvas() {
 
         <SearchBar persons={rawPersons} onSelect={handleSearchSelect} />
 
-        {rawPersons.length === 0 && !showAddPerson && (
+        {rawPersons.length === 0 && !showAddPerson && canEdit && (
           <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <div className="text-center pointer-events-auto space-y-4">
               <div className="space-y-1">
@@ -725,7 +727,7 @@ export default function TapestryCanvas() {
           </div>
         )}
 
-        {rawPersons.length > 0 && (
+        {rawPersons.length > 0 && canEdit && (
           <button
             onClick={() => setShowAddPerson(true)}
             className="fixed bottom-20 right-6 z-30 w-12 h-12 rounded-full bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-xl shadow-[0_0_20px_rgba(201,162,75,0.4)] hover:opacity-90 transition-opacity flex items-center justify-center"
@@ -750,6 +752,7 @@ export default function TapestryCanvas() {
           onRemoveLink={handleRemoveLink}
           nextPersonId={() => nextPersonId(rawPersons)}
           onNavigate={handleNavigatePerson}
+          canEdit={canEdit}
         />
       </div>
 
@@ -772,6 +775,27 @@ export default function TapestryCanvas() {
           >
             ?
           </button>
+          {!authLoading && (
+            user ? (
+              <div className="flex items-center gap-1.5 pl-1 border-l border-[var(--thread-gold-dim)]/20 ml-1">
+                <span className="px-2 py-1 text-[10px] rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">{user.role ?? "editor"}</span>
+                <button
+                  onClick={async () => {
+                    const { createClient } = await import("@/lib/supabase/client");
+                    await createClient().auth.signOut();
+                    window.location.reload();
+                  }}
+                  className="px-2 py-1 text-[10px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <a href="/auth/login" className="px-3 py-1.5 text-xs rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body border border-[var(--thread-gold)]/30 ml-1">
+                Sign In
+              </a>
+            )
+          )}
         </div>
       </nav>
 

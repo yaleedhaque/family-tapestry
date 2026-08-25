@@ -53,6 +53,7 @@ interface InfoPanelProps {
   onRemoveLink: (linkType: "partner" | "child", fromId: string, toId: string) => void;
   nextPersonId: () => string;
   onNavigate: (personId: string) => void;
+  canEdit?: boolean;
 }
 
 type Tab = "profile" | "parents" | "partners" | "children";
@@ -72,6 +73,7 @@ export default function InfoPanel({
   onRemoveLink,
   nextPersonId,
   onNavigate,
+  canEdit = true,
 }: InfoPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -234,12 +236,14 @@ export default function InfoPanel({
 
           <div className="flex-1" />
 
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="px-2 py-1.5 rounded text-xs text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors"
-          >
-            Delete
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-2 py-1.5 rounded text-xs text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors"
+            >
+              Delete
+            </button>
+          )}
           <button
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-xs"
@@ -291,7 +295,7 @@ export default function InfoPanel({
                     <button onClick={() => { setIsEditing(false); setFields({}); }} className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">Cancel</button>
                     <button onClick={saveProfile} className="px-3 py-1.5 text-xs rounded bg-[var(--thread-gold)] text-[var(--tapestry-bg)] hover:opacity-90 transition-opacity">Save</button>
                   </>
-                ) : (
+                ) : canEdit ? (
                   <button
                     onClick={() => {
                       setFields({ fullName: person.fullName, birthYear: String(person.birthYear ?? ""), deathYear: person.deathYear != null ? String(person.deathYear) : "", birthPlace: person.birthPlace, profession: person.profession, bio: person.bio, email: person.email, phone: person.phone, address: person.address, website: person.website });
@@ -301,7 +305,7 @@ export default function InfoPanel({
                   >
                     Edit Profile
                   </button>
-                )}
+                ) : null}
               </div>
 
               <div className="border-t border-[var(--thread-gold-dim)]/20" />

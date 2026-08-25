@@ -1,12 +1,5 @@
-import { ReactFlowProvider } from "@xyflow/react";
-import TapestryCanvas from "@/components/TapestryCanvas";
+import HomeClient from "@/components/HomeClient";
 
 export default function Home() {
-  return (
-    <main className="h-screen w-screen overflow-hidden bg-tapestry-bg">
-      <ReactFlowProvider>
-        <TapestryCanvas />
-      </ReactFlowProvider>
-    </main>
-  );
+  return <HomeClient />;
 }
