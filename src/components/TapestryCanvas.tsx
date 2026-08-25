@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
-  Background,
-  BackgroundVariant,
   Controls,
   useNodesState,
   useEdgesState,
@@ -18,6 +16,7 @@ import ELK from "elkjs/lib/elk.bundled.js";
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
 import DetailDrawer from "@/components/DetailDrawer";
+import BrickBackground from "@/components/BrickBackground";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges, type Person } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
 import type { DbPerson } from "@/lib/types";
@@ -28,10 +27,12 @@ const elk = new ELK();
 const ELK_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "DOWN",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "80",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "120",
   "elk.layered.spacing.nodeNode": "60",
-  "elk.spacing.nodeNode": "40",
-  "elk.padding": "40",
+  "elk.spacing.nodeNode": "60",
+  "elk.spacing.componentComponent": "60",
+  "elk.padding": "[top=60,left=60,bottom=60,right=60]",
+  "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
 };
 
 type PersonLike = {
@@ -162,10 +163,15 @@ function makeChildEdge(source: string, target: string): Edge {
   };
 }
 
+const ANIM_DURATION = 1200;
+
 export default function TapestryCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
+  const [showEdges, setShowEdges] = useState(false);
+  const [animStarted, setAnimStarted] = useState(false);
+  const finalPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   useEffect(() => {
     const buildGraph = async () => {
@@ -216,10 +222,8 @@ export default function TapestryCanvas() {
           position: { x: 0, y: 0 },
         });
 
-        // Partner A → Union
         flowEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
 
-        // Partner B → Union
         if (union.partnerB) {
           flowEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type));
         }
@@ -229,10 +233,18 @@ export default function TapestryCanvas() {
         flowEdges.push(makeChildEdge(edge.unionId, edge.childId));
       }
 
-      // ELK layout
+      const PERSON_NODE_W = 160;
+      const PERSON_NODE_H = 130;
+      const UNION_NODE_W = 80;
+      const UNION_NODE_H = 80;
+
       const elkGraph = {
         id: "root",
-        children: flowNodes.map((n) => ({ id: n.id })),
+        children: flowNodes.map((n) => ({
+          id: n.id,
+          width: n.type === "unionNode" ? UNION_NODE_W : PERSON_NODE_W,
+          height: n.type === "unionNode" ? UNION_NODE_H : PERSON_NODE_H,
+        })),
         edges: flowEdges.map((e) => ({
           id: e.id,
           sources: [e.source],
@@ -242,18 +254,64 @@ export default function TapestryCanvas() {
 
       const layout = await elk.layout(elkGraph, { layoutOptions: ELK_OPTIONS });
 
+      const positions = new Map<string, { x: number; y: number }>();
       if (layout.children) {
         for (const elkNode of layout.children) {
-          const flowNode = flowNodes.find((n) => n.id === elkNode.id);
-          if (flowNode && elkNode.x !== undefined && elkNode.y !== undefined) {
-            flowNode.position = { x: elkNode.x, y: elkNode.y };
+          if (elkNode.x !== undefined && elkNode.y !== undefined) {
+            positions.set(elkNode.id, { x: elkNode.x, y: elkNode.y });
           }
         }
       }
+      finalPositionsRef.current = positions;
 
-      // Force new array references so React Flow picks up the changes
-      setNodes([...flowNodes]);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      positions.forEach((p) => {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      });
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      const stagedNodes: Node[] = flowNodes.map((n) => ({
+        ...n,
+        position: { x: centerX, y: centerY },
+        data: {
+          ...n.data,
+          _centerX: centerX,
+          _centerY: centerY,
+        },
+      }));
+
+      setNodes([...stagedNodes]);
       setEdges([...flowEdges]);
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          setAnimStarted(true);
+
+          const finalNodes: Node[] = flowNodes.map((n) => {
+            const pos = positions.get(n.id) ?? { x: 0, y: 0 };
+            const delay = ((pos.y - minY) / (maxY - minY || 1)) * 0.6;
+            return {
+              ...n,
+              position: pos,
+              data: {
+                ...n.data,
+                _animDelay: delay,
+                _targetX: pos.x,
+                _targetY: pos.y,
+                _fromX: centerX,
+                _fromY: centerY,
+              },
+            };
+          });
+
+          setNodes([...finalNodes]);
+          setTimeout(() => setShowEdges(true), ANIM_DURATION * 0.5);
+        }, 400);
+      });
     };
 
     buildGraph();
@@ -269,33 +327,43 @@ export default function TapestryCanvas() {
   );
 
   return (
-    <div className="w-full h-screen relative">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={onNodeClick}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.3 }}
-        proOptions={{ hideAttribution: true }}
-        className="bg-tapestry-bg"
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={24}
-          size={1}
-          color="var(--thread-gold-dim)"
-          style={{ opacity: 0.2 }}
-        />
-        <Controls
-          className="!bg-tapestry-bg-alt !border-thread-gold-dim !rounded-lg"
-          showInteractive={false}
-        />
-      </ReactFlow>
+    <>
+      <style>{`
+        .react-flow__node {
+          transition: transform ${ANIM_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                      opacity ${ANIM_DURATION}ms ease-out;
+          opacity: ${animStarted ? 1 : 0};
+        }
+        .react-flow__edge {
+          opacity: ${showEdges ? 1 : 0};
+          transition: opacity 800ms ease-in;
+        }
+      `}</style>
 
-      <DetailDrawer person={selectedPerson} onClose={() => setSelectedPerson(null)} />
-    </div>
+      <div className="w-full h-screen relative overflow-hidden">
+        <BrickBackground />
+
+        <div className="absolute inset-0 z-10">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={onNodeClick}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.3 }}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Controls
+              className="!bg-[rgba(20,17,14,0.85)] !border-[var(--thread-gold-dim)] !rounded-lg !text-[var(--parchment)]"
+              showInteractive={false}
+            />
+          </ReactFlow>
+        </div>
+
+        <DetailDrawer person={selectedPerson} onClose={() => setSelectedPerson(null)} />
+      </div>
+    </>
   );
 }
