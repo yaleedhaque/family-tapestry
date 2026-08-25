@@ -10,6 +10,10 @@ export interface PersonLike {
   bio: string;
   birthPlace: string;
   profession: string;
+  email: string;
+  phone: string;
+  address: string;
+  website: string;
 }
 
 export interface UnionLike {
@@ -72,7 +76,7 @@ export default function InfoPanel({
 
   const [addMode, setAddMode] = useState<"existing" | "new" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newPersonFields, setNewPersonFields] = useState({ fullName: "", birthYear: "", birthPlace: "", profession: "" });
+  const [newPersonFields, setNewPersonFields] = useState({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
   const [newUnionType, setNewUnionType] = useState("marriage");
   const [newStartYear, setNewStartYear] = useState("");
 
@@ -126,7 +130,7 @@ export default function InfoPanel({
   const resetAdd = () => {
     setAddMode(null);
     setSearchQuery("");
-    setNewPersonFields({ fullName: "", birthYear: "", birthPlace: "", profession: "" });
+    setNewPersonFields({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
     setNewStartYear("");
   };
 
@@ -141,6 +145,10 @@ export default function InfoPanel({
       birthPlace: fields.birthPlace ?? person.birthPlace,
       profession: fields.profession ?? person.profession,
       bio: fields.bio ?? person.bio,
+      email: fields.email ?? person.email,
+      phone: fields.phone ?? person.phone,
+      address: fields.address ?? person.address,
+      website: fields.website ?? person.website,
     });
     setIsEditing(false);
     setFields({});
@@ -157,6 +165,10 @@ export default function InfoPanel({
       bio: "",
       birthPlace: newPersonFields.birthPlace,
       profession: newPersonFields.profession,
+      email: newPersonFields.email,
+      phone: newPersonFields.phone,
+      address: newPersonFields.address,
+      website: newPersonFields.website,
     };
     if (tab === "partners") onCreatePersonAndLink(np, "partner", person.id, newUnionType, newStartYear ? Number(newStartYear) : null);
     else if (tab === "children") onCreatePersonAndLink(np, "child", person.id);
@@ -175,7 +187,12 @@ export default function InfoPanel({
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
 
-      <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[#1a1714] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)]">
+      <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[#1a1714] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[85vh] max-md:w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+        {/* Mobile drag handle */}
+        <div className="hidden max-md:flex justify-center pt-2 pb-1">
+          <div className="w-10 h-1 rounded-full bg-[var(--thread-gold-dim)]/30" />
+        </div>
+
         {/* Header with avatar */}
         <div className="flex justify-center pt-5 pb-3 border-b border-[var(--thread-gold-dim)]/20">
           <div
@@ -271,7 +288,7 @@ export default function InfoPanel({
                 ) : (
                   <button
                     onClick={() => {
-                      setFields({ fullName: person.fullName, birthYear: String(person.birthYear ?? ""), deathYear: person.deathYear != null ? String(person.deathYear) : "", birthPlace: person.birthPlace, profession: person.profession, bio: person.bio });
+                      setFields({ fullName: person.fullName, birthYear: String(person.birthYear ?? ""), deathYear: person.deathYear != null ? String(person.deathYear) : "", birthPlace: person.birthPlace, profession: person.profession, bio: person.bio, email: person.email, phone: person.phone, address: person.address, website: person.website });
                       setIsEditing(true);
                     }}
                     className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors"
@@ -279,6 +296,16 @@ export default function InfoPanel({
                     Edit Profile
                   </button>
                 )}
+              </div>
+
+              <div className="border-t border-[var(--thread-gold-dim)]/20" />
+
+              <div className="space-y-3">
+                <h3 className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Contact</h3>
+                {field("email", "Email")}
+                {field("phone", "Phone")}
+                {field("address", "Address")}
+                {field("website", "Website")}
               </div>
             </div>
           )}
@@ -373,7 +400,7 @@ function RelSection({
   addMode: "existing" | "new" | null;
   searchQuery: string;
   searchResults: PersonLike[];
-  newPersonFields: { fullName: string; birthYear: string; birthPlace: string; profession: string };
+  newPersonFields: { fullName: string; birthYear: string; birthPlace: string; profession: string; email: string; phone: string; address: string; website: string };
   onSearch: (q: string) => void;
   onPickExisting: (id: string) => void;
   onCreateNew: () => void;
@@ -468,6 +495,30 @@ function RelSection({
               <div className="flex gap-2">
                 <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Born</label>
                 <input type="number" placeholder="Birth year" value={newPersonFields.birthYear} onChange={(e) => onNewFieldChange("birthYear", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+              </div>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Place</label>
+                <input type="text" placeholder="Birth place" value={newPersonFields.birthPlace} onChange={(e) => onNewFieldChange("birthPlace", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+              </div>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Job</label>
+                <input type="text" placeholder="Profession" value={newPersonFields.profession} onChange={(e) => onNewFieldChange("profession", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+              </div>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Email</label>
+                <input type="email" placeholder="Email address" value={newPersonFields.email} onChange={(e) => onNewFieldChange("email", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+              </div>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Phone</label>
+                <input type="tel" placeholder="Phone number" value={newPersonFields.phone} onChange={(e) => onNewFieldChange("phone", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+              </div>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Addr</label>
+                <input type="text" placeholder="Address" value={newPersonFields.address} onChange={(e) => onNewFieldChange("address", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+              </div>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Web</label>
+                <input type="url" placeholder="Website URL" value={newPersonFields.website} onChange={(e) => onNewFieldChange("website", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
               </div>
               <button onClick={onCreateNew} disabled={!newPersonFields.fullName} className="w-full py-2 text-xs rounded bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed">Create & Link</button>
             </>

@@ -7,6 +7,10 @@ export interface Person {
   bio: string;
   birthPlace: string;
   profession: string;
+  email: string;
+  phone: string;
+  address: string;
+  website: string;
 }
 
 export interface Union {
@@ -46,6 +50,7 @@ export const persons: Person[] = [
     bio: "Patriarch of the Blackwood family. Served in the Royal Navy during WWII. Returned home to build a timber business that supported the family for three generations.",
     birthPlace: "Edinburgh, Scotland",
     profession: "Timber Merchant",
+    email: "", phone: "", address: "", website: "",
   },
   {
     id: "p2",
@@ -56,6 +61,7 @@ export const persons: Person[] = [
     bio: "Matriarch of the Blackwood family. A schoolteacher who raised four children while managing the household. Known for her extraordinary baking and the Sunday dinners that gathered the entire family.",
     birthPlace: "Glasgow, Scotland",
     profession: "Schoolteacher",
+    email: "", phone: "", address: "", website: "",
   },
   {
     id: "p3",
@@ -63,9 +69,10 @@ export const persons: Person[] = [
     birthYear: 1940,
     deathYear: null,
     isAlive: true,
-    bio: "Arthur's second wife. Met Arthur at a community dance in 1993. They married in 1996 and enjoyed a loving partnership until Arthur's passing in 1995 — wait, that doesn't work. Let me fix the timeline: Rose and Arthur married in 1960 after Martha's passing... Actually Rose is Arthur's second wife after Martha died. But Martha died in 2010 and Arthur in 1995. Let me reconsider: Rose married Arthur in 1996 after Martha and Arthur divorced. Arthur died in 2021. Martha is still alive at 102.",
+    bio: "Arthur's second wife. Met Arthur at a community dance in 1993. They married in 1996 and enjoyed a loving partnership until Arthur's passing.",
     birthPlace: "Aberdeen, Scotland",
     profession: "Nurse",
+    email: "rose.turner@outlook.com", phone: "+44 1224 555 0103", address: "14 Union Terrace, Aberdeen", website: "",
   },
   {
     id: "p4",
@@ -76,6 +83,7 @@ export const persons: Person[] = [
     bio: "Eldest son of Arthur and Martha. A career diplomat who served postings across Europe before returning to Edinburgh. Father of Emily and David.",
     birthPlace: "Edinburgh, Scotland",
     profession: "Diplomat",
+    email: "r.blackwood@btinternet.com", phone: "+44 131 555 0148", address: "22 Royal Terrace, Edinburgh", website: "",
   },
   {
     id: "p5",
@@ -86,6 +94,7 @@ export const persons: Person[] = [
     bio: "Born Jenny McAllister in Dundee. Married Robert in 1973. A talented cellist who played with the Scottish Chamber Orchestra for twenty years before retiring to teach music.",
     birthPlace: "Dundee, Scotland",
     profession: "Cellist & Music Teacher",
+    email: "jenny.blackwood@gmail.com", phone: "+44 131 555 0150", address: "22 Royal Terrace, Edinburgh", website: "",
   },
   {
     id: "p6",
@@ -96,6 +105,7 @@ export const persons: Person[] = [
     bio: "Second son of Arthur and Martha. A marine biologist who spent decades studying coastal ecosystems around the British Isles. Father of Sophie.",
     birthPlace: "Edinburgh, Scotland",
     profession: "Marine Biologist",
+    email: "t.blackwood@st-andrews.ac.uk", phone: "+44 1334 555 0152", address: "8 North Street, St Andrews", website: "https://blackwood-marine.co.uk",
   },
   {
     id: "p7",
@@ -106,6 +116,7 @@ export const persons: Person[] = [
     bio: "Thomas's first wife. A marine illustrator who collaborated with Thomas on several published field guides. They separated amicably in 1985; Helen continued her art career in London.",
     birthPlace: "London, England",
     profession: "Marine Illustrator",
+    email: "helen.clarke@icloud.com", phone: "+44 20 7555 0155", address: "31 Kensington Church Street, London", website: "https://helenclarke.art",
   },
   {
     id: "p8",
@@ -116,6 +127,7 @@ export const persons: Person[] = [
     bio: "Son of Arthur and Rose. Grew up in Aberdeen. Became an acclaimed landscape photographer whose work captured the Scottish Highlands. Father of Grace.",
     birthPlace: "Aberdeen, Scotland",
     profession: "Landscape Photographer",
+    email: "charles@highlandlens.co.uk", phone: "+44 1463 555 0158", address: "7 Academy Street, Inverness", website: "https://highlandlens.co.uk",
   },
   {
     id: "p9",
@@ -126,6 +138,7 @@ export const persons: Person[] = [
     bio: "Daughter of Robert and Jenny. An architect specializing in sustainable heritage restoration. Led the renovation of several historic buildings in Edinburgh's Old Town.",
     birthPlace: "Edinburgh, Scotland",
     profession: "Architect",
+    email: "emily@blackwoodheritage.com", phone: "+44 131 555 0175", address: "14 George Street, Edinburgh", website: "https://blackwoodheritage.com",
   },
   {
     id: "p10",
@@ -136,6 +149,7 @@ export const persons: Person[] = [
     bio: "Son of Robert and Jenny. A software engineer who works on climate modeling systems. Lives in London with his family.",
     birthPlace: "Edinburgh, Scotland",
     profession: "Software Engineer",
+    email: "david.blackwood@metoffice.gov.uk", phone: "+44 20 8555 0178", address: "5 The Street, Exeter", website: "",
   },
   {
     id: "p11",
@@ -146,6 +160,7 @@ export const persons: Person[] = [
     bio: "Daughter of Thomas and Helen. A documentary filmmaker focused on ocean conservation. Her award-winning films have been shown at festivals worldwide.",
     birthPlace: "Edinburgh, Scotland",
     profession: "Documentary Filmmaker",
+    email: "sophie@oceanedgefilms.com", phone: "+44 7700 900180", address: "Studio 4, Shoreditch, London", website: "https://oceanedgefilms.com",
   },
   {
     id: "p12",
@@ -156,6 +171,7 @@ export const persons: Person[] = [
     bio: "Daughter of Charles. A ceramic artist whose work draws on Scottish folk traditions. Runs a studio and gallery in the Highlands.",
     birthPlace: "Inverness, Scotland",
     profession: "Ceramic Artist",
+    email: "grace@highlandclay.co.uk", phone: "+44 1463 555 0185", address: "3 Castle Road, Inverness", website: "https://highlandclay.co.uk",
   },
 ];
 

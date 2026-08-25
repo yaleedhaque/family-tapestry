@@ -201,7 +201,7 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
   const handleConfirm = useCallback(() => {
     if (!parsed) return;
     onImport(
-      parsed.persons.map((p) => ({ ...p, bio: p.bio || "" })),
+      parsed.persons.map((p) => ({ ...p, bio: p.bio || "", email: "", phone: "", address: "", website: "" })),
       parsed.unions,
       parsed.edges
     );

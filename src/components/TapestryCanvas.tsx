@@ -24,6 +24,7 @@ import SearchBar from "@/components/SearchBar";
 import TreeToolbar from "@/components/TreeToolbar";
 import GedcomImport from "@/components/GedcomImport";
 import KeyboardHelp from "@/components/KeyboardHelp";
+import AddPersonModal from "@/components/AddPersonModal";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
 import type { DbPerson } from "@/lib/types";
@@ -54,6 +55,10 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     bio: dp.bio ?? "",
     birthPlace: dp.birth_place ?? "",
     profession: dp.profession ?? "",
+    email: "",
+    phone: "",
+    address: "",
+    website: "",
   };
 }
 
@@ -166,8 +171,10 @@ export default function TapestryCanvas() {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
   const [showGedcomImport, setShowGedcomImport] = useState(false);
+  const [showAddPerson, setShowAddPerson] = useState(false);
   const layoutVersionRef = useRef(0);
   const initialLoadDone = useRef(false);
+  const isInitialLoad = useRef(true);
 
   // ── Build graph + run ELK ──
   const runLayout = useCallback(
@@ -242,25 +249,41 @@ export default function TapestryCanvas() {
   // ── Initial load ──
   useEffect(() => {
     (async () => {
-      const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+      const STORAGE_KEY = "family-tapestry-data";
       let persons: PersonLike[];
       let unions: UnionLike[];
       let parentEdges: EdgeLike[];
-      if (hasSupabase) {
+
+      const saved = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+      if (saved) {
         try {
-          const data = await fetchFamilyData();
-          persons = data.persons.map(toPersonLike);
-          unions = data.unions.map(toUnionLike);
-          parentEdges = data.parentEdges.map(toEdgeLike);
+          const parsed = JSON.parse(saved);
+          persons = parsed.persons ?? staticPersons;
+          unions = (parsed.unions ?? staticUnions).map(toUnionLike);
+          parentEdges = parsed.edges ?? staticEdges;
         } catch {
           persons = staticPersons;
           unions = staticUnions.map(toUnionLike);
           parentEdges = staticEdges;
         }
       } else {
-        persons = staticPersons;
-        unions = staticUnions.map(toUnionLike);
-        parentEdges = staticEdges;
+        const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+        if (hasSupabase) {
+          try {
+            const data = await fetchFamilyData();
+            persons = data.persons.map(toPersonLike);
+            unions = data.unions.map(toUnionLike);
+            parentEdges = data.parentEdges.map(toEdgeLike);
+          } catch {
+            persons = staticPersons;
+            unions = staticUnions.map(toUnionLike);
+            parentEdges = staticEdges;
+          }
+        } else {
+          persons = staticPersons;
+          unions = staticUnions.map(toUnionLike);
+          parentEdges = staticEdges;
+        }
       }
       setRawPersons(persons);
       setRawUnions(unions);
@@ -268,6 +291,16 @@ export default function TapestryCanvas() {
       await runLayout(persons, unions, parentEdges, true);
     })();
   }, [runLayout]);
+
+  // ── Persist to localStorage on every change ──
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      if (rawPersons.length > 0) isInitialLoad.current = false;
+      return;
+    }
+    const STORAGE_KEY = "family-tapestry-data";
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ persons: rawPersons, unions: rawUnions, edges: rawEdges }));
+  }, [rawPersons, rawUnions, rawEdges]);
 
   // ── Re-layout whenever raw data changes (after first load) ──
   const prevDataSig = useRef("");
@@ -375,6 +408,9 @@ export default function TapestryCanvas() {
       unionType?: string,
       startYear?: number | null
     ) => {
+      if (!newPerson.fullName.trim()) return;
+      if (newPerson.id === relatedToId) return;
+
       setRawPersons((prev) => [...prev, newPerson]);
 
       if (linkType === "partner") {
@@ -419,6 +455,17 @@ export default function TapestryCanvas() {
       }
     },
     [rawEdges, rawUnions]
+  );
+
+  // ── CRUD: Standalone add person (no link) ──
+  const handleAddStandalonePerson = useCallback(
+    (newPerson: PersonLike) => {
+      if (!newPerson.fullName.trim()) return;
+      setRawPersons((prev) => [...prev, newPerson]);
+      setSelectedPerson(newPerson);
+      setShowAddPerson(false);
+    },
+    []
   );
 
   // ── Hover highlighting: find connected nodes ──
@@ -648,6 +695,30 @@ export default function TapestryCanvas() {
 
         <SearchBar persons={rawPersons} onSelect={handleSearchSelect} />
 
+        {rawPersons.length === 0 && !showAddPerson && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+            <div className="text-center pointer-events-auto space-y-4">
+              <div className="space-y-1">
+                <h2 className="font-display text-2xl text-[var(--parchment)]">Your Family Tapestry Awaits</h2>
+                <p className="text-sm text-[var(--parchment-dim)] font-body">Add the first person to begin building your tree.</p>
+              </div>
+              <button onClick={() => setShowAddPerson(true)} className="px-6 py-2.5 rounded-lg bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-sm hover:opacity-90 transition-opacity shadow-[0_0_20px_rgba(201,162,75,0.3)]">
+                + Add First Person
+              </button>
+            </div>
+          </div>
+        )}
+
+        {rawPersons.length > 0 && (
+          <button
+            onClick={() => setShowAddPerson(true)}
+            className="fixed bottom-20 right-6 z-30 w-12 h-12 rounded-full bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-xl shadow-[0_0_20px_rgba(201,162,75,0.4)] hover:opacity-90 transition-opacity flex items-center justify-center"
+            title="Add Person"
+          >
+            +
+          </button>
+        )}
+
         <InfoPanel
           person={selectedPerson}
           persons={rawPersons}
@@ -688,6 +759,15 @@ export default function TapestryCanvas() {
 
       {showGedcomImport && (
         <GedcomImport onImport={handleGedcomImport} onClose={() => setShowGedcomImport(false)} />
+      )}
+
+      {showAddPerson && (
+        <AddPersonModal
+          persons={rawPersons}
+          nextId={() => nextPersonId(rawPersons)}
+          onAdd={handleAddStandalonePerson}
+          onClose={() => setShowAddPerson(false)}
+        />
       )}
 
       <KeyboardHelp />

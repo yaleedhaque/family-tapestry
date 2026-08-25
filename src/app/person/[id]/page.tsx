@@ -130,6 +130,39 @@ export default function PersonDetailPage() {
           </section>
         )}
 
+        {/* Contact */}
+        {(person.email || person.phone || person.address || person.website) && (
+          <section className="mb-10">
+            <h2 className="font-display text-lg text-[var(--thread-gold)] mb-3">Contact</h2>
+            <div className="bg-white/[0.03] rounded-lg p-4 border border-white/[0.05] space-y-2">
+              {person.email && (
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] w-16 shrink-0">Email</span>
+                  <a href={`mailto:${person.email}`} className="text-sm text-[var(--parchment)] hover:text-[var(--thread-gold)] transition-colors">{person.email}</a>
+                </div>
+              )}
+              {person.phone && (
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] w-16 shrink-0">Phone</span>
+                  <a href={`tel:${person.phone}`} className="text-sm text-[var(--parchment)] hover:text-[var(--thread-gold)] transition-colors">{person.phone}</a>
+                </div>
+              )}
+              {person.address && (
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] w-16 shrink-0">Address</span>
+                  <span className="text-sm text-[var(--parchment-dim)]">{person.address}</span>
+                </div>
+              )}
+              {person.website && (
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] w-16 shrink-0">Web</span>
+                  <a href={person.website} target="_blank" rel="noopener noreferrer" className="text-sm text-[var(--thread-gold)] hover:underline">{person.website.replace(/^https?:\/\//, "")}</a>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Relationships */}
         {(relationships.parents.length > 0 || relationships.partners.length > 0 || relationships.children.length > 0) && (
           <section className="mb-10">
