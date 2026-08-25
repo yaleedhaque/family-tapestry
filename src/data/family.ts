@@ -24,6 +24,18 @@ export interface ParentEdge {
   relationshipType: "biological" | "adopted" | "step";
 }
 
+export interface LifeEvent {
+  id: string;
+  personId: string;
+  year: number;
+  month?: number;
+  day?: number;
+  type: "birth" | "death" | "marriage" | "divorce" | "career" | "education" | "migration" | "achievement" | "military" | "other";
+  title: string;
+  description?: string;
+  place?: string;
+}
+
 export const persons: Person[] = [
   {
     id: "p1",
@@ -169,4 +181,90 @@ export function getPerson(id: string): Person | undefined {
 
 export function getUnion(id: string): Union | undefined {
   return unions.find((u) => u.id === id);
+}
+
+export function getPersonEvents(personId: string): LifeEvent[] {
+  return lifeEvents.filter((e) => e.personId === personId).sort((a, b) => a.year - b.year);
+}
+
+export function getAllEventsSorted(): (LifeEvent & { personName: string })[] {
+  return lifeEvents
+    .map((e) => ({ ...e, personName: getPerson(e.personId)?.fullName ?? "Unknown" }))
+    .sort((a, b) => a.year - b.year || (a.month ?? 0) - (b.month ?? 0) || (a.day ?? 0) - (b.day ?? 0));
+}
+
+export const lifeEvents: LifeEvent[] = [
+  { id: "ev1", personId: "p1", year: 1920, type: "birth", title: "Born in Edinburgh", place: "Edinburgh, Scotland" },
+  { id: "ev2", personId: "p1", year: 1939, type: "military", title: "Enlisted in the Royal Navy", description: "Served during World War II." },
+  { id: "ev3", personId: "p1", year: 1945, type: "career", title: "Founded Blackwood Timber", description: "Returned home to build a timber business.", place: "Edinburgh, Scotland" },
+  { id: "ev4", personId: "p1", year: 1945, type: "marriage", title: "Married Martha Stewart", place: "Edinburgh, Scotland" },
+  { id: "ev5", personId: "p1", year: 1995, type: "death", title: "Passed away", place: "Edinburgh, Scotland" },
+
+  { id: "ev6", personId: "p2", year: 1922, type: "birth", title: "Born in Glasgow", place: "Glasgow, Scotland" },
+  { id: "ev7", personId: "p2", year: 1944, type: "education", title: "Graduated from Glasgow Teacher Training College" },
+  { id: "ev8", personId: "p2", year: 1945, type: "marriage", title: "Married Arthur Blackwood", place: "Edinburgh, Scotland" },
+  { id: "ev9", personId: "p2", year: 1948, type: "career", title: "Began teaching career at Portobello Primary" },
+  { id: "ev10", personId: "p2", year: 2010, type: "death", title: "Passed away", place: "Edinburgh, Scotland" },
+
+  { id: "ev11", personId: "p3", year: 1940, type: "birth", title: "Born in Aberdeen", place: "Aberdeen, Scotland" },
+  { id: "ev12", personId: "p3", year: 1960, type: "education", title: "Trained as a nurse" },
+  { id: "ev13", personId: "p3", year: 1993, type: "other", title: "Met Arthur at a community dance" },
+  { id: "ev14", personId: "p3", year: 1996, type: "marriage", title: "Married Arthur Blackwood", place: "Aberdeen, Scotland" },
+
+  { id: "ev15", personId: "p4", year: 1948, type: "birth", title: "Born in Edinburgh", place: "Edinburgh, Scotland" },
+  { id: "ev16", personId: "p4", year: 1970, type: "education", title: "Graduated from the University of Edinburgh" },
+  { id: "ev17", personId: "p4", year: 1971, type: "career", title: "Joined the Foreign Office" },
+  { id: "ev18", personId: "p4", year: 1973, type: "marriage", title: "Married Jenny McAllister", place: "Dundee, Scotland" },
+  { id: "ev19", personId: "p4", year: 1980, type: "migration", title: "Posted to Paris", description: "Diplomatic posting to the French capital." },
+  { id: "ev20", personId: "p4", year: 1995, type: "migration", title: "Returned to Edinburgh" },
+
+  { id: "ev21", personId: "p5", year: 1950, type: "birth", title: "Born in Dundee", place: "Dundee, Scotland" },
+  { id: "ev22", personId: "p5", year: 1968, type: "education", title: "Royal Academy of Music, London" },
+  { id: "ev23", personId: "p5", year: 1973, type: "marriage", title: "Married Robert Blackwood", place: "Dundee, Scotland" },
+  { id: "ev24", personId: "p5", year: 1975, type: "career", title: "Joined the Scottish Chamber Orchestra" },
+  { id: "ev25", personId: "p5", year: 1995, type: "career", title: "Retired from orchestra, began teaching" },
+
+  { id: "ev26", personId: "p6", year: 1952, type: "birth", title: "Born in Edinburgh", place: "Edinburgh, Scotland" },
+  { id: "ev27", personId: "p6", year: 1974, type: "education", title: "PhD in Marine Biology, University of St Andrews" },
+  { id: "ev28", personId: "p6", year: 1978, type: "marriage", title: "Married Helen Clarke", place: "Edinburgh, Scotland" },
+  { id: "ev29", personId: "p6", year: 1985, type: "divorce", title: "Divorced Helen Clarke" },
+  { id: "ev30", personId: "p6", year: 1986, type: "career", title: "Led research expedition to Shetland Islands" },
+
+  { id: "ev31", personId: "p7", year: 1955, type: "birth", title: "Born in London", place: "London, England" },
+  { id: "ev32", personId: "p7", year: 1978, type: "marriage", title: "Married Thomas Blackwood" },
+  { id: "ev33", personId: "p7", year: 1985, type: "divorce", title: "Divorced Thomas Blackwood" },
+  { id: "ev34", personId: "p7", year: 1986, type: "migration", title: "Moved back to London" },
+  { id: "ev35", personId: "p7", year: 1990, type: "achievement", title: "Solo exhibition at the Natural History Museum" },
+
+  { id: "ev36", personId: "p8", year: 1958, type: "birth", title: "Born in Aberdeen", place: "Aberdeen, Scotland" },
+  { id: "ev37", personId: "p8", year: 1980, type: "education", title: "Photography degree, Robert Gordon University" },
+  { id: "ev38", personId: "p8", year: 1985, type: "achievement", title: "First published photo book: Highland Seasons" },
+  { id: "ev39", personId: "p8", year: 1992, type: "achievement", title: "Won Scottish Wildlife Photographer of the Year" },
+
+  { id: "ev40", personId: "p9", year: 1975, type: "birth", title: "Born in Edinburgh", place: "Edinburgh, Scotland" },
+  { id: "ev41", personId: "p9", year: 1997, type: "education", title: "Architecture degree, Edinburgh College of Art" },
+  { id: "ev42", personId: "p9", year: 2005, type: "career", title: "Founded Blackwood Heritage Architects" },
+  { id: "ev43", personId: "p9", year: 2015, type: "achievement", title: "RIBA Award for Sustainable Heritage Restoration" },
+
+  { id: "ev44", personId: "p10", year: 1978, type: "birth", title: "Born in Edinburgh", place: "Edinburgh, Scotland" },
+  { id: "ev45", personId: "p10", year: 2000, type: "education", title: "Computer Science degree, University of Cambridge" },
+  { id: "ev46", personId: "p10", year: 2003, type: "migration", title: "Moved to London" },
+  { id: "ev47", personId: "p10", year: 2005, type: "career", title: "Joined the Met Office, climate modelling division" },
+
+  { id: "ev48", personId: "p11", year: 1980, type: "birth", title: "Born in Edinburgh", place: "Edinburgh, Scotland" },
+  { id: "ev49", personId: "p11", year: 2002, type: "education", title: "Film Studies, University of Bristol" },
+  { id: "ev50", personId: "p11", year: 2010, type: "achievement", title: "First documentary: Tidal Memories, shown at Edinburgh Film Festival" },
+  { id: "ev51", personId: "p11", year: 2018, type: "achievement", title: "BAFTA Scotland nomination for Ocean's Edge" },
+
+  { id: "ev52", personId: "p12", year: 1985, type: "birth", title: "Born in Inverness", place: "Inverness, Scotland" },
+  { id: "ev53", personId: "p12", year: 2007, type: "education", title: "Fine Art Ceramics, Glasgow School of Art" },
+  { id: "ev54", personId: "p12", year: 2012, type: "career", title: "Opened Highland Clay Studio & Gallery", place: "Inverness, Scotland" },
+  { id: "ev55", personId: "p12", year: 2020, type: "achievement", title: "Featured in Crafts Magazine: 'Keepers of Tradition'" },
+];
+
+export function getPersonsByGeneration(): Person[][] {
+  const gen1 = persons.filter((p) => ["p1", "p2", "p3"].includes(p.id));
+  const gen2 = persons.filter((p) => ["p4", "p5", "p6", "p7", "p8"].includes(p.id));
+  const gen3 = persons.filter((p) => ["p9", "p10", "p11", "p12"].includes(p.id));
+  return [gen1, gen2, gen3];
 }

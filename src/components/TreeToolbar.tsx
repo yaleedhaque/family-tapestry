@@ -8,9 +8,10 @@ interface TreeToolbarProps {
   unions: UnionLike[];
   parentEdges: EdgeLike[];
   onExportGedcom: () => void;
+  onImportGedcom?: () => void;
 }
 
-export default function TreeToolbar({ persons, unions, parentEdges, onExportGedcom }: TreeToolbarProps) {
+export default function TreeToolbar({ persons, unions, parentEdges, onExportGedcom, onImportGedcom }: TreeToolbarProps) {
   const [expanded, setExpanded] = useState(false);
 
   const stats = useMemo(() => {
@@ -57,7 +58,7 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
             <StatRow label="Divorced" value={stats.divorced} icon="✕" color="var(--ember-red)" />
           </div>
 
-          <div className="px-4 py-3 border-t border-[var(--thread-gold-dim)]/20">
+          <div className="px-4 py-3 border-t border-[var(--thread-gold-dim)]/20 space-y-2">
             <button
               onClick={onExportGedcom}
               className="w-full py-2 text-xs rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/20 transition-colors font-body flex items-center justify-center gap-2"
@@ -67,6 +68,17 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
               </svg>
               Export GEDCOM
             </button>
+            {onImportGedcom && (
+              <button
+                onClick={onImportGedcom}
+                className="w-full py-2 text-xs rounded-lg border border-[var(--thread-gold-dim)]/20 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body flex items-center justify-center gap-2"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+                  <path d="M8 14V6M4 9l4-4 4 4M2 3h12" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Import GEDCOM
+              </button>
+            )}
           </div>
         </div>
       )}

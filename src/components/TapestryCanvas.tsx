@@ -22,6 +22,8 @@ import BrickBackground from "@/components/BrickBackground";
 import TapestryBanner from "@/components/TapestryBanner";
 import SearchBar from "@/components/SearchBar";
 import TreeToolbar from "@/components/TreeToolbar";
+import GedcomImport from "@/components/GedcomImport";
+import KeyboardHelp from "@/components/KeyboardHelp";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
 import type { DbPerson } from "@/lib/types";
@@ -163,6 +165,7 @@ export default function TapestryCanvas() {
   const [showEdges, setShowEdges] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
+  const [showGedcomImport, setShowGedcomImport] = useState(false);
   const layoutVersionRef = useRef(0);
   const initialLoadDone = useRef(false);
 
@@ -526,6 +529,19 @@ export default function TapestryCanvas() {
     URL.revokeObjectURL(url);
   }, [rawPersons, rawUnions, rawEdges]);
 
+  // ── GEDCOM import handler ──
+  const handleGedcomImport = useCallback(
+    (persons: PersonLike[], unions: UnionLike[], edges: EdgeLike[]) => {
+      setRawPersons(persons);
+      setRawUnions(unions);
+      setRawEdges(edges);
+      layoutVersionRef.current++;
+      initialLoadDone.current = false;
+      runLayout(persons, unions, edges, true);
+    },
+    [runLayout]
+  );
+
   // ── Keyboard shortcuts ──
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -594,6 +610,7 @@ export default function TapestryCanvas() {
           unions={rawUnions}
           parentEdges={rawEdges}
           onExportGedcom={handleExportGedcom}
+          onImportGedcom={() => setShowGedcomImport(true)}
         />
 
         <div className="absolute inset-0 z-10">
@@ -647,6 +664,33 @@ export default function TapestryCanvas() {
           nextPersonId={() => nextPersonId(rawPersons)}
         />
       </div>
+
+      {/* Navigation bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-20 flex justify-center pb-3 pointer-events-none">
+        <div className="flex items-center gap-1 px-2 py-1.5 bg-[#0E0B0A]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
+          <a href="/" className="px-3 py-1.5 text-xs rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">Tree</a>
+          <a href="/timeline" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
+          <button
+            onClick={() => setShowGedcomImport(true)}
+            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+          >
+            Import
+          </button>
+          <button
+            onClick={() => {}}  // triggers KeyboardHelp via ?
+            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+            title="Press ? for keyboard shortcuts"
+          >
+            ?
+          </button>
+        </div>
+      </nav>
+
+      {showGedcomImport && (
+        <GedcomImport onImport={handleGedcomImport} onClose={() => setShowGedcomImport(false)} />
+      )}
+
+      <KeyboardHelp />
     </>
   );
 }
