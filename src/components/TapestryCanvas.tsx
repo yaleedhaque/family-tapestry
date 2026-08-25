@@ -73,21 +73,92 @@ function toPersonLike(p: Person | DbPerson): PersonLike {
   };
 }
 
-function toUnionLike(u: { id: string; partnerA?: string; partner_b?: string; partner_a?: string; type?: string; union_type?: string; startYear?: number | null; start_year?: number | null; endYear?: number | null; end_year?: number | null }): UnionLike {
+function toUnionLike(raw: {
+  id: string;
+  partnerA?: string;
+  partner_a?: string;
+  partnerB?: string;
+  partner_b?: string;
+  type?: string;
+  union_type?: string;
+  startYear?: number | null;
+  start_year?: number | null;
+  endYear?: number | null;
+  end_year?: number | null;
+}): UnionLike {
   return {
-    id: u.id,
-    partnerA: u.partnerA ?? u.partner_a ?? "",
-    partnerB: u.partnerA ? "" : (u.partner_b ?? ""),
-    type: u.type ?? u.union_type ?? "marriage",
-    startYear: u.startYear ?? u.start_year ?? null,
-    endYear: u.endYear ?? u.end_year ?? null,
+    id: raw.id,
+    partnerA: raw.partnerA ?? raw.partner_a ?? "",
+    partnerB: raw.partnerB ?? raw.partner_b ?? "",
+    type: raw.type ?? raw.union_type ?? "marriage",
+    startYear: raw.startYear ?? raw.start_year ?? null,
+    endYear: raw.endYear ?? raw.end_year ?? null,
   };
 }
 
-function toEdgeLike(e: { unionId?: string; union_id?: string; childId?: string; child_id?: string }): EdgeLike {
+function toEdgeLike(e: {
+  unionId?: string;
+  union_id?: string;
+  childId?: string;
+  child_id?: string;
+}): EdgeLike {
   return {
     unionId: e.unionId ?? e.union_id ?? "",
     childId: e.childId ?? e.child_id ?? "",
+  };
+}
+
+function makeMarriageEdge(
+  source: string,
+  target: string,
+  unionType: string
+): Edge {
+  const isDivorced = unionType === "divorced";
+  return {
+    id: `${source}-${target}-marriage`,
+    source,
+    target,
+    type: "smoothstep",
+    style: {
+      stroke: isDivorced ? "var(--ember-red)" : "var(--thread-gold)",
+      strokeWidth: 2,
+      opacity: isDivorced ? 0.7 : 0.8,
+      strokeDasharray: isDivorced ? "6 4" : undefined,
+    },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: isDivorced ? "var(--ember-red)" : "var(--thread-gold-dim)",
+      width: 12,
+      height: 12,
+    },
+    label: isDivorced ? "divorced" : undefined,
+    labelStyle: isDivorced
+      ? { fill: "var(--ember-red)", fontSize: 10, fontFamily: "var(--font-body)" }
+      : undefined,
+    labelBgStyle: isDivorced
+      ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 }
+      : undefined,
+    labelBgPadding: isDivorced ? ([6, 3] as [number, number]) : undefined,
+  };
+}
+
+function makeChildEdge(source: string, target: string): Edge {
+  return {
+    id: `${source}-${target}-child`,
+    source,
+    target,
+    type: "smoothstep",
+    style: {
+      stroke: "var(--thread-gold)",
+      strokeWidth: 1.5,
+      opacity: 0.5,
+    },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: "var(--thread-gold-dim)",
+      width: 10,
+      height: 10,
+    },
   };
 }
 
@@ -145,38 +216,20 @@ export default function TapestryCanvas() {
           position: { x: 0, y: 0 },
         });
 
-        flowEdges.push({
-          id: `${union.partnerA}-${union.id}`,
-          source: union.partnerA,
-          target: union.id,
-          type: "smoothstep",
-          style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.6 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 12, height: 12 },
-        });
+        // Partner A → Union
+        flowEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
 
+        // Partner B → Union
         if (union.partnerB) {
-          flowEdges.push({
-            id: `${union.partnerB}-${union.id}`,
-            source: union.partnerB,
-            target: union.id,
-            type: "smoothstep",
-            style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.6 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 12, height: 12 },
-          });
+          flowEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type));
         }
       }
 
       for (const edge of rawEdges) {
-        flowEdges.push({
-          id: `${edge.unionId}-${edge.childId}`,
-          source: edge.unionId,
-          target: edge.childId,
-          type: "smoothstep",
-          style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.6 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 12, height: 12 },
-        });
+        flowEdges.push(makeChildEdge(edge.unionId, edge.childId));
       }
 
+      // ELK layout
       const elkGraph = {
         id: "root",
         children: flowNodes.map((n) => ({ id: n.id })),
@@ -198,8 +251,9 @@ export default function TapestryCanvas() {
         }
       }
 
-      setNodes(flowNodes);
-      setEdges(flowEdges);
+      // Force new array references so React Flow picks up the changes
+      setNodes([...flowNodes]);
+      setEdges([...flowEdges]);
     };
 
     buildGraph();
@@ -226,10 +280,6 @@ export default function TapestryCanvas() {
         fitView
         fitViewOptions={{ padding: 0.3 }}
         proOptions={{ hideAttribution: true }}
-        defaultEdgeOptions={{
-          type: "smoothstep",
-          style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.6 },
-        }}
         className="bg-tapestry-bg"
       >
         <Background
