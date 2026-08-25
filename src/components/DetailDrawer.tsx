@@ -1,5 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
+
+const CollaborativeBio = dynamic(() => import("@/components/CollaborativeBio"), {
+  ssr: false,
+});
+
 interface PersonLike {
   id: string;
   fullName: string;
@@ -20,18 +26,19 @@ export default function DetailDrawer({ person, onClose }: DetailDrawerProps) {
   if (!person) return null;
 
   const isDeceased = !person.isAlive;
+  const hasSupabase = !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 z-40 transition-opacity"
         onClick={onClose}
       />
 
-      {/* Drawer */}
       <div className="fixed top-0 right-0 h-full w-[380px] max-w-[90vw] bg-tapestry-bg-alt border-l border-thread-gold-dim z-50 flex flex-col overflow-hidden animate-slide-in">
-        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full border border-thread-gold-dim text-parchment-dim hover:text-thread-gold hover:border-thread-gold transition-colors"
@@ -39,17 +46,13 @@ export default function DetailDrawer({ person, onClose }: DetailDrawerProps) {
           ✕
         </button>
 
-        {/* Portrait */}
         <div className="flex justify-center pt-8 pb-4">
           <div
-            className={`
-              w-28 h-28 rounded-full border-2 overflow-hidden flex items-center justify-center
-              ${
-                isDeceased
-                  ? "border-deceased-frame grayscale contrast-[115%] sepia-[8%]"
-                  : "border-living-glow shadow-[0_0_16px_rgba(217,139,62,0.3)]"
-              }
-            `}
+            className={`w-28 h-28 rounded-full border-2 overflow-hidden flex items-center justify-center ${
+              isDeceased
+                ? "border-deceased-frame grayscale contrast-[115%] sepia-[8%]"
+                : "border-living-glow shadow-[0_0_16px_rgba(217,139,62,0.3)]"
+            }`}
           >
             <svg viewBox="0 0 112 112" className="w-full h-full opacity-60">
               <circle cx="56" cy="40" r="22" fill={isDeceased ? "#5C564C" : "#D98B3E"} />
@@ -58,7 +61,6 @@ export default function DetailDrawer({ person, onClose }: DetailDrawerProps) {
           </div>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-8">
           <h2 className="font-display text-2xl font-semibold text-parchment text-center">
             {person.fullName}
@@ -72,9 +74,7 @@ export default function DetailDrawer({ person, onClose }: DetailDrawerProps) {
 
           <div className="space-y-3">
             <DetailRow label="Born" value={`${person.birthYear} · ${person.birthPlace}`} />
-            {person.deathYear && (
-              <DetailRow label="Died" value={`${person.deathYear}`} />
-            )}
+            {person.deathYear && <DetailRow label="Died" value={`${person.deathYear}`} />}
             <DetailRow label="Profession" value={person.profession} />
           </div>
 
@@ -83,9 +83,18 @@ export default function DetailDrawer({ person, onClose }: DetailDrawerProps) {
           <h3 className="font-display text-xs uppercase tracking-wider text-thread-gold mb-2">
             Biography
           </h3>
-          <p className="font-body text-sm text-parchment-dim leading-relaxed">
-            {person.bio}
-          </p>
+
+          {hasSupabase ? (
+            <CollaborativeBio
+              personId={person.id}
+              initialText={person.bio}
+              readOnly={isDeceased}
+            />
+          ) : (
+            <p className="font-body text-sm text-parchment-dim leading-relaxed">
+              {person.bio}
+            </p>
+          )}
         </div>
       </div>
     </>
