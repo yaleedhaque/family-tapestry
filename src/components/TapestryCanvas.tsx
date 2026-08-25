@@ -179,6 +179,8 @@ export default function TapestryCanvas() {
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
   const [showGedcomImport, setShowGedcomImport] = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
+  const [activeTreeId, setActiveTreeId] = useState("default");
+  const [treeNames, setTreeNames] = useState<Record<string, string>>({ "default": "The Haque Tapestry" });
   const layoutVersionRef = useRef(0);
   const initialLoadDone = useRef(false);
   const isInitialLoad = useRef(true);
@@ -256,18 +258,29 @@ export default function TapestryCanvas() {
   // ── Initial load ──
   useEffect(() => {
     (async () => {
-      const STORAGE_KEY = "family-tapestry-data";
+      const STORAGE_KEY = "family-tapestry-trees";
       let persons: PersonLike[];
       let unions: UnionLike[];
       let parentEdges: EdgeLike[];
+      let treeId = "default";
+      let names: Record<string, string> = { "default": "The Haque Tapestry" };
 
       const saved = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          persons = parsed.persons ?? staticPersons;
-          unions = (parsed.unions ?? staticUnions).map(toUnionLike);
-          parentEdges = parsed.edges ?? staticEdges;
+          treeId = parsed.activeTree ?? "default";
+          names = parsed.names ?? { "default": "The Haque Tapestry" };
+          const tree = parsed.trees?.[treeId];
+          if (tree) {
+            persons = tree.persons ?? staticPersons;
+            unions = (tree.unions ?? staticUnions).map(toUnionLike);
+            parentEdges = tree.edges ?? staticEdges;
+          } else {
+            persons = staticPersons;
+            unions = staticUnions.map(toUnionLike);
+            parentEdges = staticEdges;
+          }
         } catch {
           persons = staticPersons;
           unions = staticUnions.map(toUnionLike);
@@ -292,6 +305,8 @@ export default function TapestryCanvas() {
           parentEdges = staticEdges;
         }
       }
+      setActiveTreeId(treeId);
+      setTreeNames(names);
       setRawPersons(persons);
       setRawUnions(unions);
       setRawEdges(parentEdges);
@@ -305,9 +320,20 @@ export default function TapestryCanvas() {
       if (rawPersons.length > 0) isInitialLoad.current = false;
       return;
     }
-    const STORAGE_KEY = "family-tapestry-data";
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ persons: rawPersons, unions: rawUnions, edges: rawEdges }));
-  }, [rawPersons, rawUnions, rawEdges]);
+    const STORAGE_KEY = "family-tapestry-trees";
+    const saved = localStorage.getItem(STORAGE_KEY);
+    let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[] }> = {};
+    let names: Record<string, string> = treeNames;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        trees = parsed.trees ?? {};
+        names = { ...names, ...parsed.names };
+      } catch { /* use defaults */ }
+    }
+    trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: activeTreeId }));
+  }, [rawPersons, rawUnions, rawEdges, activeTreeId, treeNames]);
 
   // ── Re-layout whenever raw data changes (after first load) ──
   const prevDataSig = useRef("");
@@ -486,6 +512,49 @@ export default function TapestryCanvas() {
     },
     [rawPersons, fitView]
   );
+
+  // ── Switch active tree ──
+  const switchTree = useCallback(
+    (newTreeId: string) => {
+      if (newTreeId === activeTreeId) return;
+      // Save current tree
+      const STORAGE_KEY = "family-tapestry-trees";
+      const saved = localStorage.getItem(STORAGE_KEY);
+      let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[] }> = {};
+      let names = { ...treeNames };
+      if (saved) {
+        try { const p = JSON.parse(saved); trees = p.trees ?? {}; names = { ...names, ...p.names }; } catch { /* ok */ }
+      }
+      trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: newTreeId }));
+
+      // Load new tree
+      const tree = trees[newTreeId];
+      if (tree) {
+        setRawPersons(tree.persons);
+        setRawUnions(tree.unions);
+        setRawEdges(tree.edges);
+      } else {
+        setRawPersons(staticPersons);
+        setRawUnions(staticUnions.map(toUnionLike));
+        setRawEdges(staticEdges);
+      }
+      setActiveTreeId(newTreeId);
+      setSelectedPerson(null);
+      initialLoadDone.current = false;
+      layoutVersionRef.current++;
+    },
+    [activeTreeId, rawPersons, rawUnions, rawEdges, treeNames]
+  );
+
+  // ── Create new tree ──
+  const createTree = useCallback(() => {
+    const name = prompt("Tree name:");
+    if (!name?.trim()) return;
+    const id = `tree-${Date.now().toString(36)}`;
+    setTreeNames((prev) => ({ ...prev, [id]: name.trim() }));
+    switchTree(id);
+  }, [switchTree]);
 
   // ── Hover highlighting: find connected nodes ──
   const connectedNodeIds = useMemo(() => {
@@ -755,6 +824,29 @@ export default function TapestryCanvas() {
           onNavigate={handleNavigatePerson}
           canEdit={canEdit}
         />
+      </div>
+
+      {/* Tree selector */}
+      <div className="fixed top-4 left-4 z-30 flex items-center gap-2">
+        <select
+          value={activeTreeId}
+          onChange={(e) => switchTree(e.target.value)}
+          className="px-3 py-1.5 text-xs rounded-lg bg-[#0E0B0A]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 text-[var(--parchment)] font-body appearance-none cursor-pointer pr-6 focus:outline-none focus:border-[var(--thread-gold)]"
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23C9A24B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
+        >
+          {Object.entries(treeNames).map(([id, name]) => (
+            <option key={id} value={id}>{name}</option>
+          ))}
+        </select>
+        {canEdit && (
+          <button
+            onClick={createTree}
+            className="px-2.5 py-1.5 text-xs rounded-lg bg-[#0E0B0A]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] hover:border-[var(--thread-gold)] transition-colors font-body"
+            title="Create new tree"
+          >
+            + Tree
+          </button>
+        )}
       </div>
 
       {/* Navigation bar */}
