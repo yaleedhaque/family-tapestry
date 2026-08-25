@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* The Tapestry — Design Tokens (Section 6.2) */
+  --tapestry-bg: #0E0B0A;
+  --tapestry-bg-alt: #1A1512;
+  --thread-gold: #C9A24B;
+  --thread-gold-dim: #7A6329;
+  --ember-red: #8B2E2E;
+  --parchment: #EFE6D8;
+  --parchment-dim: #B8AC98;
+  --living-glow: #D98B3E;
+  --deceased-frame: #5C564C;
+  --accent-emerald: #3E6B5C;
+}
+
+@layer base {
+  body {
+    background-color: var(--tapestry-bg);
+    color: var(--parchment);
+    font-family: var(--font-body), system-ui, sans-serif;
+  }
+}
