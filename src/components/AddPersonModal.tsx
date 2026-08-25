@@ -50,6 +50,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
       website,
       lat: null,
       lng: null,
+      photoUrl: "",
     };
     onAdd(person);
   };

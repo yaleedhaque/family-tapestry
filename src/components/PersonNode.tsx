@@ -55,12 +55,16 @@ function PersonNode({ data }: NodeProps) {
         `}
         style={{ borderColor: isDeceased ? "var(--deceased-frame)" : avatarColor }}
       >
-        <span
-          className="font-display text-lg font-bold select-none"
-          style={{ color: isDeceased ? "var(--deceased-frame)" : avatarColor, opacity: isDeceased ? 0.5 : 0.85 }}
-        >
-          {initials}
-        </span>
+        {person.photoUrl ? (
+          <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
+        ) : (
+          <span
+            className="font-display text-lg font-bold select-none"
+            style={{ color: isDeceased ? "var(--deceased-frame)" : avatarColor, opacity: isDeceased ? 0.5 : 0.85 }}
+          >
+            {initials}
+          </span>
+        )}
       </div>
 
       <span

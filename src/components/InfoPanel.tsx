@@ -16,6 +16,7 @@ export interface PersonLike {
   website: string;
   lat: number | null;
   lng: number | null;
+  photoUrl: string;
 }
 
 export interface UnionLike {
@@ -177,6 +178,7 @@ export default function InfoPanel({
       website: newPersonFields.website,
       lat: null,
       lng: null,
+      photoUrl: "",
     };
     if (tab === "partners") onCreatePersonAndLink(np, "partner", person.id, newUnionType, newStartYear ? Number(newStartYear) : null);
     else if (tab === "children") onCreatePersonAndLink(np, "child", person.id);
@@ -210,10 +212,14 @@ export default function InfoPanel({
                 : "border-[var(--deceased-frame)] grayscale"
             }`}
           >
-            <svg viewBox="0 0 80 80" className="w-full h-full opacity-60">
-              <circle cx="40" cy="28" r="15" fill={person.isAlive ? "#D98B3E" : "#5C564C"} />
-              <ellipse cx="40" cy="68" rx="25" ry="20" fill={person.isAlive ? "#D98B3E" : "#5C564C"} />
-            </svg>
+            {person.photoUrl ? (
+              <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
+            ) : (
+              <svg viewBox="0 0 80 80" className="w-full h-full opacity-60">
+                <circle cx="40" cy="28" r="15" fill={person.isAlive ? "#D98B3E" : "#5C564C"} />
+                <ellipse cx="40" cy="68" rx="25" ry="20" fill={person.isAlive ? "#D98B3E" : "#5C564C"} />
+              </svg>
+            )}
           </div>
         </div>
 
@@ -265,6 +271,52 @@ export default function InfoPanel({
               </div>
 
               <div className="border-t border-[var(--thread-gold-dim)]/20" />
+
+              {canEdit && (
+                <div className="flex items-center gap-3">
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Photo</label>
+                  <label className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors cursor-pointer">
+                    {person.photoUrl ? "Change Photo" : "Upload Photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 500 * 1024) { alert("Photo must be under 500KB."); return; }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement("canvas");
+                            const size = 200;
+                            canvas.width = size;
+                            canvas.height = size;
+                            const ctx = canvas.getContext("2d")!;
+                            const min = Math.min(img.width, img.height);
+                            const sx = (img.width - min) / 2;
+                            const sy = (img.height - min) / 2;
+                            ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+                            onUpdatePerson({ ...person, photoUrl: canvas.toDataURL("image/jpeg", 0.8) });
+                          };
+                          img.src = reader.result as string;
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {person.photoUrl && (
+                    <button
+                      onClick={() => onUpdatePerson({ ...person, photoUrl: "" })}
+                      className="px-3 py-1.5 text-xs rounded border border-[var(--ember-red)]/40 text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-3">
                 {field("fullName", "Full Name")}

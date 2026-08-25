@@ -103,15 +103,19 @@ export default function PersonDetailPage() {
         {/* Hero */}
         <div className="flex flex-col items-center text-center mb-10">
           <div
-            className={`w-28 h-28 rounded-full border-3 flex items-center justify-center mb-5 ${isDeceased ? "grayscale" : ""}`}
+            className={`w-28 h-28 rounded-full border-3 flex items-center justify-center mb-5 overflow-hidden ${isDeceased ? "grayscale" : ""}`}
             style={{ borderWidth: 3, borderColor: isDeceased ? "var(--deceased-frame)" : avatarColor }}
           >
-            <span
-              className="font-display text-3xl font-bold select-none"
-              style={{ color: isDeceased ? "var(--deceased-frame)" : avatarColor, opacity: isDeceased ? 0.5 : 0.85 }}
-            >
-              {initials}
-            </span>
+            {person.photoUrl ? (
+              <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
+            ) : (
+              <span
+                className="font-display text-3xl font-bold select-none"
+                style={{ color: isDeceased ? "var(--deceased-frame)" : avatarColor, opacity: isDeceased ? 0.5 : 0.85 }}
+              >
+                {initials}
+              </span>
+            )}
           </div>
           <h1 className="font-display text-3xl font-semibold text-[var(--parchment)]">{person.fullName}</h1>
           <p className="text-sm text-[var(--parchment-dim)] mt-1">

@@ -63,6 +63,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     website: "",
     lat: null,
     lng: null,
+    photoUrl: "",
   };
 }
 
