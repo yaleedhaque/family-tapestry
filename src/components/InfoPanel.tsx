@@ -1,7 +1,30 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { PersonLike, UnionLike, EdgeLike } from "@/components/EditPanel";
+export interface PersonLike {
+  id: string;
+  fullName: string;
+  birthYear: number | null;
+  deathYear: number | null;
+  isAlive: boolean;
+  bio: string;
+  birthPlace: string;
+  profession: string;
+}
+
+export interface UnionLike {
+  id: string;
+  partnerA: string;
+  partnerB: string;
+  type: string;
+  startYear: number | null;
+  endYear: number | null;
+}
+
+export interface EdgeLike {
+  unionId: string;
+  childId: string;
+}
 
 interface InfoPanelProps {
   person: PersonLike | null;
@@ -13,6 +36,7 @@ interface InfoPanelProps {
   onDeletePerson: (personId: string) => void;
   onAddPartner: (personId: string, partnerId: string, unionType: string, startYear: number | null) => void;
   onAddChild: (personId: string, childId: string) => void;
+  onAddParent: (childId: string, parentId: string) => void;
   onCreatePersonAndLink: (
     newPerson: PersonLike,
     linkType: "partner" | "child" | "parent",
@@ -21,6 +45,7 @@ interface InfoPanelProps {
     startYear?: number | null,
   ) => void;
   onRemoveLink: (linkType: "partner" | "child", fromId: string, toId: string) => void;
+  nextPersonId: () => string;
 }
 
 type Tab = "profile" | "parents" | "partners" | "children";
@@ -35,8 +60,10 @@ export default function InfoPanel({
   onDeletePerson,
   onAddPartner,
   onAddChild,
+  onAddParent,
   onCreatePersonAndLink,
   onRemoveLink,
+  nextPersonId,
 }: InfoPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -120,7 +147,7 @@ export default function InfoPanel({
   };
 
   const handleCreateAndLink = () => {
-    const id = "p" + (persons.length + 1) + "_" + Date.now();
+    const id = nextPersonId();
     const np: PersonLike = {
       id,
       fullName: newPersonFields.fullName,
@@ -262,7 +289,7 @@ export default function InfoPanel({
               items={relatedData.parents.map((p) => ({ id: p.id, label: p.fullName, sub: `${p.birthYear} – ${p.deathYear ?? "present"}` }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
-              onPickExisting={(id) => { onCreatePersonAndLink(persons.find((p) => p.id === id)!, "child", person.id); resetAdd(); }}
+              onPickExisting={(id) => { onAddParent(person.id, id); resetAdd(); }}
               onCreateNew={handleCreateAndLink}
               onNewFieldChange={(k, v) => setNewPersonFields((f) => ({ ...f, [k]: v }))}
               onStartAdd={setAddMode} onCancelAdd={resetAdd}
@@ -328,7 +355,7 @@ export default function InfoPanel({
           )
         ) : (
           <p className="text-sm text-[var(--parchment)] font-body">
-            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : ((person as Record<string, unknown>)[key] as string) || "—"}
+            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : ((person as unknown as Record<string, unknown>)[key] as string) || "—"}
           </p>
         )}
       </div>

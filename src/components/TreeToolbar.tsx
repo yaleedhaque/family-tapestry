@@ -1,0 +1,114 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+
+interface TreeToolbarProps {
+  persons: PersonLike[];
+  unions: UnionLike[];
+  parentEdges: EdgeLike[];
+  onExportGedcom: () => void;
+}
+
+export default function TreeToolbar({ persons, unions, parentEdges, onExportGedcom }: TreeToolbarProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  const stats = useMemo(() => {
+    const alive = persons.filter((p) => p.isAlive).length;
+    const deceased = persons.length - alive;
+    const generations = computeGenerations(persons, unions, parentEdges);
+    const marriages = unions.filter((u) => u.type === "marriage").length;
+    const partnerships = unions.filter((u) => u.type === "partnership").length;
+    const divorced = unions.filter((u) => u.type === "divorced").length;
+    return { alive, deceased, generations, marriages, partnerships, divorced };
+  }, [persons, unions, parentEdges]);
+
+  return (
+    <div className="absolute top-20 right-4 z-30">
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="w-10 h-10 rounded-full bg-[#0E0B0A]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 flex items-center justify-center text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
+        title="Tree info & export"
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+          <circle cx="10" cy="4" r="2" />
+          <circle cx="4" cy="14" r="2" />
+          <circle cx="16" cy="14" r="2" />
+          <path d="M10 6v4M6 10l-1 2M14 10l1 2" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {expanded && (
+        <div className="absolute top-0 right-12 w-56 bg-[#0E0B0A]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+          <div className="px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
+            <h3 className="font-display text-sm text-[var(--thread-gold)] font-semibold">Tree Overview</h3>
+          </div>
+
+          <div className="px-4 py-3 space-y-2.5">
+            <StatRow label="People" value={persons.length} icon="👤" />
+            <StatRow label="Living" value={stats.alive} icon="✦" color="var(--living-glow)" />
+            <StatRow label="Deceased" value={stats.deceased} icon="⚬" color="var(--deceased-frame)" />
+            <StatRow label="Generations" value={stats.generations} icon="↓" />
+
+            <div className="border-t border-[var(--thread-gold-dim)]/15 pt-2.5" />
+
+            <StatRow label="Marriages" value={stats.marriages} icon="◆" color="var(--thread-gold)" />
+            <StatRow label="Partnerships" value={stats.partnerships} icon="◆" color="var(--thread-gold-dim)" />
+            <StatRow label="Divorced" value={stats.divorced} icon="✕" color="var(--ember-red)" />
+          </div>
+
+          <div className="px-4 py-3 border-t border-[var(--thread-gold-dim)]/20">
+            <button
+              onClick={onExportGedcom}
+              className="w-full py-2 text-xs rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/20 transition-colors font-body flex items-center justify-center gap-2"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+                <path d="M8 2v8M4 7l4 4 4-4M2 13h12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Export GEDCOM
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatRow({ label, value, icon, color }: { label: string; value: number; icon: string; color?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[11px] text-[var(--parchment-dim)] font-body flex items-center gap-1.5">
+        <span style={{ color: color ?? "var(--parchment-dim)" }} className="text-xs">{icon}</span>
+        {label}
+      </span>
+      <span className="text-[11px] text-[var(--parchment)] font-body font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function computeGenerations(persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[]): number {
+  const childOf = new Map<string, string>();
+  for (const e of parentEdges) childOf.set(e.childId, e.unionId);
+
+  let maxDepth = 1;
+  for (const p of persons) {
+    let depth = 0;
+    let current: string | undefined = p.id;
+    const visited = new Set<string>();
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      depth++;
+      const unionId = childOf.get(current);
+      if (!unionId) break;
+      const union = unions.find((u) => u.id === unionId);
+      if (!union) break;
+      const parentA = union.partnerA;
+      const parentB = union.partnerB;
+      if (parentA && !visited.has(parentA)) { current = parentA; continue; }
+      if (parentB && !visited.has(parentB)) { current = parentB; continue; }
+      break;
+    }
+    maxDepth = Math.max(maxDepth, depth);
+  }
+  return maxDepth;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Controls,
@@ -17,8 +17,11 @@ import ELK from "elkjs/lib/elk.bundled.js";
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
 import InfoPanel from "@/components/InfoPanel";
-import type { PersonLike, UnionLike, EdgeLike } from "@/components/EditPanel";
+import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import BrickBackground from "@/components/BrickBackground";
+import TapestryBanner from "@/components/TapestryBanner";
+import SearchBar from "@/components/SearchBar";
+import TreeToolbar from "@/components/TreeToolbar";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
 import type { DbPerson } from "@/lib/types";
@@ -110,9 +113,7 @@ function makeMarriageEdge(source: string, target: string, unionType: string): Ed
     labelStyle: isDivorced
       ? { fill: "var(--ember-red)", fontSize: 10, fontFamily: "var(--font-body)" }
       : undefined,
-    labelBgStyle: isDivorced
-      ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 }
-      : undefined,
+    labelBgStyle: isDivorced ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
     labelBgPadding: isDivorced ? ([6, 3] as [number, number]) : undefined,
   };
 }
@@ -123,17 +124,8 @@ function makeChildEdge(source: string, target: string): Edge {
     source,
     target,
     type: "smoothstep",
-    style: {
-      stroke: "var(--thread-gold)",
-      strokeWidth: 1.5,
-      opacity: 0.5,
-    },
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: "var(--thread-gold-dim)",
-      width: 10,
-      height: 10,
-    },
+    style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.5 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 10, height: 10 },
   };
 }
 
@@ -143,123 +135,114 @@ const PERSON_NODE_H = 130;
 const UNION_NODE_W = 80;
 const UNION_NODE_H = 80;
 
+function nextUnionId(unions: UnionLike[]) {
+  const maxN = unions.reduce((max, u) => {
+    const m = u.id.match(/u(\d+)/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+  return `u${maxN + 1}`;
+}
+
+function nextPersonId(persons: PersonLike[]) {
+  const maxN = persons.reduce((max, p) => {
+    const m = p.id.match(/p(\d+)/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+  return `p${maxN + 1}`;
+}
+
 export default function TapestryCanvas() {
   const [rawPersons, setRawPersons] = useState<PersonLike[]>([]);
   const [rawUnions, setRawUnions] = useState<UnionLike[]>([]);
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
-  const [showEdges, setShowEdges] = useState(false);
   const [animPhase, setAnimPhase] = useState<"idle" | "running" | "done">("idle");
+  const [showEdges, setShowEdges] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
   const layoutVersionRef = useRef(0);
   const initialLoadDone = useRef(false);
 
+  // ── Build graph + run ELK ──
   const runLayout = useCallback(
     async (persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[], animate: boolean) => {
       const version = ++layoutVersionRef.current;
 
-      const flowNodes: Node[] = [];
-      const flowEdges: Edge[] = [];
+      const graphNodes: Node[] = [];
+      const graphEdges: Edge[] = [];
 
       for (const person of persons) {
-        flowNodes.push({
-          id: person.id,
-          type: "personNode",
-          data: { person },
-          position: { x: 0, y: 0 },
-        });
+        graphNodes.push({ id: person.id, type: "personNode", data: { person }, position: { x: 0, y: 0 } });
       }
-
       for (const union of unions) {
-        flowNodes.push({
-          id: union.id,
-          type: "unionNode",
-          data: { union },
-          position: { x: 0, y: 0 },
-        });
-        flowEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
+        graphNodes.push({ id: union.id, type: "unionNode", data: { union }, position: { x: 0, y: 0 } });
+        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
         if (union.partnerB) {
-          flowEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type));
+          graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type));
         }
       }
-
       for (const edge of parentEdges) {
-        flowEdges.push(makeChildEdge(edge.unionId, edge.childId));
+        graphEdges.push(makeChildEdge(edge.unionId, edge.childId));
       }
 
       const elkGraph = {
         id: "root",
-        children: flowNodes.map((n) => ({
+        children: graphNodes.map((n) => ({
           id: n.id,
           width: n.type === "unionNode" ? UNION_NODE_W : PERSON_NODE_W,
           height: n.type === "unionNode" ? UNION_NODE_H : PERSON_NODE_H,
         })),
-        edges: flowEdges.map((e) => ({
-          id: e.id,
-          sources: [e.source],
-          targets: [e.target],
-        })),
+        edges: graphEdges.map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
       };
 
       const layout = await elk.layout(elkGraph, { layoutOptions: ELK_OPTIONS });
-
       if (version !== layoutVersionRef.current) return;
 
       const positions = new Map<string, { x: number; y: number }>();
-      if (layout.children) {
-        for (const elkNode of layout.children) {
-          if (elkNode.x !== undefined && elkNode.y !== undefined) {
-            positions.set(elkNode.id, { x: elkNode.x, y: elkNode.y });
-          }
-        }
+      for (const c of layout.children ?? []) {
+        if (c.x !== undefined && c.y !== undefined) positions.set(c.id, { x: c.x, y: c.y });
       }
+
+      const positioned = graphNodes.map((n) => ({ ...n, position: positions.get(n.id) ?? { x: 0, y: 0 } }));
 
       if (animate && !initialLoadDone.current) {
         initialLoadDone.current = true;
-
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         positions.forEach((p) => {
-          minX = Math.min(minX, p.x);
-          minY = Math.min(minY, p.y);
-          maxX = Math.max(maxX, p.x);
-          maxY = Math.max(maxY, p.y);
+          minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+          maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
         });
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
+        const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
 
-        setNodes(flowNodes.map((n) => ({ ...n, position: { x: centerX, y: centerY } })));
-        setEdges(flowEdges);
-
+        setNodes(positioned.map((n) => ({ ...n, position: { x: cx, y: cy } })));
+        setFlowEdges(graphEdges);
         requestAnimationFrame(() => {
           setTimeout(() => {
             setAnimPhase("running");
-            setNodes(flowNodes.map((n) => ({ ...n, position: positions.get(n.id) ?? { x: 0, y: 0 } })));
+            setNodes(positioned);
             setTimeout(() => setShowEdges(true), ANIM_DURATION * 0.5);
             setTimeout(() => setAnimPhase("done"), ANIM_DURATION + 100);
           }, 400);
         });
       } else {
         setShowEdges(true);
-        setNodes(flowNodes.map((n) => ({ ...n, position: positions.get(n.id) ?? { x: 0, y: 0 } })));
-        setEdges(flowEdges);
+        setNodes(positioned);
+        setFlowEdges(graphEdges);
       }
     },
-    [setNodes, setEdges]
+    [setNodes, setFlowEdges]
   );
 
+  // ── Initial load ──
   useEffect(() => {
-    const init = async () => {
-      const hasSupabase = !!(
-        process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      );
-
+    (async () => {
+      const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
       let persons: PersonLike[];
       let unions: UnionLike[];
       let parentEdges: EdgeLike[];
-
       if (hasSupabase) {
         try {
           const data = await fetchFamilyData();
@@ -276,140 +259,146 @@ export default function TapestryCanvas() {
         unions = staticUnions.map(toUnionLike);
         parentEdges = staticEdges;
       }
-
       setRawPersons(persons);
       setRawUnions(unions);
       setRawEdges(parentEdges);
       await runLayout(persons, unions, parentEdges, true);
-    };
-    init();
+    })();
   }, [runLayout]);
 
-  const refreshLayout = useCallback(
-    async (animate = false) => {
-      await runLayout(rawPersons, rawUnions, rawEdges, animate);
-    },
-    [rawPersons, rawUnions, rawEdges, runLayout]
-  );
+  // ── Re-layout whenever raw data changes (after first load) ──
+  const prevDataSig = useRef("");
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    const sig = `${rawPersons.length}|${rawUnions.length}|${rawEdges.length}`;
+    if (sig === prevDataSig.current) return;
+    prevDataSig.current = sig;
+    runLayout(rawPersons, rawUnions, rawEdges, false);
+  }, [rawPersons, rawUnions, rawEdges, runLayout]);
 
+  // ── Keep selectedPerson live ──
+  useEffect(() => {
+    if (selectedPerson) {
+      const live = rawPersons.find((p) => p.id === selectedPerson.id);
+      if (live && live !== selectedPerson) setSelectedPerson(live);
+    }
+  }, [rawPersons, selectedPerson]);
+
+  // ── Node click ──
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       if (node.type === "personNode") {
         const p = node.data.person as PersonLike;
-        const live = rawPersons.find((pp) => pp.id === p.id);
-        setSelectedPerson(live ?? p);
+        setSelectedPerson(rawPersons.find((pp) => pp.id === p.id) ?? p);
       }
     },
     [rawPersons]
   );
 
-  const handleUpdatePerson = useCallback(
-    (updated: PersonLike) => {
-      setRawPersons((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      setSelectedPerson(updated);
-      setTimeout(() => refreshLayout(), 0);
-    },
-    [refreshLayout]
+  // ── Find the union that makes someone a parent ──
+  const findParentUnion = useCallback(
+    (personId: string): UnionLike | undefined =>
+      rawUnions.find((u) => u.partnerA === personId || u.partnerB === personId),
+    [rawUnions]
   );
 
-  const handleDeletePerson = useCallback(
-    (personId: string) => {
-      setRawPersons((prev) => prev.filter((p) => p.id !== personId));
-      setRawUnions((prev) => prev.filter((u) => u.partnerA !== personId && u.partnerB !== personId));
-      setRawEdges((prev) => prev.filter((e) => e.childId !== personId));
-      setSelectedPerson(null);
-      setTimeout(() => refreshLayout(), 0);
-    },
-    [refreshLayout]
-  );
+  // ── CRUD: Update person ──
+  const handleUpdatePerson = useCallback((updated: PersonLike) => {
+    setRawPersons((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setSelectedPerson(updated);
+  }, []);
 
+  // ── CRUD: Delete person ──
+  const handleDeletePerson = useCallback((personId: string) => {
+    setRawPersons((prev) => prev.filter((p) => p.id !== personId));
+    setRawUnions((prev) => prev.filter((u) => u.partnerA !== personId && u.partnerB !== personId));
+    setRawEdges((prev) => prev.filter((e) => e.childId !== personId));
+    setSelectedPerson(null);
+  }, []);
+
+  // ── CRUD: Add partner (existing person) ──
   const handleAddPartner = useCallback(
     (personId: string, partnerId: string, unionType: string, startYear: number | null) => {
-      const id = "u" + (rawUnions.length + 1) + "_" + Date.now();
-      const newUnion: UnionLike = {
-        id,
-        partnerA: personId,
-        partnerB: partnerId,
-        type: unionType,
-        startYear,
-        endYear: null,
-      };
-      setRawUnions((prev) => [...prev, newUnion]);
-      setTimeout(() => refreshLayout(), 0);
+      setRawUnions((prev) => [
+        ...prev,
+        { id: nextUnionId(prev), partnerA: personId, partnerB: partnerId, type: unionType, startYear, endYear: null },
+      ]);
     },
-    [refreshLayout]
+    []
   );
 
+  // ── CRUD: Add child (existing person) ──
   const handleAddChild = useCallback(
     (parentId: string, childId: string) => {
-      const existingUnion = rawUnions.find(
-        (u) => u.partnerA === parentId || u.partnerB === parentId
-      );
-
-      if (existingUnion) {
-        const alreadyLinked = rawEdges.some(
-          (e) => e.unionId === existingUnion.id && e.childId === childId
-        );
-        if (!alreadyLinked) {
-          setRawEdges((prev) => [...prev, { unionId: existingUnion.id, childId }]);
-        }
+      const union = findParentUnion(parentId);
+      if (union) {
+        setRawEdges((prev) => {
+          if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
+          return [...prev, { unionId: union.id, childId }];
+        });
       } else {
-        const unionId = "u" + (rawUnions.length + 1) + "_auto_" + Date.now();
-        setRawUnions((prev) => [
-          ...prev,
-          { id: unionId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null },
-        ]);
-        setRawEdges((prev) => [...prev, { unionId, childId }]);
+        const newId = nextUnionId(rawUnions);
+        setRawUnions((prev) => [...prev, { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
       }
-      setTimeout(() => refreshLayout(), 0);
     },
-    [rawUnions, rawEdges, refreshLayout]
+    [findParentUnion, rawUnions]
   );
 
+  // ── CRUD: Add parent (existing person) ──
+  const handleAddParent = useCallback(
+    (childId: string, parentId: string) => {
+      const union = findParentUnion(parentId);
+      if (union) {
+        setRawEdges((prev) => {
+          if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
+          return [...prev, { unionId: union.id, childId }];
+        });
+      } else {
+        const newId = nextUnionId(rawUnions);
+        setRawUnions((prev) => [...prev, { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
+      }
+    },
+    [findParentUnion, rawUnions]
+  );
+
+  // ── CRUD: Create new person + link ──
   const handleCreatePersonAndLink = useCallback(
     (
       newPerson: PersonLike,
       linkType: "partner" | "child" | "parent",
       relatedToId: string,
       unionType?: string,
-      startYear?: number | null,
+      startYear?: number | null
     ) => {
       setRawPersons((prev) => [...prev, newPerson]);
 
       if (linkType === "partner") {
-        const id = "u" + (rawUnions.length + 1) + "_" + Date.now();
         setRawUnions((prev) => [
           ...prev,
-          { id, partnerA: relatedToId, partnerB: newPerson.id, type: unionType ?? "marriage", startYear: startYear ?? null, endYear: null },
+          { id: nextUnionId(prev), partnerA: relatedToId, partnerB: newPerson.id, type: unionType ?? "marriage", startYear: startYear ?? null, endYear: null },
         ]);
       } else if (linkType === "child") {
-        const existingUnion = rawUnions.find(
-          (u) => u.partnerA === relatedToId || u.partnerB === relatedToId
-        );
-        if (existingUnion) {
-          setRawEdges((prev) => [...prev, { unionId: existingUnion.id, childId: newPerson.id }]);
+        const union = findParentUnion(relatedToId);
+        if (union) {
+          setRawEdges((prev) => [...prev, { unionId: union.id, childId: newPerson.id }]);
         } else {
-          const unionId = "u" + (rawUnions.length + 1) + "_auto_" + Date.now();
-          setRawUnions((prev) => [
-            ...prev,
-            { id: unionId, partnerA: relatedToId, partnerB: "", type: "marriage", startYear: null, endYear: null },
-          ]);
-          setRawEdges((prev) => [...prev, { unionId, childId: newPerson.id }]);
+          const newId = nextUnionId(rawUnions);
+          setRawUnions((prev) => [...prev, { id: newId, partnerA: relatedToId, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
+          setRawEdges((prev) => [...prev, { unionId: newId, childId: newPerson.id }]);
         }
-      } else if (linkType === "parent") {
-        const unionId = "u" + (rawUnions.length + 1) + "_auto_" + Date.now();
-        setRawUnions((prev) => [
-          ...prev,
-          { id: unionId, partnerA: newPerson.id, partnerB: relatedToId, type: "marriage", startYear: null, endYear: null },
-        ]);
-        setRawEdges((prev) => [...prev, { unionId, childId: relatedToId }]);
+      } else {
+        // "parent": create union for new parent, link child edge to relatedToId
+        const newId = nextUnionId(rawUnions);
+        setRawUnions((prev) => [...prev, { id: newId, partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId: relatedToId }]);
       }
-
-      setTimeout(() => refreshLayout(), 0);
     },
-    [rawUnions.length, rawUnions, refreshLayout]
+    [findParentUnion, rawUnions]
   );
 
+  // ── CRUD: Remove link ──
   const handleRemoveLink = useCallback(
     (linkType: "partner" | "child", fromId: string, toId: string) => {
       if (linkType === "partner") {
@@ -417,35 +406,164 @@ export default function TapestryCanvas() {
           prev.filter((u) => !((u.partnerA === fromId && u.partnerB === toId) || (u.partnerA === toId && u.partnerB === fromId)))
         );
       } else {
-        setRawEdges((prev) => {
-          const target = prev.find((e) => e.childId === toId);
-          if (!target) return prev;
-          const union = rawUnions.find((u) => u.id === target.unionId);
-          if (!union) return prev;
-          if (union.partnerA === fromId || union.partnerB === fromId) {
-            return prev.filter((e) => !(e.unionId === target.unionId && e.childId === toId));
+        const edge = rawEdges.find((e) => e.childId === toId);
+        if (edge) {
+          const union = rawUnions.find((u) => u.id === edge.unionId);
+          if (union && (union.partnerA === fromId || union.partnerB === fromId)) {
+            setRawEdges((prev) => prev.filter((e) => !(e.unionId === edge.unionId && e.childId === toId)));
           }
-          return prev;
-        });
+        }
       }
-      setTimeout(() => refreshLayout(), 0);
     },
-    [rawUnions, refreshLayout]
+    [rawEdges, rawUnions]
   );
+
+  // ── Hover highlighting: find connected nodes ──
+  const connectedNodeIds = useMemo(() => {
+    if (!hoveredNodeId) return null;
+    const ids = new Set<string>([hoveredNodeId]);
+
+    for (const u of rawUnions) {
+      if (u.partnerA === hoveredNodeId || u.partnerB === hoveredNodeId) {
+        ids.add(u.id);
+        if (u.partnerA) ids.add(u.partnerA);
+        if (u.partnerB) ids.add(u.partnerB);
+      }
+    }
+    for (const e of rawEdges) {
+      if (e.childId === hoveredNodeId) {
+        ids.add(e.unionId);
+        const union = rawUnions.find((u) => u.id === e.unionId);
+        if (union) {
+          if (union.partnerA) ids.add(union.partnerA);
+          if (union.partnerB) ids.add(union.partnerB);
+        }
+      }
+      if (e.unionId === hoveredNodeId) {
+        ids.add(e.childId);
+      }
+    }
+    return ids;
+  }, [hoveredNodeId, rawUnions, rawEdges]);
+
+  // ── Apply highlight/dim data to nodes ──
+  useEffect(() => {
+    if (!connectedNodeIds && !searchHighlightId) {
+      setNodes((prev) => prev.map((n) => {
+        if (n.data.highlighted || n.data.dimmed) {
+          return { ...n, data: { ...n.data, highlighted: false, dimmed: false } };
+        }
+        return n;
+      }));
+      return;
+    }
+
+    setNodes((prev) => prev.map((n) => {
+      const isActive = searchHighlightId
+        ? n.id === searchHighlightId
+        : connectedNodeIds?.has(n.id) ?? false;
+      return { ...n, data: { ...n.data, highlighted: n.id === (searchHighlightId ?? hoveredNodeId), dimmed: !isActive } };
+    }));
+  }, [connectedNodeIds, searchHighlightId, hoveredNodeId, setNodes]);
+
+  // ── Search select handler ──
+  const handleSearchSelect = useCallback(
+    (person: PersonLike) => {
+      setSelectedPerson(person);
+      setSearchHighlightId(person.id);
+      setTimeout(() => setSearchHighlightId(null), 2500);
+    },
+    []
+  );
+
+  // ── GEDCOM export (client-side from current data) ──
+  const handleExportGedcom = useCallback(() => {
+    const lines: string[] = [
+      "0 HEAD",
+      "1 SOUR FamilyTapestry",
+      "2 VERS 1.0",
+      "1 DEST GEDCOM",
+      "1 DATE " + new Date().toISOString().split("T")[0],
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "2 FORM LINEAGE-LINKED",
+      "1 CHAR UTF-8",
+    ];
+
+    for (const p of rawPersons) {
+      const id = p.id.replace(/-/g, "").slice(0, 8).toUpperCase();
+      lines.push(`0 @${id}@ INDI`);
+      lines.push(`1 NAME ${p.fullName}`);
+      if (p.birthYear) lines.push(`1 BIRT`, `2 DATE ${p.birthYear}`);
+      if (p.deathYear) lines.push(`1 DEAT`, `2 DATE ${p.deathYear}`);
+      if (p.profession) lines.push(`1 OCCU ${p.profession}`);
+      if (p.birthPlace) lines.push(`1 BIRT`, `2 PLAC ${p.birthPlace}`);
+      if (p.bio) lines.push(`1 NOTE ${p.bio.replace(/\n/g, "\\n")}`);
+    }
+
+    for (const u of rawUnions) {
+      const id = u.id.replace(/-/g, "").slice(0, 8).toUpperCase();
+      const aId = u.partnerA.replace(/-/g, "").slice(0, 8).toUpperCase();
+      const bId = u.partnerB ? u.partnerB.replace(/-/g, "").slice(0, 8).toUpperCase() : "";
+      lines.push(`0 @${id}@ FAM`);
+      if (aId) lines.push(`1 HUSB @${aId}@`);
+      if (bId) lines.push(`1 WIFE @${bId}@`);
+      if (u.startYear) lines.push(`1 MARR`, `2 DATE ${u.startYear}`);
+      for (const e of rawEdges.filter((e) => e.unionId === u.id)) {
+        const cId = e.childId.replace(/-/g, "").slice(0, 8).toUpperCase();
+        lines.push(`1 CHIL @${cId}@`);
+      }
+    }
+
+    lines.push("0 TRLR");
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "family-tapestry.ged";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [rawPersons, rawUnions, rawEdges]);
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "Escape") {
+        setSelectedPerson(null);
+        setHoveredNodeId(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   return (
     <>
       <style>{`
         .react-flow__node {
-          ${animPhase === "running"
-            ? `transition: transform ${ANIM_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                          opacity ${ANIM_DURATION}ms ease-out;`
-            : ""}
+          ${animPhase === "running" ? `transition: transform ${ANIM_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity ${ANIM_DURATION}ms ease-out;` : ""}
           opacity: ${animPhase === "idle" ? 0 : 1};
         }
         .react-flow__edge {
           opacity: ${showEdges ? 1 : 0};
-          transition: opacity 800ms ease-in;
+          transition: opacity 300ms ease-in;
+        }
+        .tapestry-hovering .react-flow__edge {
+          opacity: ${showEdges ? 0.12 : 0} !important;
+          transition: opacity 200ms ease;
+        }
+        .tapestry-hovering .react-flow__edge.highlighted {
+          opacity: 1 !important;
+        }
+        .tapestry-search-pulse .react-flow__node[data-highlighted="true"] {
+          animation: searchPulse 2.5s ease-out;
+        }
+        @keyframes searchPulse {
+          0% { box-shadow: 0 0 0 0 rgba(201,162,75,0.6); }
+          50% { box-shadow: 0 0 24px 8px rgba(201,162,75,0.3); }
+          100% { box-shadow: 0 0 0 0 rgba(201,162,75,0); }
         }
         .react-flow__minimap {
           background: rgba(20,17,14,0.85) !important;
@@ -466,16 +584,32 @@ export default function TapestryCanvas() {
         }
       `}</style>
 
-      <div className="w-full h-screen relative overflow-hidden">
+      <div className={`w-full h-screen relative overflow-hidden ${hoveredNodeId ? "tapestry-hovering" : ""} ${searchHighlightId ? "tapestry-search-pulse" : ""}`}>
         <BrickBackground />
+
+        <TapestryBanner />
+
+        <TreeToolbar
+          persons={rawPersons}
+          unions={rawUnions}
+          parentEdges={rawEdges}
+          onExportGedcom={handleExportGedcom}
+        />
 
         <div className="absolute inset-0 z-10">
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={flowEdges.map((e) => {
+              if (!hoveredNodeId) return e;
+              const isConnected = e.source === hoveredNodeId || e.target === hoveredNodeId ||
+                connectedNodeIds?.has(e.source) || connectedNodeIds?.has(e.target);
+              return { ...e, className: isConnected ? "highlighted" : "" };
+            })}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
+            onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
+            onNodeMouseLeave={() => setHoveredNodeId(null)}
             nodeTypes={nodeTypes}
             proOptions={{ hideAttribution: true }}
             minZoom={0.1}
@@ -495,6 +629,8 @@ export default function TapestryCanvas() {
           </ReactFlow>
         </div>
 
+        <SearchBar persons={rawPersons} onSelect={handleSearchSelect} />
+
         <InfoPanel
           person={selectedPerson}
           persons={rawPersons}
@@ -505,8 +641,10 @@ export default function TapestryCanvas() {
           onDeletePerson={handleDeletePerson}
           onAddPartner={handleAddPartner}
           onAddChild={handleAddChild}
+          onAddParent={handleAddParent}
           onCreatePersonAndLink={handleCreatePersonAndLink}
           onRemoveLink={handleRemoveLink}
+          nextPersonId={() => nextPersonId(rawPersons)}
         />
       </div>
     </>
