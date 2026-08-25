@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
   Controls,
+  MiniMap,
   useNodesState,
   useEdgesState,
   type Node,
@@ -109,11 +110,7 @@ function toEdgeLike(e: {
   };
 }
 
-function makeMarriageEdge(
-  source: string,
-  target: string,
-  unionType: string
-): Edge {
+function makeMarriageEdge(source: string, target: string, unionType: string): Edge {
   const isDivorced = unionType === "divorced";
   return {
     id: `${source}-${target}-marriage`,
@@ -223,7 +220,6 @@ export default function TapestryCanvas() {
         });
 
         flowEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
-
         if (union.partnerB) {
           flowEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type));
         }
@@ -277,11 +273,6 @@ export default function TapestryCanvas() {
       const stagedNodes: Node[] = flowNodes.map((n) => ({
         ...n,
         position: { x: centerX, y: centerY },
-        data: {
-          ...n.data,
-          _centerX: centerX,
-          _centerY: centerY,
-        },
       }));
 
       setNodes([...stagedNodes]);
@@ -293,18 +284,9 @@ export default function TapestryCanvas() {
 
           const finalNodes: Node[] = flowNodes.map((n) => {
             const pos = positions.get(n.id) ?? { x: 0, y: 0 };
-            const delay = ((pos.y - minY) / (maxY - minY || 1)) * 0.6;
             return {
               ...n,
               position: pos,
-              data: {
-                ...n.data,
-                _animDelay: delay,
-                _targetX: pos.x,
-                _targetY: pos.y,
-                _fromX: centerX,
-                _fromY: centerY,
-              },
             };
           });
 
@@ -338,6 +320,23 @@ export default function TapestryCanvas() {
           opacity: ${showEdges ? 1 : 0};
           transition: opacity 800ms ease-in;
         }
+        .react-flow__minimap {
+          background: rgba(20,17,14,0.85) !important;
+          border: 1px solid var(--thread-gold-dim) !important;
+          border-radius: 8px !important;
+        }
+        .react-flow__controls {
+          background: rgba(20,17,14,0.85) !important;
+          border: 1px solid var(--thread-gold-dim) !important;
+          border-radius: 8px !important;
+        }
+        .react-flow__controls button {
+          color: var(--parchment) !important;
+          border-bottom-color: var(--thread-gold-dim) !important;
+        }
+        .react-flow__controls button:hover {
+          background: rgba(201,162,75,0.15) !important;
+        }
       `}</style>
 
       <div className="w-full h-screen relative overflow-hidden">
@@ -351,13 +350,20 @@ export default function TapestryCanvas() {
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
+            proOptions={{ hideAttribution: true }}
+            minZoom={0.1}
+            maxZoom={2}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.55 }}
             fitView
             fitViewOptions={{ padding: 0.3 }}
-            proOptions={{ hideAttribution: true }}
           >
-            <Controls
-              className="!bg-[rgba(20,17,14,0.85)] !border-[var(--thread-gold-dim)] !rounded-lg !text-[var(--parchment)]"
-              showInteractive={false}
+            <Controls showInteractive={false} />
+            <MiniMap
+              nodeStrokeColor="var(--thread-gold)"
+              nodeColor="rgba(201,162,75,0.2)"
+              maskColor="rgba(14,11,10,0.7)"
+              pannable
+              zoomable
             />
           </ReactFlow>
         </div>
