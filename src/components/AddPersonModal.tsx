@@ -48,6 +48,8 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
       phone,
       address,
       website,
+      lat: null,
+      lng: null,
     };
     onAdd(person);
   };

@@ -7,6 +7,7 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type Edge,
   MarkerType,
@@ -59,6 +60,8 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     phone: "",
     address: "",
     website: "",
+    lat: null,
+    lng: null,
   };
 }
 
@@ -159,6 +162,7 @@ function nextPersonId(persons: PersonLike[]) {
 }
 
 export default function TapestryCanvas() {
+  const { fitView } = useReactFlow();
   const [rawPersons, setRawPersons] = useState<PersonLike[]>([]);
   const [rawUnions, setRawUnions] = useState<UnionLike[]>([]);
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
@@ -468,6 +472,18 @@ export default function TapestryCanvas() {
     []
   );
 
+  // ── Navigate to person: select + fitView ──
+  const handleNavigatePerson = useCallback(
+    (personId: string) => {
+      const p = rawPersons.find((pp) => pp.id === personId);
+      if (p) {
+        setSelectedPerson(p);
+        setTimeout(() => fitView({ nodes: [{ id: personId }], padding: 0.3, duration: 400 }), 50);
+      }
+    },
+    [rawPersons, fitView]
+  );
+
   // ── Hover highlighting: find connected nodes ──
   const connectedNodeIds = useMemo(() => {
     if (!hoveredNodeId) return null;
@@ -733,6 +749,7 @@ export default function TapestryCanvas() {
           onCreatePersonAndLink={handleCreatePersonAndLink}
           onRemoveLink={handleRemoveLink}
           nextPersonId={() => nextPersonId(rawPersons)}
+          onNavigate={handleNavigatePerson}
         />
       </div>
 
@@ -741,6 +758,7 @@ export default function TapestryCanvas() {
         <div className="flex items-center gap-1 px-2 py-1.5 bg-[#0E0B0A]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
           <a href="/" className="px-3 py-1.5 text-xs rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">Tree</a>
           <a href="/timeline" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
+          <a href="/map" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Map</a>
           <button
             onClick={() => setShowGedcomImport(true)}
             className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"

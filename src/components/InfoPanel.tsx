@@ -14,6 +14,8 @@ export interface PersonLike {
   phone: string;
   address: string;
   website: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface UnionLike {
@@ -50,6 +52,7 @@ interface InfoPanelProps {
   ) => void;
   onRemoveLink: (linkType: "partner" | "child", fromId: string, toId: string) => void;
   nextPersonId: () => string;
+  onNavigate: (personId: string) => void;
 }
 
 type Tab = "profile" | "parents" | "partners" | "children";
@@ -68,6 +71,7 @@ export default function InfoPanel({
   onCreatePersonAndLink,
   onRemoveLink,
   nextPersonId,
+  onNavigate,
 }: InfoPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -169,6 +173,8 @@ export default function InfoPanel({
       phone: newPersonFields.phone,
       address: newPersonFields.address,
       website: newPersonFields.website,
+      lat: null,
+      lng: null,
     };
     if (tab === "partners") onCreatePersonAndLink(np, "partner", person.id, newUnionType, newStartYear ? Number(newStartYear) : null);
     else if (tab === "children") onCreatePersonAndLink(np, "child", person.id);
@@ -321,6 +327,7 @@ export default function InfoPanel({
               onNewFieldChange={(k, v) => setNewPersonFields((f) => ({ ...f, [k]: v }))}
               onStartAdd={setAddMode} onCancelAdd={resetAdd}
               onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Parent"
+              onNavigate={onNavigate}
             />
           )}
 
@@ -336,6 +343,7 @@ export default function InfoPanel({
               onRemove={(id) => onRemoveLink("partner", person.id, id)} personLabel="Partner"
               showUnionType unionType={newUnionType} onUnionTypeChange={setNewUnionType}
               startYear={newStartYear} onStartYearChange={setNewStartYear}
+              onNavigate={onNavigate}
             />
           )}
 
@@ -349,6 +357,7 @@ export default function InfoPanel({
               onNewFieldChange={(k, v) => setNewPersonFields((f) => ({ ...f, [k]: v }))}
               onStartAdd={setAddMode} onCancelAdd={resetAdd}
               onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Child"
+              onNavigate={onNavigate}
             />
           )}
         </div>
@@ -395,6 +404,7 @@ function RelSection({
   onSearch, onPickExisting, onCreateNew, onNewFieldChange,
   onStartAdd, onCancelAdd, onRemove, personLabel,
   showUnionType, unionType, onUnionTypeChange, startYear, onStartYearChange,
+  onNavigate,
 }: {
   items: { id: string; label: string; sub: string; badge?: string }[];
   addMode: "existing" | "new" | null;
@@ -414,6 +424,7 @@ function RelSection({
   onUnionTypeChange?: (val: string) => void;
   startYear?: string;
   onStartYearChange?: (val: string) => void;
+  onNavigate: (id: string) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -429,7 +440,7 @@ function RelSection({
                   </svg>
                 </div>
                 <div>
-                  <span className="text-sm text-[var(--parchment)] font-body">{item.label}</span>
+                  <button onClick={() => onNavigate(item.id)} className="text-sm text-[var(--parchment)] font-body hover:text-[var(--thread-gold)] transition-colors text-left">{item.label}</button>
                   {item.badge && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-[var(--ember-red)]/15 text-[var(--ember-red)]">{item.badge}</span>}
                   <p className="text-[10px] text-[var(--parchment-dim)]">{item.sub}</p>
                 </div>

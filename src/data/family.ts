@@ -11,6 +11,8 @@ export interface Person {
   phone: string;
   address: string;
   website: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface Union {
@@ -51,6 +53,7 @@ export const persons: Person[] = [
     birthPlace: "Edinburgh, Scotland",
     profession: "Timber Merchant",
     email: "", phone: "", address: "", website: "",
+    lat: 55.9533, lng: -3.1883,
   },
   {
     id: "p2",
@@ -62,6 +65,7 @@ export const persons: Person[] = [
     birthPlace: "Glasgow, Scotland",
     profession: "Schoolteacher",
     email: "", phone: "", address: "", website: "",
+    lat: 55.8642, lng: -4.2518,
   },
   {
     id: "p3",
@@ -73,6 +77,7 @@ export const persons: Person[] = [
     birthPlace: "Aberdeen, Scotland",
     profession: "Nurse",
     email: "rose.turner@outlook.com", phone: "+44 1224 555 0103", address: "14 Union Terrace, Aberdeen", website: "",
+    lat: 57.1499, lng: -2.0938,
   },
   {
     id: "p4",
@@ -84,6 +89,7 @@ export const persons: Person[] = [
     birthPlace: "Edinburgh, Scotland",
     profession: "Diplomat",
     email: "r.blackwood@btinternet.com", phone: "+44 131 555 0148", address: "22 Royal Terrace, Edinburgh", website: "",
+    lat: 55.9533, lng: -3.1883,
   },
   {
     id: "p5",
@@ -95,6 +101,7 @@ export const persons: Person[] = [
     birthPlace: "Dundee, Scotland",
     profession: "Cellist & Music Teacher",
     email: "jenny.blackwood@gmail.com", phone: "+44 131 555 0150", address: "22 Royal Terrace, Edinburgh", website: "",
+    lat: 56.4620, lng: -2.9707,
   },
   {
     id: "p6",
@@ -106,6 +113,7 @@ export const persons: Person[] = [
     birthPlace: "Edinburgh, Scotland",
     profession: "Marine Biologist",
     email: "t.blackwood@st-andrews.ac.uk", phone: "+44 1334 555 0152", address: "8 North Street, St Andrews", website: "https://blackwood-marine.co.uk",
+    lat: 55.9533, lng: -3.1883,
   },
   {
     id: "p7",
@@ -117,6 +125,7 @@ export const persons: Person[] = [
     birthPlace: "London, England",
     profession: "Marine Illustrator",
     email: "helen.clarke@icloud.com", phone: "+44 20 7555 0155", address: "31 Kensington Church Street, London", website: "https://helenclarke.art",
+    lat: 51.5074, lng: -0.1278,
   },
   {
     id: "p8",
@@ -128,6 +137,7 @@ export const persons: Person[] = [
     birthPlace: "Aberdeen, Scotland",
     profession: "Landscape Photographer",
     email: "charles@highlandlens.co.uk", phone: "+44 1463 555 0158", address: "7 Academy Street, Inverness", website: "https://highlandlens.co.uk",
+    lat: 57.1499, lng: -2.0938,
   },
   {
     id: "p9",
@@ -139,6 +149,7 @@ export const persons: Person[] = [
     birthPlace: "Edinburgh, Scotland",
     profession: "Architect",
     email: "emily@blackwoodheritage.com", phone: "+44 131 555 0175", address: "14 George Street, Edinburgh", website: "https://blackwoodheritage.com",
+    lat: 55.9533, lng: -3.1883,
   },
   {
     id: "p10",
@@ -150,6 +161,7 @@ export const persons: Person[] = [
     birthPlace: "Edinburgh, Scotland",
     profession: "Software Engineer",
     email: "david.blackwood@metoffice.gov.uk", phone: "+44 20 8555 0178", address: "5 The Street, Exeter", website: "",
+    lat: 55.9533, lng: -3.1883,
   },
   {
     id: "p11",
@@ -161,6 +173,7 @@ export const persons: Person[] = [
     birthPlace: "Edinburgh, Scotland",
     profession: "Documentary Filmmaker",
     email: "sophie@oceanedgefilms.com", phone: "+44 7700 900180", address: "Studio 4, Shoreditch, London", website: "https://oceanedgefilms.com",
+    lat: 55.9533, lng: -3.1883,
   },
   {
     id: "p12",
@@ -172,6 +185,7 @@ export const persons: Person[] = [
     birthPlace: "Inverness, Scotland",
     profession: "Ceramic Artist",
     email: "grace@highlandclay.co.uk", phone: "+44 1463 555 0185", address: "3 Castle Road, Inverness", website: "https://highlandclay.co.uk",
+    lat: 57.4778, lng: -4.2247,
   },
 ];
 
