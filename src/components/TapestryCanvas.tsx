@@ -167,7 +167,7 @@ export default function TapestryCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
   const [showEdges, setShowEdges] = useState(false);
-  const [animStarted, setAnimStarted] = useState(false);
+  const [animPhase, setAnimPhase] = useState<"idle" | "running" | "done">("idle");
   const finalPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   useEffect(() => {
@@ -280,7 +280,7 @@ export default function TapestryCanvas() {
 
       requestAnimationFrame(() => {
         setTimeout(() => {
-          setAnimStarted(true);
+          setAnimPhase("running");
 
           const finalNodes: Node[] = flowNodes.map((n) => {
             const pos = positions.get(n.id) ?? { x: 0, y: 0 };
@@ -292,6 +292,7 @@ export default function TapestryCanvas() {
 
           setNodes([...finalNodes]);
           setTimeout(() => setShowEdges(true), ANIM_DURATION * 0.5);
+          setTimeout(() => setAnimPhase("done"), ANIM_DURATION + 100);
         }, 400);
       });
     };
@@ -312,9 +313,11 @@ export default function TapestryCanvas() {
     <>
       <style>{`
         .react-flow__node {
-          transition: transform ${ANIM_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                      opacity ${ANIM_DURATION}ms ease-out;
-          opacity: ${animStarted ? 1 : 0};
+          ${animPhase === "running"
+            ? `transition: transform ${ANIM_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                          opacity ${ANIM_DURATION}ms ease-out;`
+            : ""}
+          opacity: ${animPhase === "idle" ? 0 : 1};
         }
         .react-flow__edge {
           opacity: ${showEdges ? 1 : 0};
