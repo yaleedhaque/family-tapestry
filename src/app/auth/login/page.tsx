@@ -109,7 +109,12 @@ function LoginForm() {
             </div>
 
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] block mb-1">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Password</label>
+                <Link href="/auth/reset" className="text-[10px] text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}

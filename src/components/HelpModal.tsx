@@ -220,6 +220,9 @@ export default function HelpModal() {
                     <li>You can export all your data at any time via GEDCOM</li>
                     <li>Account deletion removes your access; contact admin to delete data</li>
                   </ul>
+                  <a href="/privacy" className="inline-block mt-3 px-3 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 text-[var(--parchment-dim)] hover:text-[var(--thread-gold)] hover:border-[var(--thread-gold)]/30 transition-colors">
+                    Read full Privacy Policy →
+                  </a>
                 </Section>
 
                 <Section title="Version">

@@ -29,6 +29,7 @@ import HelpModal from "@/components/HelpModal";
 import AddPersonModal from "@/components/AddPersonModal";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
+import { useToast } from "@/components/Toast";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import type { Source } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
@@ -166,12 +167,14 @@ function nextPersonId(persons: PersonLike[]) {
   return `p${maxN + 1}`;
 }
 
-function apiCall(method: string, path: string, body?: unknown) {
+function apiCall(method: string, path: string, body?: unknown, onError?: () => void) {
   fetch(`/api${path}`, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
-  }).catch(() => {});
+  }).then((res) => {
+    if (!res.ok) onError?.();
+  }).catch(() => onError?.());
 }
 
 function toDbPerson(p: PersonLike) {
@@ -194,6 +197,7 @@ export default function TapestryCanvas() {
   const { fitView } = useReactFlow();
   const { user, canEdit, loading: authLoading } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
+  const { toast } = useToast();
   const [rawPersons, setRawPersons] = useState<PersonLike[]>([]);
   const [rawUnions, setRawUnions] = useState<UnionLike[]>([]);
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
@@ -425,8 +429,8 @@ export default function TapestryCanvas() {
   const handleUpdatePerson = useCallback((updated: PersonLike) => {
     setRawPersons((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setSelectedPerson(updated);
-    if (user) apiCall("PATCH", "/tree/persons", toDbPerson(updated));
-  }, [user]);
+    if (user) apiCall("PATCH", "/tree/persons", toDbPerson(updated), () => toast("Failed to save changes", "error"));
+  }, [user, toast]);
 
   //  --  --  CRUD: Delete person  --  -- 
   const handleDeletePerson = useCallback((personId: string) => {
@@ -434,17 +438,17 @@ export default function TapestryCanvas() {
     setRawUnions((prev) => prev.filter((u) => u.partnerA !== personId && u.partnerB !== personId));
     setRawEdges((prev) => prev.filter((e) => e.childId !== personId));
     setSelectedPerson(null);
-    if (user) apiCall("DELETE", `/tree/persons?id=${personId}`);
-  }, [user]);
+    if (user) apiCall("DELETE", `/tree/persons?id=${personId}`, undefined, () => toast("Failed to delete person", "error"));
+  }, [user, toast]);
 
   //  --  --  CRUD: Add partner (existing person)  --  -- 
   const handleAddPartner = useCallback(
     (personId: string, partnerId: string, unionType: string, startYear: number | null) => {
       const newUnion = { id: nextUnionId(rawUnions), partnerA: personId, partnerB: partnerId, type: unionType, startYear, endYear: null };
       setRawUnions((prev) => [...prev, newUnion]);
-      if (user) apiCall("PUT", "/tree", { unions: [...rawUnions, newUnion], persons: rawPersons, edges: rawEdges });
+      if (user) apiCall("PUT", "/tree", { unions: [...rawUnions, newUnion], persons: rawPersons, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
     },
-    [rawUnions, rawPersons, rawEdges, user]
+    [rawUnions, rawPersons, rawEdges, user, toast]
   );
 
   //  --  --  CRUD: Add child (existing person)  --  -- 
@@ -464,10 +468,10 @@ export default function TapestryCanvas() {
         setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
       }
       if (user) setTimeout(() => {
-        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
       }, 0);
     },
-    [findParentUnion, rawUnions, rawPersons, rawEdges, user]
+    [findParentUnion, rawUnions, rawPersons, rawEdges, user, toast]
   );
 
   //  --  --  CRUD: Add parent (existing person)  --  -- 
@@ -487,10 +491,10 @@ export default function TapestryCanvas() {
         setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
       }
       if (user) setTimeout(() => {
-        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
       }, 0);
     },
-    [findParentUnion, rawUnions, rawPersons, rawEdges, user]
+    [findParentUnion, rawUnions, rawPersons, rawEdges, user, toast]
   );
 
   //  --  --  CRUD: Create new person + link  --  -- 
@@ -528,13 +532,13 @@ export default function TapestryCanvas() {
       }
 
       if (user) {
-        apiCall("POST", "/tree/persons", toDbPerson(newPerson));
+        apiCall("POST", "/tree/persons", toDbPerson(newPerson), () => toast("Failed to save new person", "error"));
         setTimeout(() => {
-          apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+          apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
         }, 0);
       }
     },
-    [findParentUnion, rawUnions, rawPersons, rawEdges, user]
+    [findParentUnion, rawUnions, rawPersons, rawEdges, user, toast]
   );
 
   //  --  --  CRUD: Remove link  --  -- 
@@ -554,27 +558,27 @@ export default function TapestryCanvas() {
         }
       }
       if (user) setTimeout(() => {
-        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save changes", "error"));
       }, 0);
     },
-    [rawEdges, rawUnions, rawPersons, user]
+    [rawEdges, rawUnions, rawPersons, user, toast]
   );
 
   //  --  --  CRUD: Sources  --  -- 
   const handleAddSource = useCallback((source: Source) => {
     setRawSources((prev) => [...prev, source]);
-    if (user) apiCall("POST", "/sources", toDbSource(source));
-  }, [user]);
+    if (user) apiCall("POST", "/sources", toDbSource(source), () => toast("Failed to save source", "error"));
+  }, [user, toast]);
 
   const handleUpdateSource = useCallback((source: Source) => {
     setRawSources((prev) => prev.map((s) => (s.id === source.id ? source : s)));
-    if (user) apiCall("PATCH", "/sources", toDbSource(source));
-  }, [user]);
+    if (user) apiCall("PATCH", "/sources", toDbSource(source), () => toast("Failed to update source", "error"));
+  }, [user, toast]);
 
   const handleDeleteSource = useCallback((sourceId: string) => {
     setRawSources((prev) => prev.filter((s) => s.id !== sourceId));
-    if (user) apiCall("DELETE", `/sources?id=${sourceId}`);
-  }, [user]);
+    if (user) apiCall("DELETE", `/sources?id=${sourceId}`, undefined, () => toast("Failed to delete source", "error"));
+  }, [user, toast]);
 
   //  --  --  CRUD: Standalone add person (no link)  --  -- 
   const handleAddStandalonePerson = useCallback(
@@ -583,9 +587,9 @@ export default function TapestryCanvas() {
       setRawPersons((prev) => [...prev, newPerson]);
       setSelectedPerson(newPerson);
       setShowAddPerson(false);
-      if (user) apiCall("POST", "/tree/persons", toDbPerson(newPerson));
+      if (user) apiCall("POST", "/tree/persons", toDbPerson(newPerson), () => toast("Failed to save new person", "error"));
     },
-    [user]
+    [user, toast]
   );
 
   //  --  --  Navigate to person: select + fitView  --  -- 
@@ -762,10 +766,10 @@ export default function TapestryCanvas() {
       initialLoadDone.current = false;
       runLayout(persons, unions, edges, true);
       if (user) {
-        apiCall("PUT", "/tree", { persons, unions, edges, sources: [] });
+        apiCall("PUT", "/tree", { persons, unions, edges, sources: [] }, () => toast("Failed to save imported tree", "error"));
       }
     },
-    [runLayout, user]
+    [runLayout, user, toast]
   );
 
   //  --  --  Keyboard shortcuts  --  -- 
@@ -934,6 +938,9 @@ export default function TapestryCanvas() {
             ?
           </button>
           <HelpModal />
+          <a href="/privacy" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body" title="Privacy Policy">
+            🔒
+          </a>
           <button
             onClick={toggleTheme}
             className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
