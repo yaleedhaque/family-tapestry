@@ -25,6 +25,7 @@ import SearchBar from "@/components/SearchBar";
 import TreeToolbar from "@/components/TreeToolbar";
 import GedcomImport from "@/components/GedcomImport";
 import KeyboardHelp from "@/components/KeyboardHelp";
+import HelpModal from "@/components/HelpModal";
 import AddPersonModal from "@/components/AddPersonModal";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -165,6 +166,30 @@ function nextPersonId(persons: PersonLike[]) {
   return `p${maxN + 1}`;
 }
 
+function apiCall(method: string, path: string, body?: unknown) {
+  fetch(`/api${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => {});
+}
+
+function toDbPerson(p: PersonLike) {
+  return {
+    id: p.id, fullName: p.fullName, birthYear: p.birthYear, deathYear: p.deathYear,
+    isAlive: p.isAlive, bio: p.bio, birthPlace: p.birthPlace, profession: p.profession,
+    email: p.email, phone: p.phone, address: p.address, website: p.website,
+    lat: p.lat, lng: p.lng, photoUrl: p.photoUrl,
+  };
+}
+
+function toDbSource(s: Source) {
+  return {
+    id: s.id, personId: s.personId, type: s.type, title: s.title,
+    url: s.url, notes: s.notes, dateAdded: s.dateAdded,
+  };
+}
+
 export default function TapestryCanvas() {
   const { fitView } = useReactFlow();
   const { user, canEdit, loading: authLoading } = useAuth();
@@ -293,6 +318,29 @@ export default function TapestryCanvas() {
           parentEdges = staticEdges;
         }
       } else {
+        persons = staticPersons;
+        unions = staticUnions.map(toUnionLike);
+        parentEdges = staticEdges;
+      }
+
+      if (user) {
+        try {
+          const res = await fetch("/api/tree");
+          if (res.ok) {
+            const db = await res.json();
+            if (db.persons?.length > 0) {
+              persons = db.persons.map(toPersonLike);
+              unions = db.unions.map(toUnionLike);
+              parentEdges = db.edges.map(toEdgeLike);
+              sources = db.sources?.map((s: Record<string, unknown>) => ({
+                id: s.id as string, personId: s.person_id as string, type: s.type as Source["type"],
+                title: s.title as string, url: s.url as string, notes: s.notes as string,
+                dateAdded: s.date_added as string,
+              })) ?? [];
+            }
+          }
+        } catch { /* fall back to localStorage data */ }
+      } else if (!saved) {
         const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
         if (hasSupabase) {
           try {
@@ -301,22 +349,11 @@ export default function TapestryCanvas() {
               persons = data.persons.map(toPersonLike);
               unions = data.unions.map(toUnionLike);
               parentEdges = data.parentEdges.map(toEdgeLike);
-            } else {
-              persons = staticPersons;
-              unions = staticUnions.map(toUnionLike);
-              parentEdges = staticEdges;
             }
-          } catch {
-            persons = staticPersons;
-            unions = staticUnions.map(toUnionLike);
-            parentEdges = staticEdges;
-          }
-        } else {
-          persons = staticPersons;
-          unions = staticUnions.map(toUnionLike);
-          parentEdges = staticEdges;
+          } catch { /* keep defaults */ }
         }
       }
+
       setActiveTreeId(treeId);
       setTreeNames(names);
       setRawPersons(persons);
@@ -325,7 +362,7 @@ export default function TapestryCanvas() {
       setRawSources(sources);
       await runLayout(persons, unions, parentEdges, true);
     })();
-  }, [runLayout]);
+  }, [runLayout, user]);
 
   //  --  --  Persist to localStorage on every change  --  -- 
   useEffect(() => {
@@ -388,7 +425,8 @@ export default function TapestryCanvas() {
   const handleUpdatePerson = useCallback((updated: PersonLike) => {
     setRawPersons((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setSelectedPerson(updated);
-  }, []);
+    if (user) apiCall("PATCH", "/tree/persons", toDbPerson(updated));
+  }, [user]);
 
   //  --  --  CRUD: Delete person  --  -- 
   const handleDeletePerson = useCallback((personId: string) => {
@@ -396,17 +434,17 @@ export default function TapestryCanvas() {
     setRawUnions((prev) => prev.filter((u) => u.partnerA !== personId && u.partnerB !== personId));
     setRawEdges((prev) => prev.filter((e) => e.childId !== personId));
     setSelectedPerson(null);
-  }, []);
+    if (user) apiCall("DELETE", `/tree/persons?id=${personId}`);
+  }, [user]);
 
   //  --  --  CRUD: Add partner (existing person)  --  -- 
   const handleAddPartner = useCallback(
     (personId: string, partnerId: string, unionType: string, startYear: number | null) => {
-      setRawUnions((prev) => [
-        ...prev,
-        { id: nextUnionId(prev), partnerA: personId, partnerB: partnerId, type: unionType, startYear, endYear: null },
-      ]);
+      const newUnion = { id: nextUnionId(rawUnions), partnerA: personId, partnerB: partnerId, type: unionType, startYear, endYear: null };
+      setRawUnions((prev) => [...prev, newUnion]);
+      if (user) apiCall("PUT", "/tree", { unions: [...rawUnions, newUnion], persons: rawPersons, edges: rawEdges });
     },
-    []
+    [rawUnions, rawPersons, rawEdges, user]
   );
 
   //  --  --  CRUD: Add child (existing person)  --  -- 
@@ -414,17 +452,22 @@ export default function TapestryCanvas() {
     (parentId: string, childId: string) => {
       const union = findParentUnion(parentId);
       if (union) {
+        const newEdge = { unionId: union.id, childId };
         setRawEdges((prev) => {
           if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
-          return [...prev, { unionId: union.id, childId }];
+          return [...prev, newEdge];
         });
       } else {
         const newId = nextUnionId(rawUnions);
-        setRawUnions((prev) => [...prev, { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
+        const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
+        setRawUnions((prev) => [...prev, newUnion]);
         setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
       }
+      if (user) setTimeout(() => {
+        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+      }, 0);
     },
-    [findParentUnion, rawUnions]
+    [findParentUnion, rawUnions, rawPersons, rawEdges, user]
   );
 
   //  --  --  CRUD: Add parent (existing person)  --  -- 
@@ -432,17 +475,22 @@ export default function TapestryCanvas() {
     (childId: string, parentId: string) => {
       const union = findParentUnion(parentId);
       if (union) {
+        const newEdge = { unionId: union.id, childId };
         setRawEdges((prev) => {
           if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
-          return [...prev, { unionId: union.id, childId }];
+          return [...prev, newEdge];
         });
       } else {
         const newId = nextUnionId(rawUnions);
-        setRawUnions((prev) => [...prev, { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
+        const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
+        setRawUnions((prev) => [...prev, newUnion]);
         setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
       }
+      if (user) setTimeout(() => {
+        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+      }, 0);
     },
-    [findParentUnion, rawUnions]
+    [findParentUnion, rawUnions, rawPersons, rawEdges, user]
   );
 
   //  --  --  CRUD: Create new person + link  --  -- 
@@ -474,13 +522,19 @@ export default function TapestryCanvas() {
           setRawEdges((prev) => [...prev, { unionId: newId, childId: newPerson.id }]);
         }
       } else {
-        // "parent": create union for new parent, link child edge to relatedToId
         const newId = nextUnionId(rawUnions);
         setRawUnions((prev) => [...prev, { id: newId, partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
         setRawEdges((prev) => [...prev, { unionId: newId, childId: relatedToId }]);
       }
+
+      if (user) {
+        apiCall("POST", "/tree/persons", toDbPerson(newPerson));
+        setTimeout(() => {
+          apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+        }, 0);
+      }
     },
-    [findParentUnion, rawUnions]
+    [findParentUnion, rawUnions, rawPersons, rawEdges, user]
   );
 
   //  --  --  CRUD: Remove link  --  -- 
@@ -499,22 +553,28 @@ export default function TapestryCanvas() {
           }
         }
       }
+      if (user) setTimeout(() => {
+        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges });
+      }, 0);
     },
-    [rawEdges, rawUnions]
+    [rawEdges, rawUnions, rawPersons, user]
   );
 
   //  --  --  CRUD: Sources  --  -- 
   const handleAddSource = useCallback((source: Source) => {
     setRawSources((prev) => [...prev, source]);
-  }, []);
+    if (user) apiCall("POST", "/sources", toDbSource(source));
+  }, [user]);
 
   const handleUpdateSource = useCallback((source: Source) => {
     setRawSources((prev) => prev.map((s) => (s.id === source.id ? source : s)));
-  }, []);
+    if (user) apiCall("PATCH", "/sources", toDbSource(source));
+  }, [user]);
 
   const handleDeleteSource = useCallback((sourceId: string) => {
     setRawSources((prev) => prev.filter((s) => s.id !== sourceId));
-  }, []);
+    if (user) apiCall("DELETE", `/sources?id=${sourceId}`);
+  }, [user]);
 
   //  --  --  CRUD: Standalone add person (no link)  --  -- 
   const handleAddStandalonePerson = useCallback(
@@ -523,8 +583,9 @@ export default function TapestryCanvas() {
       setRawPersons((prev) => [...prev, newPerson]);
       setSelectedPerson(newPerson);
       setShowAddPerson(false);
+      if (user) apiCall("POST", "/tree/persons", toDbPerson(newPerson));
     },
-    []
+    [user]
   );
 
   //  --  --  Navigate to person: select + fitView  --  -- 
@@ -700,8 +761,11 @@ export default function TapestryCanvas() {
       layoutVersionRef.current++;
       initialLoadDone.current = false;
       runLayout(persons, unions, edges, true);
+      if (user) {
+        apiCall("PUT", "/tree", { persons, unions, edges, sources: [] });
+      }
     },
-    [runLayout]
+    [runLayout, user]
   );
 
   //  --  --  Keyboard shortcuts  --  -- 
@@ -869,6 +933,7 @@ export default function TapestryCanvas() {
           >
             ?
           </button>
+          <HelpModal />
           <button
             onClick={toggleTheme}
             className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
@@ -880,6 +945,11 @@ export default function TapestryCanvas() {
             user ? (
               <div className="flex items-center gap-1.5 pl-1 border-l border-[var(--thread-gold-dim)]/20 ml-1">
                 <span className="px-2 py-1 text-[10px] rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">{user.role ?? "editor"}</span>
+                {user.role === "admin" && (
+                  <a href="/admin" className="px-2 py-1 text-[10px] rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body">
+                    Admin
+                  </a>
+                )}
                 <button
                   onClick={async () => {
                     const { createClient } = await import("@/lib/supabase/client");
@@ -914,6 +984,7 @@ export default function TapestryCanvas() {
       )}
 
       <KeyboardHelp />
+      <HelpModal />
     </>
   );
 }

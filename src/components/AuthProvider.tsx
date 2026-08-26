@@ -42,23 +42,40 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     import("@/lib/supabase/client").then(({ createClient }) => {
       const supabase = createClient();
 
-      supabase.auth.getUser().then(({ data }) => {
+      supabase.auth.getUser().then(async ({ data }) => {
         const u = data.user as AuthUser | null;
         if (u) {
-          const role = (u.app_metadata as Record<string, unknown>)?.role as UserRole | undefined
+          const metaRole = (u.app_metadata as Record<string, unknown>)?.role as UserRole | undefined
             ?? (u.user_metadata as Record<string, unknown>)?.role as UserRole | undefined;
-          u.role = role ?? "editor";
+          try {
+            const { data: profile } = await supabase.from("profiles").select("role, approved").eq("id", u.id).single();
+            u.role = (profile?.role as UserRole) ?? metaRole ?? "editor";
+            (u as unknown as Record<string, unknown>).approved = profile?.approved ?? true;
+          } catch {
+            u.role = metaRole ?? "editor";
+          }
+          setUser(u);
+          setLoading(false);
+          return;
         }
         setUser(u);
         setLoading(false);
       });
 
-      const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
         const u = session?.user as AuthUser | null;
         if (u) {
-          const role = (u.app_metadata as Record<string, unknown>)?.role as UserRole | undefined
+          const metaRole = (u.app_metadata as Record<string, unknown>)?.role as UserRole | undefined
             ?? (u.user_metadata as Record<string, unknown>)?.role as UserRole | undefined;
-          u.role = role ?? "editor";
+          try {
+            const { data: profile } = await supabase.from("profiles").select("role, approved").eq("id", u.id).single();
+            u.role = (profile?.role as UserRole) ?? metaRole ?? "editor";
+            (u as unknown as Record<string, unknown>).approved = profile?.approved ?? true;
+          } catch {
+            u.role = metaRole ?? "editor";
+          }
+          setUser({ ...u });
+          return;
         }
         setUser(u);
       });

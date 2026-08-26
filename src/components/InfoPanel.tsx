@@ -93,6 +93,8 @@ export default function InfoPanel({
   const [fields, setFields] = useState<Record<string, string>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  const [photoLoading, setPhotoLoading] = useState(false);
+
   const [addMode, setAddMode] = useState<"existing" | "new" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [newPersonFields, setNewPersonFields] = useState({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
@@ -301,38 +303,35 @@ export default function InfoPanel({
                 <div className="flex items-center gap-3">
                   <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Photo</label>
                   <label className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors cursor-pointer">
-                    {person.photoUrl ? "Change Photo" : "Upload Photo"}
+                    {photoLoading ? "Uploading..." : person.photoUrl ? "Change Photo" : "Upload Photo"}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
                       className="hidden"
-                      onChange={(e) => {
+                      disabled={photoLoading}
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        if (file.size > 500 * 1024) { alert("Photo must be under 500KB."); return; }
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const img = new Image();
-                          img.onload = () => {
-                            const canvas = document.createElement("canvas");
-                            const size = 200;
-                            canvas.width = size;
-                            canvas.height = size;
-                            const ctx = canvas.getContext("2d")!;
-                            const min = Math.min(img.width, img.height);
-                            const sx = (img.width - min) / 2;
-                            const sy = (img.height - min) / 2;
-                            ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
-                            onUpdatePerson({ ...person, photoUrl: canvas.toDataURL("image/jpeg", 0.8) });
-                          };
-                          img.src = reader.result as string;
-                        };
-                        reader.readAsDataURL(file);
-                        e.target.value = "";
+                        if (file.size > 5 * 1024 * 1024) { alert("Photo must be under 5MB."); return; }
+                        setPhotoLoading(true);
+                        try {
+                          const form = new FormData();
+                          form.append("file", file);
+                          form.append("personId", person.id);
+                          const res = await fetch("/api/upload", { method: "POST", body: form });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || "Upload failed");
+                          onUpdatePerson({ ...person, photoUrl: data.url });
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : "Upload failed");
+                        } finally {
+                          setPhotoLoading(false);
+                          e.target.value = "";
+                        }
                       }}
                     />
                   </label>
-                  {person.photoUrl && (
+                  {person.photoUrl && !photoLoading && (
                     <button
                       onClick={() => onUpdatePerson({ ...person, photoUrl: "" })}
                       className="px-3 py-1.5 text-xs rounded border border-[var(--ember-red)]/40 text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors"

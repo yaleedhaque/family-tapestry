@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
-import { uploadToR2 } from "@/lib/r2/client";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
-const MAX_EDGE = 1200;
+const MAX_EDGE = 400;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const PUBLIC_URL = "https://eamcenktssskftpxeykw.supabase.co/storage/v1/object/public/portraits/portraits";
 
 export async function POST(request: NextRequest) {
   const rl = checkRateLimit("upload", 10, 60_000);
@@ -48,10 +49,23 @@ export async function POST(request: NextRequest) {
       .jpeg({ quality: 80, mozjpeg: true })
       .toBuffer();
 
-    const key = `portraits/${personId}.jpg`;
-    const url = await uploadToR2(key, processed, "image/jpeg");
+    const path = `portraits/${personId}.jpg`;
+    const db = createServiceClient();
 
-    return NextResponse.json({ url, key, size: processed.length });
+    const { error } = await db.storage
+      .from("portraits")
+      .upload(path, processed, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+
+    if (error) {
+      console.error("Storage upload error:", error);
+      return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    }
+
+    const url = `${PUBLIC_URL}/${path}`;
+    return NextResponse.json({ url, path, size: processed.length });
   } catch (err) {
     console.error("Upload error:", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
