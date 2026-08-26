@@ -90,10 +90,39 @@ html.light {
 }
 
 .react-flow__controls button {
+  background: transparent !important;
   color: var(--parchment) !important;
   border-bottom-color: var(--thread-gold-dim) !important;
 }
 
 .react-flow__controls button:hover {
   background: rgba(201,162,75,0.15) !important;
+}
+
+.react-flow__controls button svg {
+  fill: var(--parchment) !important;
+}
+
+.react-flow__attribution {
+  background: rgba(20,17,14,0.85) !important;
+  border-radius: 6px !important;
+}
+
+.react-flow__attribution a {
+  color: var(--parchment-dim) !important;
+}
+
+.react-flow__panel {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+select {
+  background-color: var(--tapestry-bg) !important;
+  color: var(--parchment) !important;
+  border-color: var(--thread-gold-dim) !important;
+}
+
+select option {
+  background-color: var(--tapestry-bg) !important;
+  color: var(--parchment) !important;
 }

@@ -297,9 +297,15 @@ export default function TapestryCanvas() {
         if (hasSupabase) {
           try {
             const data = await fetchFamilyData();
-            persons = data.persons.map(toPersonLike);
-            unions = data.unions.map(toUnionLike);
-            parentEdges = data.parentEdges.map(toEdgeLike);
+            if (data.persons.length > 0) {
+              persons = data.persons.map(toPersonLike);
+              unions = data.unions.map(toUnionLike);
+              parentEdges = data.parentEdges.map(toEdgeLike);
+            } else {
+              persons = staticPersons;
+              unions = staticUnions.map(toUnionLike);
+              parentEdges = staticEdges;
+            }
           } catch {
             persons = staticPersons;
             unions = staticUnions.map(toUnionLike);

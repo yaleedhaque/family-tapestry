@@ -33,6 +33,9 @@ export async function updateSession(request: NextRequest) {
 
   if (
     !user &&
+    pathname !== "/" &&
+    pathname !== "/timeline" &&
+    pathname !== "/map" &&
     !pathname.startsWith("/login") &&
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api") &&
