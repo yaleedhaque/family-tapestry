@@ -2,6 +2,8 @@
 
 A collaborative, graph-based web application that visualizes a family's entire ancestry as an interactive, living "tapestry" — inspired by the Black family tapestry from Harry Potter.
 
+**Live:** [family-tapestry-nine.vercel.app](https://family-tapestry-nine.vercel.app)
+
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8)
@@ -10,51 +12,37 @@ A collaborative, graph-based web application that visualizes a family's entire a
 
 ## Features
 
-- **Interactive Family Tree** — Drag, zoom, and explore your ancestry on a dark parchment-themed canvas with animated node scatter
+### Core
+- **Interactive Family Tree** — Drag, zoom, and explore ancestry on a dark parchment-themed canvas with animated node scatter
 - **Automatic Layout** — ELK.js engine positions generations vertically with proper spacing
-- **Person Profiles** — Full profiles with bio, birth/death years, profession, location, contact info, and photo avatars
-- **Timeline View** — Chronological list of 55+ life events across all family members
-- **Map View** — Leaflet-powered map showing birthplaces, residences, and migration arcs
+- **Person Profiles** — Full profiles with bio, life events timeline, relationships, photo gallery, and contact info
+- **Timeline View** — Chronological view of 69+ life events with filtering by type, person, year range, and search
+- **Map View** — Leaflet/OpenStreetMap showing birthplaces, residences, and migration arcs with OSRM routing
 - **Multi-Tree Support** — Create and switch between multiple family trees
-- **GEDCOM Import/Export** — Standard genealogy format for sharing data with other tools
-- **Source Citations** — Attach historical documents, photos, and references to people
-- **Dark/Light Theme** — Toggle between dark parchment and light parchment themes
 - **Search** — Fuzzy name search with keyboard shortcuts (`/` to search, `?` for help)
-- **Photo Upload** — Client-side image cropping and compression
-- **Authentication** — Supabase Auth with role-based access control (viewer/editor/admin)
-- **Responsive Design** — Works on desktop and mobile with adaptive layouts
 
-## Architecture
+### Collaboration & Real-time
+- **Real-time Presence** — See who's currently viewing the tree via Supabase Realtime
+- **Real-time Tree Sync** — Tree changes broadcast to all connected viewers instantly
+- **Role-Based Access** — Viewer/editor/admin roles with Supabase Row-Level Security
+- **Admin Panel** — User management, approval workflow, audit log viewer
 
-```
-src/
-  app/                    # Next.js App Router pages
-    page.tsx              # Home — interactive tree canvas
-    timeline/             # Chronological event view
-    map/                  # Geographic map view
-    person/[id]/          # Individual person profiles
-    auth/login/           # Authentication page
-    api/                  # API routes (upload, GEDCOM, audit)
-  components/             # React components
-    TapestryCanvas.tsx    # Main tree canvas (React Flow + ELK)
-    InfoPanel.tsx         # Right-side person detail panel
-    PersonNode.tsx        # Custom graph node for people
-    UnionNode.tsx         # Custom graph node for unions
-    SearchBar.tsx         # Floating search interface
-    TapestryBanner.tsx    # Ornamental title banner
-    TreeToolbar.tsx       # Stats panel + GEDCOM export
-    ThemeProvider.tsx     # Dark/light theme context
-    AuthProvider.tsx      # Authentication context
-  lib/                    # Utilities
-    validation.ts         # Input sanitization & validation
-    rate-limit.ts         # In-memory API rate limiting
-    supabase/             # Supabase client helpers
-    r2/                   # Cloudflare R2 storage client
-  data/                   # Static data models & types
-    family.ts             # Person, Union, Edge, Source types
-supabase/
-  schema.sql              # Database schema (run in SQL Editor)
-```
+### Import & Export
+- **Multi-format Export** — PNG, PDF, JSON, CSV (persons + relationships), and GEDCOM from a single export menu
+- **GEDCOM Import** — Import standard genealogy files from Ancestry, MyHeritage, etc.
+- **Source Citations** — Attach historical documents, photos, and references to people
+- **Photo Upload** — Client-side image compression with Supabase Storage
+
+### Authentication
+- **Google OAuth** — Sign in with any Google account (production-ready, no verification needed)
+- **Email/Password** — Traditional signup with email verification and password reset
+- **Auto-approve** — New signups are automatically approved as editors
+
+### Design & Mobile
+- **Dark/Light Theme** — Toggle between dark parchment and light parchment themes with CSS custom properties
+- **Mobile-Optimized** — Bottom navigation bar, safe-area insets, touch-friendly 44px tap targets, fluid typography
+- **PWA-Ready** — Viewport meta with `viewportFit: cover`, theme-color, standalone capable
+- **Harry Potter Aesthetic** — Dark parchment backgrounds, gold thread accents, ember red alerts, living glow/deceased frame indicators
 
 ## Tech Stack
 
@@ -65,11 +53,12 @@ supabase/
 | **Styling** | Tailwind CSS + CSS Custom Properties | Utility-first styling with design tokens |
 | **Graph** | React Flow (`@xyflow/react` v12) | Interactive node-based UI |
 | **Layout** | ELK.js | Automatic hierarchical graph layout |
-| **Database** | Supabase (PostgreSQL) | Auth, data storage, row-level security |
-| **Maps** | Leaflet + react-leaflet | Interactive geographic visualization |
-| **Media** | Cloudflare R2 + sharp | Image storage and processing |
-| **Testing** | Vitest | Unit tests for validation and rate limiting |
+| **Database** | Supabase (PostgreSQL) | Auth, data storage, row-level security, realtime |
+| **Maps** | Leaflet + react-leaflet | OpenStreetMap (free, no API key needed) |
+| **Export** | html-to-image + jsPDF | PNG and PDF client-side generation |
+| **Testing** | Vitest | 25 unit tests (validation, sanitization, rate limiting) |
 | **Deployment** | Vercel | Frontend hosting with edge functions |
+| **Analytics** | Vercel Analytics | Privacy-first usage analytics |
 
 ## Getting Started
 
@@ -86,36 +75,25 @@ npm install
 
 ### 2. Configure environment
 
-Copy the example environment file and fill in your Supabase credentials:
-
 ```bash
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` with your values:
+Edit `.env.local` with your Supabase credentials:
 
 ```env
-# Supabase (required)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# Cloudflare R2 (optional — for photo uploads)
-R2_ACCOUNT_ID=your-cloudflare-account-id
-R2_ACCESS_KEY_ID=your-r2-access-key
-R2_SECRET_ACCESS_KEY=your-r2-secret-key
-R2_BUCKET_NAME=your-bucket-name
-R2_PUBLIC_URL=https://your-bucket.your-r2.dev
 ```
 
 ### 3. Set up the database
 
-1. Open your Supabase dashboard
-2. Go to **SQL Editor**
-3. Paste the contents of `supabase/schema.sql`
-4. Click **Run**
+Run these SQL files in your Supabase SQL Editor, **in order**:
 
-This creates all required tables (`persons`, `unions`, `parent_edges`, `edit_log`, `family_roles`) with row-level security policies.
+1. `supabase/schema.sql` — Core tables (persons, unions, parent_edges, edit_log, family_roles)
+2. `supabase/migration-v2.sql` — Sources, profiles, auth trigger, storage bucket, RLS
+3. `supabase/migration-v3.sql` — Life events table, version column, realtime publication
 
 ### 4. Start the dev server
 
@@ -125,15 +103,65 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Scripts
+## Project Structure
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Production build |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm test` | Run unit tests (Vitest) |
+```
+src/
+  app/                         # Next.js App Router pages
+    page.tsx                   # Home — interactive tree canvas
+    timeline/                  # Chronological event view
+    map/                       # Geographic map view (Leaflet)
+    person/[id]/               # Individual person profiles
+    admin/                     # Admin dashboard
+    auth/login/                # Authentication page
+    auth/callback/             # OAuth + email verification handler
+    auth/reset/                # Password reset request
+    auth/update-password/      # Password update form
+    privacy/                   # Privacy policy
+    api/                       # API routes
+      tree/                    # GET/PUT tree data
+      tree/persons/            # POST/PATCH/DELETE persons
+      upload/                  # Photo upload to Supabase Storage
+      gedcom/                  # GEDCOM export
+      sources/                 # Source citations
+      audit/                   # Edit history
+      admin/users/             # User management
+  components/                  # React components
+    TapestryCanvas.tsx         # Main tree canvas (React Flow + ELK + Realtime)
+    PersonNode.tsx             # Custom graph node for people
+    UnionNode.tsx              # Custom graph node for unions
+    InfoPanel.tsx              # Right-side person detail panel
+    TreeToolbar.tsx            # Stats panel + tree management
+    SearchBar.tsx              # Floating search interface
+    ExportMenu.tsx             # Multi-format export dropdown
+    MobileNav.tsx              # Bottom navigation bar for mobile
+    HelpModal.tsx              # Keyboard shortcuts + about
+    Toast.tsx                  # Toast notification system
+    AddPersonModal.tsx         # Add new person form
+    GedcomImport.tsx           # GEDCOM file import
+    AuthProvider.tsx           # Authentication context + RBAC
+    Providers.tsx              # Combined providers wrapper
+  lib/                         # Utilities
+    supabase/                  # Supabase client helpers
+      client.ts                # Browser client
+      server.ts                # Server client
+      service.ts               # Service-role client
+      middleware.ts            # Auth middleware
+      realtime.ts              # Realtime hooks (tree sync, presence, locks)
+    types.ts                   # TypeScript types (DB + app)
+    export.ts                  # JSON/CSV/PNG/PDF export utilities
+    mobile.ts                  # Mobile detection + long press hooks
+    validation.ts              # Input sanitization & validation
+    rate-limit.ts              # In-memory API rate limiting
+    data.ts                    # Data fetching with fallback
+    r2/client.ts               # Cloudflare R2 storage (optional)
+  data/
+    family.ts                  # Static demo data (12 people, 69 events)
+supabase/
+  schema.sql                   # Core DB schema
+  migration-v2.sql             # Sources, profiles, storage
+  migration-v3.sql             # Life events, versioning, realtime
+```
 
 ## Design System
 
@@ -150,41 +178,39 @@ The app uses a custom "tapestry" design system with CSS custom properties:
 
 Fonts: **Cormorant Garamond** (display headings) + **Inter** (body text).
 
-## Data Storage
-
-The app supports three data backends with automatic fallback:
-
-1. **Supabase** (when configured) — persistent cloud storage with auth
-2. **localStorage** — per-browser persistence without a server
-3. **Static data** — built-in sample family tree for demo/offline use
-
-Tree data is stored as JSON in `localStorage` under the key `family-tapestry-trees`.
-
 ## API Routes
 
-| Route | Method | Auth Required | Description |
-|-------|--------|---------------|-------------|
-| `/api/upload` | POST | Yes | Upload and compress portrait photos |
-| `/api/gedcom` | GET | Yes | Export family tree as GEDCOM file |
-| `/api/audit` | GET | Yes (admin) | View edit history log |
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/tree` | GET/PUT | Yes | Full tree data (persons, unions, edges) |
+| `/api/tree/persons` | POST/PATCH/DELETE | Yes | Individual person CRUD |
+| `/api/upload` | POST | Yes | Photo upload to Supabase Storage |
+| `/api/gedcom` | GET | Yes | GEDCOM file export |
+| `/api/sources` | POST/PATCH/DELETE | Yes | Source citations |
+| `/api/audit` | GET | Admin | Edit history log |
+| `/api/admin/users` | GET/PATCH | Admin | User management |
 
-All API routes are rate-limited (10-20 requests/minute per key).
+All API routes are rate-limited with `Retry-After` headers.
 
 ## Security
 
-- **Row-Level Security** enabled on all database tables
+- **Row-Level Security** on all database tables
 - **Input sanitization** strips HTML tags and enforces field length limits
-- **Rate limiting** on all API routes with `Retry-After` headers
-- **Security headers** via `vercel.json` (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
-- **Auth checks** on all write operations and API routes
+- **Rate limiting** on all API routes
+- **Security headers** (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
+- **Auth checks** on all write operations
+- **RBAC** — viewer/editor/admin roles with Supabase RLS
+- **Auto-approve** — new signups get editor role automatically
 
-## Testing
+## Scripts
 
-```bash
-npm test
-```
-
-Tests cover input validation, sanitization, email/URL/year validators, and rate limiting.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run unit tests (Vitest) |
 
 ## Deployment
 
@@ -195,7 +221,7 @@ npx vercel login
 npx vercel --yes
 ```
 
-Vercel auto-detects Next.js and configures everything. Add your environment variables in the Vercel dashboard under **Settings > Environment Variables**.
+Add environment variables in the Vercel dashboard under **Settings > Environment Variables**.
 
 ### Manual
 
@@ -207,3 +233,7 @@ npm start
 ## License
 
 MIT
+
+---
+
+**Md. Yaleed Haque** — [GitHub](https://github.com/yaleedhaque) · [Portfolio](https://yaleedhaque.github.io) · [Live App](https://family-tapestry-nine.vercel.app)

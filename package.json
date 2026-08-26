@@ -1,7 +1,15 @@
 {
-  "name": "family-tapestry",
-  "version": "0.1.0",
+  "name": "digital-family-tapestry",
+  "version": "0.4.0",
   "private": true,
+  "description": "A collaborative, graph-based web app that visualizes a family's ancestry as an interactive tapestry — with real-time presence, multi-format export, and a Harry Potter-inspired aesthetic.",
+  "license": "MIT",
+  "author": "Md. Yaleed Haque <yaleedhaque@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yaleedhaque/family-tapestry"
+  },
+  "homepage": "https://family-tapestry-nine.vercel.app",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
