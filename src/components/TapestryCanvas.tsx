@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -27,13 +27,17 @@ import GedcomImport from "@/components/GedcomImport";
 import KeyboardHelp from "@/components/KeyboardHelp";
 import HelpModal from "@/components/HelpModal";
 import AddPersonModal from "@/components/AddPersonModal";
+import MobileNav from "@/components/MobileNav";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/components/Toast";
+import { useIsMobile } from "@/lib/mobile";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import type { Source } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
-import type { DbPerson } from "@/lib/types";
+import type { DbPerson, TreeChange } from "@/lib/types";
+import { useRealtimeTree, useTreePresence } from "@/lib/supabase/realtime";
+import type { PresencePayload } from "@/lib/types";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
 
@@ -198,6 +202,8 @@ export default function TapestryCanvas() {
   const { user, canEdit, loading: authLoading } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const viewportRef = useRef<HTMLDivElement>(null);
   const [rawPersons, setRawPersons] = useState<PersonLike[]>([]);
   const [rawUnions, setRawUnions] = useState<UnionLike[]>([]);
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
@@ -214,9 +220,45 @@ export default function TapestryCanvas() {
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [activeTreeId, setActiveTreeId] = useState("default");
   const [treeNames, setTreeNames] = useState<Record<string, string>>({ "default": "The Haque Tapestry" });
+  const [onlineUsers, setOnlineUsers] = useState<PresencePayload[]>([]);
   const layoutVersionRef = useRef(0);
   const initialLoadDone = useRef(false);
   const isInitialLoad = useRef(true);
+
+  // Realtime subscription for multi-user sync
+  const handleRealtimeChange = useCallback((change: TreeChange) => {
+    if (!user) return;
+    if (change.table === "persons" && change.eventType === "UPDATE" && change.new) {
+      const n = change.new as Record<string, unknown>;
+      setRawPersons((prev) =>
+        prev.map((p) =>
+          p.id === n.id
+            ? {
+                ...p,
+                fullName: (n.full_name as string) ?? p.fullName,
+                birthYear: (n.birth_year as number) ?? p.birthYear,
+                deathYear: (n.death_year as number) ?? p.deathYear,
+                isAlive: (n.is_alive as boolean) ?? p.isAlive,
+                bio: (n.bio as string) ?? p.bio,
+                birthPlace: (n.birth_place as string) ?? p.birthPlace,
+                profession: (n.profession as string) ?? p.profession,
+                photoUrl: (n.photo_url as string) ?? p.photoUrl,
+              }
+            : p
+        )
+      );
+    }
+  }, [user]);
+  useRealtimeTree(handleRealtimeChange);
+
+  // Presence: track who's online
+  const presenceUser = useMemo(() => {
+    if (!user) return null;
+    const meta = user.user_metadata as Record<string, unknown> | undefined;
+    const name = (meta?.full_name as string) ?? user.email?.split("@")[0] ?? "User";
+    return { id: user.id, name };
+  }, [user]);
+  useTreePresence(presenceUser, setOnlineUsers);
 
   //  --  --  Build graph + run ELK  --  -- 
   const runLayout = useCallback(
@@ -799,7 +841,7 @@ export default function TapestryCanvas() {
           opacity: ${showEdges ? 0.12 : 0} !important;
         }
       `}</style>
-      <div className={`w-full h-screen relative overflow-hidden ${hoveredNodeId ? "tapestry-hovering" : ""} ${searchHighlightId ? "tapestry-search-pulse" : ""}`}>
+      <div ref={viewportRef} className={`w-full h-screen relative overflow-hidden ${hoveredNodeId ? "tapestry-hovering" : ""} ${searchHighlightId ? "tapestry-search-pulse" : ""}`}>
         <BrickBackground />
 
         <TapestryBanner title={treeNames[activeTreeId] ?? "Family Tapestry"} />
@@ -810,6 +852,7 @@ export default function TapestryCanvas() {
           parentEdges={rawEdges}
           onExportGedcom={handleExportGedcom}
           onImportGedcom={() => setShowGedcomImport(true)}
+          viewportRef={viewportRef}
         />
 
         <div className="absolute inset-0 z-10">
@@ -829,19 +872,26 @@ export default function TapestryCanvas() {
             nodeTypes={nodeTypes}
             proOptions={{ hideAttribution: true }}
             minZoom={0.1}
-            maxZoom={2}
+            maxZoom={isMobile ? 2 : 3}
             defaultViewport={{ x: 0, y: 0, zoom: 0.55 }}
             fitView
-            fitViewOptions={{ padding: 0.3 }}
+            fitViewOptions={{ padding: 0.3, maxZoom: isMobile ? 1.2 : 1.5 }}
+            panOnDrag
+            zoomOnPinch
+            zoomOnScroll={!isMobile}
+            zoomOnDoubleClick={false}
+            preventScrolling
           >
             <Controls showInteractive={false} />
-            <MiniMap
-              nodeStrokeColor="var(--thread-gold)"
-              nodeColor="rgba(201,162,75,0.2)"
-              maskColor="rgba(14,11,10,0.7)"
-              pannable
-              zoomable
-            />
+            {!isMobile && (
+              <MiniMap
+                nodeStrokeColor="var(--thread-gold)"
+                nodeColor="rgba(201,162,75,0.2)"
+                maskColor="rgba(14,11,10,0.7)"
+                pannable
+                zoomable
+              />
+            )}
           </ReactFlow>
         </div>
 
@@ -918,8 +968,8 @@ export default function TapestryCanvas() {
         )}
       </div>
 
-      {/* Navigation bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex justify-center pb-3 pointer-events-none">
+      {/* Navigation bar — desktop only */}
+      <nav className="fixed bottom-0 left-0 right-0 z-20 hidden md:flex justify-center pb-3 pointer-events-none">
         <div className="flex items-center gap-1 px-2 py-1.5 bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
           <a href="/" className="px-3 py-1.5 text-xs rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">Tree</a>
           <a href="/timeline" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
@@ -991,7 +1041,30 @@ export default function TapestryCanvas() {
       )}
 
       <KeyboardHelp />
-      <HelpModal />
+      <MobileNav />
+
+      {/* Online presence indicators */}
+      {onlineUsers.length > 0 && (
+        <div className="fixed bottom-20 right-6 z-30 hidden md:flex items-center gap-1.5">
+          {onlineUsers.slice(0, 5).map((u) => (
+            <div
+              key={u.userId}
+              className="relative group"
+              title={`${u.userName}${u.editing ? " — editing" : u.viewing ? " — viewing" : " — online"}`}
+            >
+              <div className="w-7 h-7 rounded-full bg-[var(--tapestry-bg)]/90 backdrop-blur-sm border border-[var(--thread-gold-dim)]/40 flex items-center justify-center text-[9px] text-[var(--thread-gold)] font-body font-medium select-none">
+                {u.userName.slice(0, 2).toUpperCase()}
+              </div>
+              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[var(--living-glow)] border border-[var(--tapestry-bg)]" />
+            </div>
+          ))}
+          {onlineUsers.length > 5 && (
+            <div className="w-7 h-7 rounded-full bg-[var(--tapestry-bg)]/90 backdrop-blur-sm border border-[var(--thread-gold-dim)]/40 flex items-center justify-center text-[9px] text-[var(--parchment-dim)] font-body">
+              +{onlineUsers.length - 5}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

@@ -15,6 +15,7 @@ export interface DbPerson {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  version?: number;
 }
 
 export interface DbUnion {
@@ -48,3 +49,44 @@ export interface DbEditLog {
   new_value: unknown;
   edited_at: string;
 }
+
+export interface DbLifeEvent {
+  id: string;
+  person_id: string;
+  year: number;
+  month: number | null;
+  day: number | null;
+  event_type: string;
+  title: string;
+  description: string | null;
+  place: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface LifeEvent {
+  id: string;
+  personId: string;
+  year: number;
+  month?: number;
+  day?: number;
+  type: "birth" | "death" | "marriage" | "divorce" | "career" | "education" | "migration" | "achievement" | "military" | "other";
+  title: string;
+  description?: string;
+  place?: string;
+}
+
+export interface PresencePayload {
+  userId: string;
+  userName: string;
+  viewing: string | null;
+  editing: string | null;
+  online_at: string;
+}
+
+export type TreeChange = {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  table: string;
+  new: Record<string, unknown> | null;
+  old: Record<string, unknown> | null;
+};

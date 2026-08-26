@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Providers from "@/components/Providers";
@@ -23,6 +23,22 @@ export const metadata: Metadata = {
   title: "Digital Family Tapestry",
   description:
     "A collaborative, graph-based web application that visualizes a family's entire ancestry as an interactive, living tapestry.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Family Tapestry",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0E0B0A" },
+    { media: "(prefers-color-scheme: light)", color: "#F5F0E8" },
+  ],
 };
 
 export default function RootLayout({

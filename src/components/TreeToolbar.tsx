@@ -2,16 +2,18 @@
 
 import { useMemo, useState } from "react";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+import ExportMenu from "@/components/ExportMenu";
 
 interface TreeToolbarProps {
   persons: PersonLike[];
   unions: UnionLike[];
   parentEdges: EdgeLike[];
-  onExportGedcom: () => void;
+  onExportGedcom?: () => void;
   onImportGedcom?: () => void;
+  viewportRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export default function TreeToolbar({ persons, unions, parentEdges, onExportGedcom, onImportGedcom }: TreeToolbarProps) {
+export default function TreeToolbar({ persons, unions, parentEdges, onExportGedcom, onImportGedcom, viewportRef }: TreeToolbarProps) {
   const [expanded, setExpanded] = useState(false);
 
   const stats = useMemo(() => {
@@ -59,15 +61,13 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
           </div>
 
           <div className="px-4 py-3 border-t border-[var(--thread-gold-dim)]/20 space-y-2">
-            <button
-              onClick={onExportGedcom}
-              className="w-full py-2 text-xs rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/20 transition-colors font-body flex items-center justify-center gap-2"
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-                <path d="M8 2v8M4 7l4 4 4-4M2 13h12" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Export GEDCOM
-            </button>
+            <ExportMenu
+              persons={persons}
+              unions={unions}
+              edges={parentEdges}
+              viewportRef={viewportRef}
+              onExportGedcom={onExportGedcom}
+            />
             {onImportGedcom && (
               <button
                 onClick={onImportGedcom}
