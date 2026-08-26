@@ -46,16 +46,16 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
           </div>
 
           <div className="px-4 py-3 space-y-2.5">
-            <StatRow label="People" value={persons.length} icon="ðŸ‘¤" />
-            <StatRow label="Living" value={stats.alive} icon="âœ¦" color="var(--living-glow)" />
-            <StatRow label="Deceased" value={stats.deceased} icon="âš¬" color="var(--deceased-frame)" />
-            <StatRow label="Generations" value={stats.generations} icon="â†“" />
+            <StatRow label="People" value={persons.length} icon="&#x1F464;" />
+            <StatRow label="Living" value={stats.alive} icon="&#x271A;" color="var(--living-glow)" />
+            <StatRow label="Deceased" value={stats.deceased} icon="&#x2720;" color="var(--deceased-frame)" />
+            <StatRow label="Generations" value={stats.generations} icon="&#x2193;" />
 
             <div className="border-t border-[var(--thread-gold-dim)]/15 pt-2.5" />
 
-            <StatRow label="Marriages" value={stats.marriages} icon="â—†" color="var(--thread-gold)" />
-            <StatRow label="Partnerships" value={stats.partnerships} icon="â—†" color="var(--thread-gold-dim)" />
-            <StatRow label="Divorced" value={stats.divorced} icon="âœ•" color="var(--ember-red)" />
+            <StatRow label="Marriages" value={stats.marriages} icon="&#x25C6;" color="var(--thread-gold)" />
+            <StatRow label="Partnerships" value={stats.partnerships} icon="&#x25C6;" color="var(--thread-gold-dim)" />
+            <StatRow label="Divorced" value={stats.divorced} icon="&#x2716;" color="var(--ember-red)" />
           </div>
 
           <div className="px-4 py-3 border-t border-[var(--thread-gold-dim)]/20 space-y-2">

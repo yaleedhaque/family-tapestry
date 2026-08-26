@@ -125,7 +125,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
                 </div>
                 <div className="min-w-0">
                   <span className="text-sm text-[var(--parchment)] font-body block truncate">{p.fullName}</span>
-                  <span className="text-[10px] text-[var(--parchment-dim)]">{p.birthYear} â€“ {p.deathYear ?? "present"}</span>
+                  <span className="text-[10px] text-[var(--parchment-dim)]">{p.birthYear} – {p.deathYear ?? "present"}</span>
                 </div>
                 {p.isAlive === false && (
                   <span className="ml-auto text-[9px] text-[var(--deceased-frame)] italic shrink-0">deceased</span>

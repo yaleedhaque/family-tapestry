@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { uploadToR2 } from "@/lib/r2/client";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { createClient } from "@/lib/supabase/server";
 
 const MAX_EDGE = 1200;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -10,6 +11,12 @@ export async function POST(request: NextRequest) {
   const rl = checkRateLimit("upload", 10, 60_000);
   if (!rl.allowed) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -189,7 +189,7 @@ export default function TapestryCanvas() {
   const initialLoadDone = useRef(false);
   const isInitialLoad = useRef(true);
 
-  // â”€â”€ Build graph + run ELK â”€â”€
+  //  --  --  Build graph + run ELK  --  -- 
   const runLayout = useCallback(
     async (persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[], animate: boolean) => {
       const version = ++layoutVersionRef.current;
@@ -259,7 +259,7 @@ export default function TapestryCanvas() {
     [setNodes, setFlowEdges]
   );
 
-  // â”€â”€ Initial load â”€â”€
+  //  --  --  Initial load  --  -- 
   useEffect(() => {
     (async () => {
       const STORAGE_KEY = "family-tapestry-trees";
@@ -321,7 +321,7 @@ export default function TapestryCanvas() {
     })();
   }, [runLayout]);
 
-  // â”€â”€ Persist to localStorage on every change â”€â”€
+  //  --  --  Persist to localStorage on every change  --  -- 
   useEffect(() => {
     if (isInitialLoad.current) {
       if (rawPersons.length > 0) isInitialLoad.current = false;
@@ -342,7 +342,7 @@ export default function TapestryCanvas() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: activeTreeId }));
   }, [rawPersons, rawUnions, rawEdges, rawSources, activeTreeId, treeNames]);
 
-  // â”€â”€ Re-layout whenever raw data changes (after first load) â”€â”€
+  //  --  --  Re-layout whenever raw data changes (after first load)  --  -- 
   const prevDataSig = useRef("");
   useEffect(() => {
     if (!initialLoadDone.current) return;
@@ -352,7 +352,7 @@ export default function TapestryCanvas() {
     runLayout(rawPersons, rawUnions, rawEdges, false);
   }, [rawPersons, rawUnions, rawEdges, runLayout]);
 
-  // â”€â”€ Keep selectedPerson live â”€â”€
+  //  --  --  Keep selectedPerson live  --  -- 
   useEffect(() => {
     if (selectedPerson) {
       const live = rawPersons.find((p) => p.id === selectedPerson.id);
@@ -360,7 +360,7 @@ export default function TapestryCanvas() {
     }
   }, [rawPersons, selectedPerson]);
 
-  // â”€â”€ Node click â”€â”€
+  //  --  --  Node click  --  -- 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       if (node.type === "personNode") {
@@ -371,20 +371,20 @@ export default function TapestryCanvas() {
     [rawPersons]
   );
 
-  // â”€â”€ Find the union that makes someone a parent â”€â”€
+  //  --  --  Find the union that makes someone a parent  --  -- 
   const findParentUnion = useCallback(
     (personId: string): UnionLike | undefined =>
       rawUnions.find((u) => u.partnerA === personId || u.partnerB === personId),
     [rawUnions]
   );
 
-  // â”€â”€ CRUD: Update person â”€â”€
+  //  --  --  CRUD: Update person  --  -- 
   const handleUpdatePerson = useCallback((updated: PersonLike) => {
     setRawPersons((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setSelectedPerson(updated);
   }, []);
 
-  // â”€â”€ CRUD: Delete person â”€â”€
+  //  --  --  CRUD: Delete person  --  -- 
   const handleDeletePerson = useCallback((personId: string) => {
     setRawPersons((prev) => prev.filter((p) => p.id !== personId));
     setRawUnions((prev) => prev.filter((u) => u.partnerA !== personId && u.partnerB !== personId));
@@ -392,7 +392,7 @@ export default function TapestryCanvas() {
     setSelectedPerson(null);
   }, []);
 
-  // â”€â”€ CRUD: Add partner (existing person) â”€â”€
+  //  --  --  CRUD: Add partner (existing person)  --  -- 
   const handleAddPartner = useCallback(
     (personId: string, partnerId: string, unionType: string, startYear: number | null) => {
       setRawUnions((prev) => [
@@ -403,7 +403,7 @@ export default function TapestryCanvas() {
     []
   );
 
-  // â”€â”€ CRUD: Add child (existing person) â”€â”€
+  //  --  --  CRUD: Add child (existing person)  --  -- 
   const handleAddChild = useCallback(
     (parentId: string, childId: string) => {
       const union = findParentUnion(parentId);
@@ -421,7 +421,7 @@ export default function TapestryCanvas() {
     [findParentUnion, rawUnions]
   );
 
-  // â”€â”€ CRUD: Add parent (existing person) â”€â”€
+  //  --  --  CRUD: Add parent (existing person)  --  -- 
   const handleAddParent = useCallback(
     (childId: string, parentId: string) => {
       const union = findParentUnion(parentId);
@@ -439,7 +439,7 @@ export default function TapestryCanvas() {
     [findParentUnion, rawUnions]
   );
 
-  // â”€â”€ CRUD: Create new person + link â”€â”€
+  //  --  --  CRUD: Create new person + link  --  -- 
   const handleCreatePersonAndLink = useCallback(
     (
       newPerson: PersonLike,
@@ -477,7 +477,7 @@ export default function TapestryCanvas() {
     [findParentUnion, rawUnions]
   );
 
-  // â”€â”€ CRUD: Remove link â”€â”€
+  //  --  --  CRUD: Remove link  --  -- 
   const handleRemoveLink = useCallback(
     (linkType: "partner" | "child", fromId: string, toId: string) => {
       if (linkType === "partner") {
@@ -497,7 +497,7 @@ export default function TapestryCanvas() {
     [rawEdges, rawUnions]
   );
 
-  // â”€â”€ CRUD: Sources â”€â”€
+  //  --  --  CRUD: Sources  --  -- 
   const handleAddSource = useCallback((source: Source) => {
     setRawSources((prev) => [...prev, source]);
   }, []);
@@ -510,7 +510,7 @@ export default function TapestryCanvas() {
     setRawSources((prev) => prev.filter((s) => s.id !== sourceId));
   }, []);
 
-  // â”€â”€ CRUD: Standalone add person (no link) â”€â”€
+  //  --  --  CRUD: Standalone add person (no link)  --  -- 
   const handleAddStandalonePerson = useCallback(
     (newPerson: PersonLike) => {
       if (!newPerson.fullName.trim()) return;
@@ -521,7 +521,7 @@ export default function TapestryCanvas() {
     []
   );
 
-  // â”€â”€ Navigate to person: select + fitView â”€â”€
+  //  --  --  Navigate to person: select + fitView  --  -- 
   const handleNavigatePerson = useCallback(
     (personId: string) => {
       const p = rawPersons.find((pp) => pp.id === personId);
@@ -533,7 +533,7 @@ export default function TapestryCanvas() {
     [rawPersons, fitView]
   );
 
-  // â”€â”€ Switch active tree â”€â”€
+  //  --  --  Switch active tree  --  -- 
   const switchTree = useCallback(
     (newTreeId: string) => {
       if (newTreeId === activeTreeId) return;
@@ -568,7 +568,7 @@ export default function TapestryCanvas() {
     [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames]
   );
 
-  // â”€â”€ Create new tree â”€â”€
+  //  --  --  Create new tree  --  -- 
   const createTree = useCallback(() => {
     const name = prompt("Tree name:");
     if (!name?.trim()) return;
@@ -577,7 +577,7 @@ export default function TapestryCanvas() {
     switchTree(id);
   }, [switchTree]);
 
-  // â”€â”€ Hover highlighting: find connected nodes â”€â”€
+  //  --  --  Hover highlighting: find connected nodes  --  -- 
   const connectedNodeIds = useMemo(() => {
     if (!hoveredNodeId) return null;
     const ids = new Set<string>([hoveredNodeId]);
@@ -605,7 +605,7 @@ export default function TapestryCanvas() {
     return ids;
   }, [hoveredNodeId, rawUnions, rawEdges]);
 
-  // â”€â”€ Apply highlight/dim data to nodes â”€â”€
+  //  --  --  Apply highlight/dim data to nodes  --  -- 
   useEffect(() => {
     if (!connectedNodeIds && !searchHighlightId) {
       setNodes((prev) => prev.map((n) => {
@@ -625,7 +625,7 @@ export default function TapestryCanvas() {
     }));
   }, [connectedNodeIds, searchHighlightId, hoveredNodeId, setNodes]);
 
-  // â”€â”€ Search select handler â”€â”€
+  //  --  --  Search select handler  --  -- 
   const handleSearchSelect = useCallback(
     (person: PersonLike) => {
       setSelectedPerson(person);
@@ -635,7 +635,7 @@ export default function TapestryCanvas() {
     []
   );
 
-  // â”€â”€ GEDCOM export (client-side from current data) â”€â”€
+  //  --  --  GEDCOM export (client-side from current data)  --  -- 
   const handleExportGedcom = useCallback(() => {
     const lines: string[] = [
       "0 HEAD",
@@ -685,7 +685,7 @@ export default function TapestryCanvas() {
     URL.revokeObjectURL(url);
   }, [rawPersons, rawUnions, rawEdges]);
 
-  // â”€â”€ GEDCOM import handler â”€â”€
+  //  --  --  GEDCOM import handler  --  -- 
   const handleGedcomImport = useCallback(
     (persons: PersonLike[], unions: UnionLike[], edges: EdgeLike[]) => {
       setRawPersons(persons);
@@ -698,7 +698,7 @@ export default function TapestryCanvas() {
     [runLayout]
   );
 
-  // â”€â”€ Keyboard shortcuts â”€â”€
+  //  --  --  Keyboard shortcuts  --  -- 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -720,46 +720,15 @@ export default function TapestryCanvas() {
         }
         .react-flow__edge {
           opacity: ${showEdges ? 1 : 0};
-          transition: opacity 300ms ease-in;
         }
         .tapestry-hovering .react-flow__edge {
           opacity: ${showEdges ? 0.12 : 0} !important;
-          transition: opacity 200ms ease;
-        }
-        .tapestry-hovering .react-flow__edge.highlighted {
-          opacity: 1 !important;
-        }
-        .tapestry-search-pulse .react-flow__node[data-highlighted="true"] {
-          animation: searchPulse 2.5s ease-out;
-        }
-        @keyframes searchPulse {
-          0% { box-shadow: 0 0 0 0 rgba(201,162,75,0.6); }
-          50% { box-shadow: 0 0 24px 8px rgba(201,162,75,0.3); }
-          100% { box-shadow: 0 0 0 0 rgba(201,162,75,0); }
-        }
-        .react-flow__minimap {
-          background: rgba(20,17,14,0.85) !important;
-          border: 1px solid var(--thread-gold-dim) !important;
-          border-radius: 8px !important;
-        }
-        .react-flow__controls {
-          background: rgba(20,17,14,0.85) !important;
-          border: 1px solid var(--thread-gold-dim) !important;
-          border-radius: 8px !important;
-        }
-        .react-flow__controls button {
-          color: var(--parchment) !important;
-          border-bottom-color: var(--thread-gold-dim) !important;
-        }
-        .react-flow__controls button:hover {
-          background: rgba(201,162,75,0.15) !important;
         }
       `}</style>
-
       <div className={`w-full h-screen relative overflow-hidden ${hoveredNodeId ? "tapestry-hovering" : ""} ${searchHighlightId ? "tapestry-search-pulse" : ""}`}>
         <BrickBackground />
 
-        <TapestryBanner />
+        <TapestryBanner title={treeNames[activeTreeId] ?? "Family Tapestry"} />
 
         <TreeToolbar
           persons={rawPersons}
@@ -899,7 +868,7 @@ export default function TapestryCanvas() {
             className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
             title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
           >
-            {theme === "dark" ? "â˜€" : "â˜¾"}
+            {theme === "dark" ? "☀" : "☾"}
           </button>
           {!authLoading && (
             user ? (

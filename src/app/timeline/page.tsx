@@ -6,16 +6,16 @@ import { getAllEventsSorted, getPerson, persons } from "@/data/family";
 import type { LifeEvent } from "@/data/family";
 
 const EVENT_ICONS: Record<string, string> = {
-  birth: "新生儿",
-  death: "✝",
-  marriage: "◆",
-  divorce: "✕",
-  career: "💼",
-  education: "🎓",
-  migration: "✈",
-  achievement: "🏆",
-  military: "⚔",
-  other: "•",
+  birth: "\u{1F476}",
+  death: "\u{271D}",
+  marriage: "\u{25C6}",
+  divorce: "\u{2715}",
+  career: "\u{1F4BC}",
+  education: "\u{1F393}",
+  migration: "\u{2708}",
+  achievement: "\u{1F3C6}",
+  military: "\u{2694}",
+  other: "\u{2022}",
 };
 
 const EVENT_COLORS: Record<string, string> = {

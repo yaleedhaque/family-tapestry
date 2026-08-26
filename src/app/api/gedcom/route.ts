@@ -10,6 +10,11 @@ export async function GET() {
 
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { data: persons } = await supabase.from("persons").select("*");
   const { data: unions } = await supabase.from("unions").select("*");
   const { data: edges } = await supabase.from("parent_edges").select("*");

@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-export default function TapestryBanner() {
+interface TapestryBannerProps {
+  title?: string;
+}
+
+export default function TapestryBanner({ title = "Family Tapestry" }: TapestryBannerProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -28,7 +32,7 @@ export default function TapestryBanner() {
 
         {/* title */}
         <h1 className="font-display text-2xl md:text-3xl font-semibold text-[var(--thread-gold)] tracking-wide text-center leading-tight">
-          The Haque Tapestry
+          {title}
         </h1>
 
         {/* subtitle */}
