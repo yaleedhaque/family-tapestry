@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 
 const NAV_ITEMS = [
   { href: "/", label: "Tree", icon: TreeIcon },
@@ -16,6 +17,7 @@ interface MobileNavProps {
 
 export default function MobileNav({ hidden = false }: MobileNavProps) {
   const pathname = usePathname();
+  const { user, loading: authLoading } = useAuth();
   const suppressScroll = useRef(false);
   const [visible, setVisible] = useState(true);
   const [lastScroll, setLastScroll] = useState(0);
@@ -70,8 +72,47 @@ export default function MobileNav({ hidden = false }: MobileNavProps) {
             </Link>
           );
         })}
+
+        {!authLoading && (
+          user ? (
+            <div className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl min-w-[56px]">
+              <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body uppercase">
+                {user.role ?? "editor"}
+              </span>
+              <button
+                onClick={async () => {
+                  const { createClient } = await import("@/lib/supabase/client");
+                  await createClient().auth.signOut();
+                  window.location.reload();
+                }}
+                className="text-[10px] font-body text-[var(--parchment-dim)] hover:text-[var(--parchment)]"
+                aria-label="Sign out"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/auth/login"
+              className="flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl min-w-[60px] text-[var(--thread-gold)]"
+              aria-label="Sign in"
+            >
+              <UserIcon />
+              <span className="text-[10px] font-body">Sign In</span>
+            </Link>
+          )
+        )}
       </div>
     </nav>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" strokeLinecap="round" />
+    </svg>
   );
 }
 

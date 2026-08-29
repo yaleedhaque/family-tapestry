@@ -889,7 +889,10 @@ export default function TapestryCanvas() {
             zoomOnDoubleClick={false}
             preventScrolling
           >
-            <Controls showInteractive={false} />
+            <Controls
+              showInteractive={false}
+              className="!right-3 !left-auto !bottom-[5.5rem] md:!right-auto md:!left-3 md:!bottom-3"
+            />
             {!isMobile && (
               <MiniMap
                 nodeStrokeColor="var(--thread-gold)"
