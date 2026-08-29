@@ -224,16 +224,23 @@ export default function InfoPanel({
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
 
-      <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[var(--tapestry-bg-alt)] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[85vh] max-md:w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-2xl max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
-        {/* Mobile drag handle */}
-        <div className="hidden max-md:flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full bg-[var(--thread-gold-dim)]/30" />
+      <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[var(--tapestry-bg-alt)] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[72vh] max-md:max-h-[72vh] max-md:w-full max-md:max-w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-3xl max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+        {/* Mobile drag handle + close row */}
+        <div className="hidden max-md:flex items-center justify-between px-4 pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-[var(--thread-gold-dim)]/30 mx-auto" />
+          <button
+            onClick={onClose}
+            aria-label="Close profile"
+            className="absolute right-4 top-3 w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-sm"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Header with avatar */}
-        <div className="flex justify-center pt-5 pb-3 border-b border-[var(--thread-gold-dim)]/20">
+        <div className="flex items-center gap-4 justify-center pt-4 pb-3 border-b border-[var(--thread-gold-dim)]/20 px-4">
           <div
-            className={`w-20 h-20 rounded-full border-2 overflow-hidden flex items-center justify-center ${
+            className={`shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-full border-2 overflow-hidden flex items-center justify-center ${
               person.isAlive
                 ? "border-[var(--living-glow)] shadow-[0_0_16px_rgba(217,139,62,0.3)]"
                 : "border-[var(--deceased-frame)] grayscale"
@@ -248,15 +255,23 @@ export default function InfoPanel({
               </svg>
             )}
           </div>
+          <div className="min-w-0 text-left">
+            <h2 className="font-display text-xl md:text-2xl font-semibold text-[var(--parchment)] leading-snug truncate">
+              {person.fullName}
+            </h2>
+            <p className="text-xs text-[var(--parchment-dim)] italic mt-0.5">
+              {person.birthYear ? `${person.birthYear} – ` : ""}{person.deathYear ?? "present"}
+            </p>
+          </div>
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--thread-gold-dim)]/20">
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--thread-gold-dim)]/20 overflow-x-auto">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => switchTab(t.key)}
-              className={`px-3 py-1.5 rounded text-xs font-body transition-colors ${
+              className={`px-3 py-1.5 rounded text-xs font-body whitespace-nowrap transition-colors ${
                 tab === t.key
                   ? "bg-[var(--thread-gold)] text-[var(--tapestry-bg)]"
                   : "text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5"
@@ -272,33 +287,25 @@ export default function InfoPanel({
           {canEdit && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="px-2 py-1.5 rounded text-xs text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors"
+              className="px-2 py-1.5 rounded text-xs text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors whitespace-nowrap"
             >
               Delete
             </button>
           )}
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-xs"
+            aria-label="Close profile"
+            className="hidden max-md:flex w-7 h-7 items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-xs md:hidden"
           >
-            âœ•
+            ✕
           </button>
         </div>
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {/* â”€â”€ Profile tab â”€â”€ */}
+          {/* ── Profile tab ── */}
           {tab === "profile" && (
             <div className="space-y-4">
-              <div className="text-center">
-                <h2 className="font-display text-xl font-semibold text-[var(--parchment)]">{person.fullName}</h2>
-                <p className="text-xs text-[var(--parchment-dim)] italic mt-1">
-                  {person.birthYear} â€“ {person.deathYear ?? "present"}
-                </p>
-              </div>
-
-              <div className="border-t border-[var(--thread-gold-dim)]/20" />
-
               {canEdit && (
                 <div className="flex items-center gap-3">
                   <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Photo</label>
@@ -396,10 +403,10 @@ export default function InfoPanel({
             </div>
           )}
 
-          {/* â”€â”€ Relationship tabs â”€â”€ */}
+          {/* ── Relationship tabs ── */}
           {tab === "parents" && (
             <RelSection
-              items={relatedData.parents.map((p) => ({ id: p.id, label: p.fullName, sub: `${p.birthYear} â€“ ${p.deathYear ?? "present"}` }))}
+              items={relatedData.parents.map((p) => ({ id: p.id, label: p.fullName, sub: `${p.birthYear} – ${p.deathYear ?? "present"}` }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddParent(person.id, id); resetAdd(); }}
@@ -413,7 +420,7 @@ export default function InfoPanel({
 
           {tab === "partners" && (
             <RelSection
-              items={relatedData.partners.map((pp) => ({ id: pp.person.id, label: pp.person.fullName, sub: `${pp.union.type} Â· ${pp.union.startYear ?? "?"} â€“ ${pp.union.endYear ?? "present"}`, badge: pp.union.type === "divorced" ? "divorced" : undefined }))}
+              items={relatedData.partners.map((pp) => ({ id: pp.person.id, label: pp.person.fullName, sub: `${pp.union.type} · ${pp.union.startYear ?? "?"} – ${pp.union.endYear ?? "present"}`, badge: pp.union.type === "divorced" ? "divorced" : undefined }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddPartner(person.id, id, newUnionType, newStartYear ? Number(newStartYear) : null); resetAdd(); }}
@@ -429,7 +436,7 @@ export default function InfoPanel({
 
           {tab === "children" && (
             <RelSection
-              items={relatedData.children.map((c) => ({ id: c.id, label: c.fullName, sub: `${c.birthYear} â€“ ${c.deathYear ?? "present"}` }))}
+              items={relatedData.children.map((c) => ({ id: c.id, label: c.fullName, sub: `${c.birthYear} – ${c.deathYear ?? "present"}` }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddChild(person.id, id); resetAdd(); }}
@@ -483,7 +490,7 @@ export default function InfoPanel({
           )
         ) : (
           <p className="text-sm text-[var(--parchment)] font-body">
-            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "â€”") : ((person as unknown as Record<string, unknown>)[key] as string) || "â€”"}
+            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : ((person as unknown as Record<string, unknown>)[key] as string) || "—"}
           </p>
         )}
       </div>
@@ -537,7 +544,7 @@ function RelSection({
                   <p className="text-[10px] text-[var(--parchment-dim)]">{item.sub}</p>
                 </div>
               </div>
-              <button onClick={() => onRemove(item.id)} className="w-6 h-6 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">âœ•</button>
+              <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.label}`} className="w-6 h-6 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
             </div>
           ))}
         </div>
@@ -554,7 +561,7 @@ function RelSection({
         <div className="bg-white/[0.03] rounded-lg border border-[var(--thread-gold-dim)]/20 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-body text-[var(--thread-gold)]">{addMode === "existing" ? `Link existing ${personLabel.toLowerCase()}` : `Create new ${personLabel.toLowerCase()}`}</span>
-            <button onClick={onCancelAdd} className="text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs">âœ•</button>
+            <button onClick={onCancelAdd} aria-label="Cancel" className="text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs">✕</button>
           </div>
 
           {addMode === "existing" ? (
@@ -564,7 +571,7 @@ function RelSection({
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {searchResults.map((p) => (
                     <button key={p.id} onClick={() => onPickExisting(p.id)} className="w-full text-left px-3 py-2 rounded hover:bg-[var(--thread-gold)]/10 text-sm text-[var(--parchment)] font-body transition-colors">
-                      {p.fullName} <span className="ml-2 text-[10px] text-[var(--parchment-dim)]">{p.birthYear} â€“ {p.deathYear ?? "present"}</span>
+                      {p.fullName} <span className="ml-2 text-[10px] text-[var(--parchment-dim)]">{p.birthYear} – {p.deathYear ?? "present"}</span>
                     </button>
                   ))}
                 </div>

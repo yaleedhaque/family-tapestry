@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,12 +10,29 @@ const NAV_ITEMS = [
   { href: "/map", label: "Map", icon: MapIcon },
 ];
 
-export default function MobileNav() {
+interface MobileNavProps {
+  hidden?: boolean;
+}
+
+export default function MobileNav({ hidden = false }: MobileNavProps) {
   const pathname = usePathname();
+  const suppressScroll = useRef(false);
   const [visible, setVisible] = useState(true);
   const [lastScroll, setLastScroll] = useState(0);
 
   useEffect(() => {
+    if (hidden) {
+      suppressScroll.current = true;
+      setVisible(false);
+      return;
+    }
+    suppressScroll.current = false;
+    setVisible(true);
+    setLastScroll(window.scrollY);
+  }, [hidden]);
+
+  useEffect(() => {
+    if (suppressScroll.current) return;
     const onScroll = () => {
       const y = window.scrollY;
       setVisible(y < lastScroll || y < 100);
@@ -23,13 +40,16 @@ export default function MobileNav() {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [lastScroll]);
+  }, [lastScroll, hidden]);
+
+  const navVisible = visible && !hidden;
 
   return (
     <nav
+      aria-label="Mobile navigation"
       className={`fixed bottom-0 left-0 right-0 z-40 md:hidden transition-transform duration-300 ${
-        visible ? "translate-y-0" : "translate-y-full"
-      }`}
+        navVisible ? "translate-y-0" : "translate-y-full"
+      } ${hidden ? "pointer-events-none" : ""}`}
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="mx-2 mb-2 bg-[var(--tapestry-bg)]/90 backdrop-blur-lg border border-[var(--thread-gold-dim)]/30 rounded-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.4)] flex items-center justify-around px-2 py-1.5">

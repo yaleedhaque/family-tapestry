@@ -218,6 +218,7 @@ export default function TapestryCanvas() {
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
   const [showGedcomImport, setShowGedcomImport] = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [activeTreeId, setActiveTreeId] = useState("default");
   const [treeNames, setTreeNames] = useState<Record<string, string>>({ "default": "The Haque Tapestry" });
   const [onlineUsers, setOnlineUsers] = useState<PresencePayload[]>([]);
@@ -389,14 +390,17 @@ export default function TapestryCanvas() {
       } else if (!saved) {
         const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
         if (hasSupabase) {
+          const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000));
           try {
-            const data = await fetchFamilyData();
-            if (data.persons.length > 0) {
+            const data = await Promise.race([fetchFamilyData(), timeout]);
+            if (data && data.persons.length > 0) {
               persons = data.persons.map(toPersonLike);
               unions = data.unions.map(toUnionLike);
               parentEdges = data.parentEdges.map(toEdgeLike);
             }
-          } catch { /* keep defaults */ }
+          } catch {
+            /* keep static demo data as fallback */
+          }
         }
       }
 
@@ -821,6 +825,9 @@ export default function TapestryCanvas() {
       if (e.key === "Escape") {
         setSelectedPerson(null);
         setHoveredNodeId(null);
+        setShowHelp(false);
+      } else if (e.key === "?") {
+        setShowHelp(true);
       }
     };
     window.addEventListener("keydown", handler);
@@ -914,7 +921,8 @@ export default function TapestryCanvas() {
         {rawPersons.length > 0 && canEdit && (
           <button
             onClick={() => setShowAddPerson(true)}
-            className="fixed bottom-20 right-6 z-30 w-12 h-12 rounded-full bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-xl shadow-[0_0_20px_rgba(201,162,75,0.4)] hover:opacity-90 transition-opacity flex items-center justify-center"
+            aria-label="Add person"
+            className="fixed bottom-20 right-6 z-30 w-12 h-12 rounded-full bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-2xl leading-none shadow-[0_0_20px_rgba(201,162,75,0.4)] hover:opacity-90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
             title="Add Person"
           >
             +
@@ -981,20 +989,22 @@ export default function TapestryCanvas() {
             Import
           </button>
           <button
-            onClick={() => {}}  // triggers KeyboardHelp via ?
+            onClick={() => setShowHelp(true)}
             className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
-            title="Press ? for keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+            aria-label="Help & keyboard shortcuts"
           >
             ?
           </button>
-          <HelpModal />
-          <a href="/privacy" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body" title="Privacy Policy">
+          <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+          <a href="/privacy" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body" title="Privacy Policy" aria-label="Privacy Policy">
             🔒
           </a>
           <button
             onClick={toggleTheme}
             className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
             title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            aria-label="Toggle color theme"
           >
             {theme === "dark" ? "☀" : "☾"}
           </button>
@@ -1041,18 +1051,18 @@ export default function TapestryCanvas() {
       )}
 
       <KeyboardHelp />
-      <MobileNav />
+      <MobileNav hidden={!!selectedPerson} />
 
       {/* Online presence indicators */}
       {onlineUsers.length > 0 && (
-        <div className="fixed bottom-20 right-6 z-30 hidden md:flex items-center gap-1.5">
+        <div className="fixed bottom-6 left-6 z-30 hidden md:flex flex-col items-center gap-1.5">
           {onlineUsers.slice(0, 5).map((u) => (
             <div
               key={u.userId}
               className="relative group"
               title={`${u.userName}${u.editing ? " — editing" : u.viewing ? " — viewing" : " — online"}`}
             >
-              <div className="w-7 h-7 rounded-full bg-[var(--tapestry-bg)]/90 backdrop-blur-sm border border-[var(--thread-gold-dim)]/40 flex items-center justify-center text-[9px] text-[var(--thread-gold)] font-body font-medium select-none">
+              <div className="w-7 h-7 rounded-full bg-[var(--tapestry-bg)]/90 backdrop-blur-sm border border-[var(--thread-gold-dim)]/40 flex items-center justify-center text-[9px] text-[var(--thread-gold)] font-body font-medium select-none shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                 {u.userName.slice(0, 2).toUpperCase()}
               </div>
               <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[var(--living-glow)] border border-[var(--tapestry-bg)]" />

@@ -32,6 +32,8 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
         onClick={() => setExpanded((e) => !e)}
         className="w-10 h-10 rounded-full bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 flex items-center justify-center text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
         title="Tree info & export"
+        aria-label="Tree info and export"
+        aria-expanded={expanded}
       >
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
           <circle cx="10" cy="4" r="2" />
@@ -42,7 +44,7 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
       </button>
 
       {expanded && (
-        <div className="absolute top-0 right-12 w-56 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+        <div className="absolute top-0 right-12 w-56 max-h-[calc(100vh-8rem)] overflow-y-auto bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
           <div className="px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
             <h3 className="font-display text-sm text-[var(--thread-gold)] font-semibold">Tree Overview</h3>
           </div>

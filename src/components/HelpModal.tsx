@@ -2,15 +2,24 @@
 
 import { useState } from "react";
 
-export default function HelpModal() {
-  const [open, setOpen] = useState(false);
+interface HelpModalProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function HelpModal({ open: controlledOpen, onClose: controlledClose }: HelpModalProps = {}) {
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? !!controlledOpen : internalOpen;
+  const close = () => (isControlled ? controlledClose?.() : setInternalOpen(false));
   const [tab, setTab] = useState<"guide" | "shortcuts" | "about">("guide");
 
   if (!open) {
-    return (
+    return isControlled ? null : (
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => setInternalOpen(true)}
         className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+        aria-label="Help & About"
         title="Help & About"
       >
         ℹ
@@ -20,14 +29,14 @@ export default function HelpModal() {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-[70]" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 bg-black/50 z-[70]" onClick={close} />
       <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
         <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/30 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-[0_16px_64px_rgba(0,0,0,0.7)]">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--thread-gold-dim)]/20">
             <h2 className="font-display text-lg text-[var(--thread-gold)]">Help & About</h2>
             <button
-              onClick={() => setOpen(false)}
+              onClick={close}
               className="w-8 h-8 flex items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-sm"
             >
               ✕
