@@ -3,12 +3,13 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Union } from "@/data/family";
-import { getPerson } from "@/data/family";
+import type { PersonLike } from "@/components/InfoPanel";
 
 function UnionNode({ data }: NodeProps) {
   const union = data.union as Union;
-  const partnerA = getPerson(union.partnerA);
-  const partnerB = getPerson(union.partnerB);
+  const persons = (data.persons as PersonLike[] | undefined) ?? [];
+  const partnerA = persons.find((p) => p.id === union.partnerA);
+  const partnerB = persons.find((p) => p.id === union.partnerB);
   const isDivorced = union.type === "divorced";
 
   return (

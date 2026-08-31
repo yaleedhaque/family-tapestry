@@ -284,7 +284,7 @@ export default function TapestryCanvas() {
       }
       for (const union of unions) {
         if (!union.partnerB) continue;
-        graphNodes.push({ id: union.id, type: "unionNode", data: { union }, position: { x: 0, y: 0 } });
+        graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons }, position: { x: 0, y: 0 } });
         graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
         if (union.partnerB) {
           graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type));
