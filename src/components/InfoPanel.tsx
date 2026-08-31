@@ -226,12 +226,12 @@ export default function InfoPanel({
 
       <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[var(--tapestry-bg-alt)] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[72vh] max-md:max-h-[72vh] max-md:w-full max-md:max-w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-3xl max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
         {/* Mobile drag handle + close row */}
-        <div className="hidden max-md:flex items-center justify-between px-4 pt-3 pb-1">
+        <div className="hidden max-md:flex items-center justify-between px-4 pt-3 pb-1 relative">
           <div className="w-10 h-1 rounded-full bg-[var(--thread-gold-dim)]/30 mx-auto" />
           <button
             onClick={onClose}
             aria-label="Close profile"
-            className="absolute right-4 top-3 w-9 h-9 flex items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-sm"
+            className="absolute right-3 top-1 w-11 h-11 flex items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-sm"
           >
             ✕
           </button>
@@ -295,7 +295,7 @@ export default function InfoPanel({
           <button
             onClick={onClose}
             aria-label="Close profile"
-            className="hidden max-md:flex w-7 h-7 items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-xs md:hidden"
+            className="hidden max-md:flex w-11 h-11 items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-xs md:hidden"
           >
             ✕
           </button>
@@ -544,7 +544,7 @@ function RelSection({
                   <p className="text-[10px] text-[var(--parchment-dim)]">{item.sub}</p>
                 </div>
               </div>
-              <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.label}`} className="w-6 h-6 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
+              <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.label}`} className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
             </div>
           ))}
         </div>
@@ -742,7 +742,7 @@ function SourcesTab({
         <div className="bg-white/[0.03] rounded-lg border border-[var(--thread-gold-dim)]/20 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-body text-[var(--thread-gold)]">{editId ? "Edit Source" : "Add Source"}</span>
-            <button onClick={resetForm} className="text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs">x</button>
+            <button onClick={resetForm} className="w-8 h-8 flex items-center justify-center text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs rounded-full">x</button>
           </div>
           <div>
             <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] block mb-1">Type</label>

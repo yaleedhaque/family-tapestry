@@ -153,7 +153,12 @@ select option {
 
   .react-flow__controls {
     transform: scale(0.85);
-    transform-origin: bottom left;
+    transform-origin: bottom right;
+  }
+
+  .react-flow__controls button {
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
 }
 

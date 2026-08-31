@@ -16,7 +16,7 @@ export default function TapestryBanner({ title = "Family Tapestry" }: TapestryBa
 
   return (
     <div
-      className={`absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-1000 ease-out ${
+      className={`hidden md:block absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-1000 ease-out ${
         visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
       }`}
     >

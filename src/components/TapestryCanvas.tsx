@@ -891,7 +891,7 @@ export default function TapestryCanvas() {
           >
             <Controls
               showInteractive={false}
-              className="!right-3 !left-auto !bottom-[5.5rem] md:!right-auto md:!left-3 md:!bottom-3"
+              className="!right-3 !left-auto !bottom-[7rem] md:!bottom-3 md:!right-auto md:!left-3"
             />
             {!isMobile && (
               <MiniMap
@@ -925,7 +925,7 @@ export default function TapestryCanvas() {
           <button
             onClick={() => setShowAddPerson(true)}
             aria-label="Add person"
-            className="fixed bottom-20 right-6 z-30 w-12 h-12 rounded-full bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-2xl leading-none shadow-[0_0_20px_rgba(201,162,75,0.4)] hover:opacity-90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+            className="fixed bottom-24 md:bottom-20 right-6 z-30 w-12 h-12 rounded-full bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-2xl leading-none shadow-[0_0_20px_rgba(201,162,75,0.4)] hover:opacity-90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
             title="Add Person"
           >
             +
@@ -961,8 +961,9 @@ export default function TapestryCanvas() {
         <select
           value={activeTreeId}
           onChange={(e) => switchTree(e.target.value)}
-          className="px-3 py-1.5 text-xs rounded-lg bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 text-[var(--parchment)] font-body appearance-none cursor-pointer pr-6 focus:outline-none focus:border-[var(--thread-gold)]"
+          className="max-w-[52vw] px-3 py-2 text-xs rounded-lg bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 text-[var(--parchment)] font-body appearance-none cursor-pointer pr-6 focus:outline-none focus:border-[var(--thread-gold)] truncate"
           style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23C9A24B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
+          title="Switch tree"
         >
           {Object.entries(treeNames).map(([id, name]) => (
             <option key={id} value={id}>{name}</option>
@@ -971,7 +972,7 @@ export default function TapestryCanvas() {
         {canEdit && (
           <button
             onClick={createTree}
-            className="px-2.5 py-1.5 text-xs rounded-lg bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] hover:border-[var(--thread-gold)] transition-colors font-body"
+            className="px-2.5 py-2 text-xs rounded-lg bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] hover:border-[var(--thread-gold)] transition-colors font-body"
             title="Create new tree"
           >
             + Tree

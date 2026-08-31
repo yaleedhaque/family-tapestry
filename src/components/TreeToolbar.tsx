@@ -27,7 +27,7 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
   }, [persons, unions, parentEdges]);
 
   return (
-    <div className="absolute top-20 right-4 z-30">
+    <div className="absolute top-28 md:top-20 right-4 z-30">
       <button
         onClick={() => setExpanded((e) => !e)}
         className="w-10 h-10 rounded-full bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 flex items-center justify-center text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
