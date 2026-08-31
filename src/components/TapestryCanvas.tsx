@@ -363,7 +363,7 @@ export default function TapestryCanvas() {
         setFlowEdges(graphEdges);
       }
     },
-    [setNodes, setFlowEdges, generationMap]
+    [setNodes, setFlowEdges]
   );
 
   //  --  --  Initial load  --  -- 
