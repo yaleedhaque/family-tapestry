@@ -12,6 +12,25 @@ export default function Legend({ maxGeneration }: { maxGeneration: number }) {
 
   return (
     <div className="absolute top-36 md:top-36 right-4 z-30 flex flex-col items-end">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label="Toggle legend"
+        title="Legend"
+        className={`w-10 h-10 rounded-full bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border flex items-center justify-center transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.3)] ${
+          open
+            ? "border-[var(--thread-gold)] text-[var(--thread-gold)] bg-[var(--tapestry-bg-alt)]"
+            : "border-[var(--thread-gold-dim)]/30 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60"
+        }`}
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+          <rect x="3.5" y="3.5" width="4" height="4" rx="1" />
+          <rect x="12.5" y="3.5" width="4" height="4" rx="1" />
+          <rect x="3.5" y="12.5" width="4" height="4" rx="1" />
+          <rect x="12.5" y="12.5" width="4" height="4" rx="1" />
+        </svg>
+      </button>
+
       {open && (
         <>
           <div
