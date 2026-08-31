@@ -11,28 +11,16 @@ export default function Legend({ maxGeneration }: { maxGeneration: number }) {
     .map((color, i) => ({ color, label: `Generation ${i + 1}` }));
 
   return (
-    <div className="absolute top-44 md:top-36 right-4 z-30 flex flex-col items-end">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-label="Toggle legend"
-        title="Legend"
-        className={`w-10 h-10 rounded-full bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border flex items-center justify-center transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.3)] ${
-          open
-            ? "border-[var(--thread-gold)] text-[var(--thread-gold)]"
-            : "border-[var(--thread-gold-dim)]/30 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60"
-        }`}
-      >
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
-          <rect x="3.5" y="3.5" width="4" height="4" rx="1" />
-          <rect x="12.5" y="3.5" width="4" height="4" rx="1" />
-          <rect x="3.5" y="12.5" width="4" height="4" rx="1" />
-          <rect x="12.5" y="12.5" width="4" height="4" rx="1" />
-        </svg>
-      </button>
-
+    <div className="absolute top-36 md:top-36 right-4 z-30 flex flex-col items-end">
       {open && (
-        <div className="mt-2 w-56 max-h-[calc(100vh-10rem)] overflow-y-auto bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+            className="fixed inset-0 z-30 bg-[var(--overlay-scrim)] md:hidden"
+          />
+          <div className="fixed md:absolute right-4 top-[88px] md:top-36 z-40 w-[min(240px,calc(100vw-32px))] md:max-h-[calc(100vh-140px)] max-h-[calc(100vh-140px)] overflow-y-auto bg-[var(--tapestry-bg-alt)]/98 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)]">
+
           <div className="px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
             <h3 className="font-display text-sm text-[var(--thread-gold)] font-semibold">Legend</h3>
             <p className="text-[10px] text-[var(--parchment-dim)] mt-0.5">How to read the tapestry</p>
@@ -81,7 +69,7 @@ export default function Legend({ maxGeneration }: { maxGeneration: number }) {
             </div>
           </div>
         </div>
-      )}
+      </>)}
     </div>
   );
 }

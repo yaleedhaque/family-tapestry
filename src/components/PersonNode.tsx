@@ -24,13 +24,22 @@ function PersonNode({ data }: NodeProps) {
   );
   const initials = useMemo(() => getInitials(person.fullName), [person.fullName]);
 
+  const nodeLabel = isDeceased
+    ? `${person.fullName}, deceased ${person.deathYear ?? ""}`
+    : person.fullName;
+
   return (
     <div
+      role="group"
+      aria-label={nodeLabel}
+      data-testid="person-node"
+      tabIndex={0}
       className={`
         relative flex flex-col items-center gap-1.5 rounded-lg
         border px-4 py-3 min-w-[140px] transition-all duration-200
+        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]
         ${isHighlighted ? "ring-2 ring-[var(--thread-gold)] ring-offset-2 ring-offset-[var(--tapestry-bg)] scale-105 shadow-[0_0_20px_rgba(201,162,75,0.3)]" : ""}
-        ${isDimmed ? "opacity-30" : ""}
+        ${isDimmed ? "opacity-35" : ""}
         ${
           isDeceased
             ? "border-deceased-frame bg-tapestry-bg-alt"
@@ -43,7 +52,7 @@ function PersonNode({ data }: NodeProps) {
       <div
         className={`
           w-16 h-16 rounded-full border-2 overflow-hidden flex items-center justify-center
-          ${isDeceased ? "grayscale" : ""}
+          bg-[var(--tapestry-bg-alt)] ${isDeceased ? "grayscale" : ""}
         `}
         style={{ borderColor: isDeceased ? "var(--deceased-frame)" : avatarColor }}
       >
@@ -73,7 +82,7 @@ function PersonNode({ data }: NodeProps) {
       </span>
 
       {isDeceased && (
-        <span className="font-display text-[9px] italic text-deceased-frame">
+        <span className="font-display text-[9px] italic text-parchment-dim">
           {person.deathYear}
         </span>
       )}

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  /* The Tapestry — Design Tokens (Section 6.2) */
+  /* The Tapestry — Design Tokens (§3.1 retained) */
   --tapestry-bg: #16130F;
   --tapestry-bg-alt: #201B14;
   --thread-gold: #C9A544;
@@ -14,6 +14,54 @@
   --living-glow: #D98B3E;
   --deceased-frame: #6E6553;
   --accent-emerald: #3E6B5C;
+
+  /* §3.2 missing semantic tokens (dark) */
+  --focus-ring: #E0B84D;
+  --overlay-scrim: rgba(22,19,15,.55);
+  --link: #D9B15C;
+  --control-accent: #C9A544;
+  --disabled-fg: #6B6058;
+  --disabled-bg: #241F18;
+  --shadow-color: rgba(0,0,0,.55);
+  --danger-bg: #3A1E19;
+
+  /* §3.3 elevation / shadow scale */
+  --shadow-sm: 0 1px 2px var(--shadow-color);
+  --shadow-md: 0 4px 12px var(--shadow-color);
+  --shadow-lg: 0 8px 28px var(--shadow-color);
+  --shadow-xl: 0 16px 48px var(--shadow-color);
+  --glow-living: 0 0 12px rgba(217,139,62,.15);
+  --glow-focus: 0 0 0 2px var(--focus-ring);
+
+  /* §3.4 spacing (4px base) & radius scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* §2.1 chrome reservation bands (desktop) */
+  --chrome-top: 96px;
+  --chrome-bottom: 110px;
+
+  /* §8 z-index scale */
+  --z-canvas: 0;
+  --z-chrome: 10;
+  --z-bars: 20;
+  --z-popover: 30;
+  --z-scrim: 40;
+  --z-modal: 50;
+  --z-toast: 60;
 }
 
 html.light {
@@ -27,6 +75,31 @@ html.light {
   --living-glow: #A65B1F;
   --deceased-frame: #8A8078;
   --accent-emerald: #3E7B5C;
+
+  /* §3.2 missing semantic tokens (light) */
+  --focus-ring: #8C6A22;
+  --overlay-scrim: rgba(44,37,32,.4);
+  --link: #8A6A28;
+  --control-accent: #7A5B1F;
+  --disabled-fg: #A39A8C;
+  --disabled-bg: #DED4C2;
+  --shadow-color: rgba(44,37,32,.18);
+  --danger-bg: #F7E4E1;
+
+  /* §3.3 elevation / shadow scale */
+  --shadow-sm: 0 1px 2px var(--shadow-color);
+  --shadow-md: 0 4px 12px var(--shadow-color);
+  --shadow-lg: 0 8px 28px var(--shadow-color);
+  --shadow-xl: 0 16px 48px var(--shadow-color);
+  --glow-living: 0 0 12px rgba(166,91,31,.15);
+  --glow-focus: 0 0 0 2px var(--focus-ring);
+}
+
+@media (max-width: 767px) {
+  :root, html.light {
+    --chrome-top: 76px;
+    --chrome-bottom: 168px;
+  }
 }
 
 @layer base {
@@ -50,6 +123,79 @@ html.light {
       transform: translateX(0);
     }
   }
+}
+
+/* §9 Accessibility — visible focus ring on all interactive elements */
+*:focus {
+  outline-color: var(--focus-ring);
+  outline-width: 2px;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: var(--glow-focus);
+}
+
+/* §10 Motion — reduced-motion guard */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Timeline range slider (§6) — themed via tokens, not-browser-default */
+input[type="range"].tapestry-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--thread-gold) var(--fill, 0%), var(--thread-gold-dim) var(--fill, 0%));
+  outline-color: var(--focus-ring);
+}
+
+input[type="range"].tapestry-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--parchment);
+  border: 3px solid var(--thread-gold);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+input[type="range"].tapestry-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--parchment);
+  border: 3px solid var(--thread-gold);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+input[type="range"].tapestry-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--glow-focus);
+}
+
+/* §6 right-edge overflow guard: soft fade so nodes crossing the right edge fade rather than hard-clip */
+.tapestry-edge-fade {
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: var(--chrome-top);
+  bottom: var(--chrome-bottom);
+  width: 48px;
+  background: linear-gradient(90deg, transparent, var(--tapestry-bg));
+  z-index: 6;
 }
 
 /* React Flow overrides */
@@ -127,6 +273,30 @@ select option {
   color: var(--parchment) !important;
 }
 
+/* §2.7 Leaflet zoom control themed to match the tree canvas chrome */
+.leaflet-control-zoom,
+.leaflet-touch .leaflet-control-zoom {
+  border: 1px solid var(--thread-gold-dim) !important;
+  border-radius: var(--radius-sm) !important;
+  overflow: hidden !important;
+  box-shadow: var(--shadow-md) !important;
+}
+.leaflet-control-zoom a {
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  color: var(--thread-gold) !important;
+  background: var(--tapestry-bg-alt) !important;
+  border-bottom: 1px solid var(--thread-gold-dim) !important;
+  font-size: 18px !important;
+}
+.leaflet-control-zoom a:hover {
+  background: rgba(201,162,75,0.15) !important;
+}
+.leaflet-bar a:last-child {
+  border-bottom: none !important;
+}
+
 /* Mobile optimization */
 @supports (padding: env(safe-area-inset-bottom)) {
   body {
@@ -181,5 +351,19 @@ select option {
   button, a, [role="button"] {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* §5.1 / §6.7 — enlarge React Flow handle hit-area to 44×44 without growing visible dot */
+  .react-flow__handle {
+    position: relative;
+  }
+  .react-flow__handle::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 }

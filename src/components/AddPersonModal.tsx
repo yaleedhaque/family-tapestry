@@ -65,7 +65,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
   const labelCls = "text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] block mb-1";
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)]" onClick={onClose}>
       <div
         className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/30 rounded-xl p-6 max-w-md w-full mx-4 max-h-[85vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}

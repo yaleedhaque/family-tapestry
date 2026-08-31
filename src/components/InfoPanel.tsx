@@ -3,6 +3,12 @@
 import { useState, useMemo } from "react";
 import type { Source } from "@/data/family";
 import { sanitizeField, validateEmail, validateUrl, validateYear } from "@/lib/validation";
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 export interface PersonLike {
   id: string;
   fullName: string;
@@ -237,10 +243,19 @@ export default function InfoPanel({
           </button>
         </div>
 
-        {/* Header with avatar */}
-        <div className="flex items-center gap-4 justify-center pt-4 pb-3 border-b border-[var(--thread-gold-dim)]/20 px-4">
+        {/* Header with avatar — single close button lives here (§2.3 / §6.9) */}
+        <div className="relative flex items-center gap-4 justify-center pt-4 pb-3 border-b border-[var(--thread-gold-dim)]/20 px-4">
+          <button
+            onClick={onClose}
+            aria-label="Close profile"
+            title="Close"
+            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-sm"
+          >
+            ✕
+          </button>
+
           <div
-            className={`shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-full border-2 overflow-hidden flex items-center justify-center ${
+            className={`shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-full border-2 overflow-hidden flex items-center justify-center bg-[var(--tapestry-bg-alt)] ${
               person.isAlive
                 ? "border-[var(--living-glow)] shadow-[0_0_16px_rgba(217,139,62,0.3)]"
                 : "border-[var(--deceased-frame)] grayscale"
@@ -249,10 +264,15 @@ export default function InfoPanel({
             {person.photoUrl ? (
               <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
             ) : (
-              <svg viewBox="0 0 80 80" className="w-full h-full opacity-60">
-                <circle cx="40" cy="28" r="15" fill={person.isAlive ? "#D98B3E" : "#5C564C"} />
-                <ellipse cx="40" cy="68" rx="25" ry="20" fill={person.isAlive ? "#D98B3E" : "#5C564C"} />
-              </svg>
+              <span
+                className="font-display text-xl md:text-2xl font-bold select-none"
+                style={{
+                  color: person.isAlive ? "var(--thread-gold)" : "var(--deceased-frame)",
+                  opacity: person.isAlive ? 0.9 : 0.6,
+                }}
+              >
+                {getInitials(person.fullName)}
+              </span>
             )}
           </div>
           <div className="min-w-0 text-left">
@@ -266,10 +286,29 @@ export default function InfoPanel({
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--thread-gold-dim)]/20 overflow-x-auto">
+        <div
+          role="tablist"
+          aria-label="Profile sections"
+          className="flex items-center gap-1 px-4 py-2 border-b border-[var(--thread-gold-dim)]/20 overflow-x-auto"
+          onKeyDown={(e) => {
+            const idx = tabs.findIndex((t) => t.key === tab);
+            if (e.key === "ArrowRight") {
+              e.preventDefault();
+              switchTab(tabs[(idx + 1) % tabs.length].key);
+            } else if (e.key === "ArrowLeft") {
+              e.preventDefault();
+              switchTab(tabs[(idx - 1 + tabs.length) % tabs.length].key);
+            }
+          }}
+        >
           {tabs.map((t) => (
             <button
               key={t.key}
+              role="tab"
+              id={`info-tab-${t.key}`}
+              aria-selected={tab === t.key}
+              aria-controls="info-tabpanel"
+              tabIndex={tab === t.key ? 0 : -1}
               onClick={() => switchTab(t.key)}
               className={`px-3 py-1.5 rounded text-xs font-body whitespace-nowrap transition-colors ${
                 tab === t.key
@@ -292,17 +331,15 @@ export default function InfoPanel({
               Delete
             </button>
           )}
-          <button
-            onClick={onClose}
-            aria-label="Close profile"
-            className="hidden max-md:flex w-11 h-11 items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors text-xs md:hidden"
-          >
-            ✕
-          </button>
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div
+          id="info-tabpanel"
+          role="tabpanel"
+          aria-labelledby={`info-tab-${tab}`}
+          className="flex-1 overflow-y-auto px-5 py-4"
+        >
           {/* ── Profile tab ── */}
           {tab === "profile" && (
             <div className="space-y-4">
@@ -464,7 +501,7 @@ export default function InfoPanel({
 
       {/* Delete confirmation */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)]">
           <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--ember-red)]/40 rounded-xl p-6 max-w-sm w-full shadow-2xl">
             <h3 className="font-display text-lg text-[var(--parchment)] mb-2">Delete {person.fullName}?</h3>
             <p className="text-sm text-[var(--parchment-dim)] mb-5">This will remove the person and all their relationships from the tree. This cannot be undone.</p>

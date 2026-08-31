@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, type CSSProperties } from "react";
 import Link from "next/link";
 import { getAllEventsSorted, persons as staticPersons, unions as staticUnions } from "@/data/family";
 import type { LifeEvent } from "@/data/family";
@@ -68,6 +68,7 @@ export default function TimelinePage() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [yearRange, setYearRange] = useState<[number, number]>([1800, 2030]);
   const [searchQuery, setSearchQuery] = useState("");
+  const rangeInited = useRef(false);
 
   useEffect(() => {
     if (user) {
@@ -158,6 +159,23 @@ export default function TimelinePage() {
 
     return merged.sort((a, b) => a.year - b.year);
   }, [persons, unions]);
+
+  const yearBounds = useMemo(() => {
+    const years = allEvents.map((e) => e.year).filter((y): y is number => typeof y === "number");
+    if (years.length === 0) return { min: 1800, max: 2030 };
+    let min = Infinity, max = -Infinity;
+    for (const y of years) { if (y < min) min = y; if (y > max) max = y; }
+    return { min, max };
+  }, [allEvents]);
+
+  useEffect(() => {
+    if (rangeInited.current) return;
+    if (allEvents.length > 0) {
+      rangeInited.current = true;
+      const pad = 5;
+      setYearRange([Math.max(0, yearBounds.min - pad), yearBounds.max + pad]);
+    }
+  }, [allEvents, yearBounds]);
 
   const filteredEvents = useMemo(() => {
     return allEvents.filter((ev) => {
@@ -254,10 +272,10 @@ export default function TimelinePage() {
             <button
               key={type}
               onClick={() => setSelectedType(type)}
-              className={`px-3 py-1 text-[10px] md:text-xs rounded-full whitespace-nowrap transition-colors font-body ${
+              className={`px-3 py-1 text-[10px] md:text-xs rounded-full whitespace-nowrap transition-colors font-body border ${
                 selectedType === type
-                  ? "bg-[var(--thread-gold)] text-[var(--tapestry-bg)]"
-                  : "bg-white/5 text-[var(--parchment-dim)] hover:bg-white/10"
+                  ? "bg-[var(--thread-gold)] text-[var(--tapestry-bg)] border-[var(--thread-gold)]"
+                  : "bg-[var(--tapestry-bg-alt)] text-[var(--parchment-dim)] border-[var(--thread-gold-dim)]/40 hover:border-[var(--thread-gold-dim)] hover:text-[var(--parchment)]"
               }`}
             >
               {type === "all" ? "All" : type.charAt(0).toUpperCase() + type.slice(1)}
@@ -283,25 +301,31 @@ export default function TimelinePage() {
             ))}
           </select>
           <div className="flex items-center gap-2 text-[10px] text-[var(--parchment-dim)]">
-            <span>{yearRange[0]}</span>
+            <span aria-hidden="true">{yearRange[0]}</span>
             <input
               type="range"
-              min={1800}
-              max={2030}
+              min={yearBounds.min}
+              max={yearBounds.max}
               value={yearRange[0]}
-              onChange={(e) => setYearRange([Number(e.target.value), yearRange[1]])}
-              className="w-16 md:w-24"
+              aria-label="From year"
+              aria-valuetext={`From year ${yearRange[0]}`}
+              onChange={(e) => setYearRange([Number(e.target.value), Math.max(Number(e.target.value), yearRange[1])])}
+              className="w-16 md:w-24 tapestry-range"
+              style={{ "--fill": `${((yearRange[0] - yearBounds.min) / Math.max(1, yearBounds.max - yearBounds.min)) * 100}%` } as CSSProperties}
             />
-            <span>—</span>
+            <span aria-hidden="true">—</span>
             <input
               type="range"
-              min={1800}
-              max={2030}
+              min={yearBounds.min}
+              max={yearBounds.max}
               value={yearRange[1]}
-              onChange={(e) => setYearRange([yearRange[0], Number(e.target.value)])}
-              className="w-16 md:w-24"
+              aria-label="To year"
+              aria-valuetext={`To year ${yearRange[1]}`}
+              onChange={(e) => setYearRange([Math.min(Number(e.target.value), yearRange[0]), Number(e.target.value)])}
+              className="w-16 md:w-24 tapestry-range"
+              style={{ "--fill": `${((yearRange[1] - yearBounds.min) / Math.max(1, yearBounds.max - yearBounds.min)) * 100}%` } as CSSProperties}
             />
-            <span>{yearRange[1]}</span>
+            <span aria-hidden="true">{yearRange[1]}</span>
           </div>
         </div>
       </div>

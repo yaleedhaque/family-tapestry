@@ -93,13 +93,13 @@ function GeocoderSearch({ onSearch }: { onSearch: (q: string) => void }) {
           if (e.key === "Enter" && query.trim()) onSearch(query.trim());
         }}
         placeholder="Search location..."
-        className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-1.5 text-xs text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]"
+        className="flex-1 min-w-0 rounded-full bg-[var(--tapestry-bg)]/85 border border-[var(--thread-gold-dim)]/30 px-4 py-2 text-xs text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)] focus:ring-2 focus:ring-[var(--focus-ring)]/40"
       />
       <button
         onClick={() => {
           if (query.trim()) onSearch(query.trim());
         }}
-        className="px-3 py-1.5 text-xs rounded bg-[var(--thread-gold)]/20 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/30 transition-colors"
+        className="px-3 py-1.5 text-xs rounded-full bg-[var(--thread-gold)]/20 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/30 transition-colors"
       >
         Go
       </button>
@@ -413,7 +413,7 @@ export default function MapView() {
           >
             Timeline
           </Link>
-          <span className="text-sm text-[var(--thread-gold)]">Map</span>
+          <span className="text-sm text-[var(--thread-gold)] font-medium border-b-2 border-[var(--thread-gold)] py-0.5">Map</span>
           <div className="flex-1" />
           {canEdit && (
             <button
@@ -432,7 +432,7 @@ export default function MapView() {
               {pinMode ? "Pinning..." : "Pin Location"}
             </button>
           )}
-          <span className="text-xs text-[var(--parchment-dim)]">
+          <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--parchment-dim)] font-body whitespace-nowrap">
             {loading ? "Loading…" : personsWithCoords.length + " locations"}
           </span>
         </div>
@@ -553,7 +553,7 @@ export default function MapView() {
                 [arc.to.lat!, arc.to.lng!],
               ]}
               pathOptions={{
-                color: arc.type === "divorced" ? "#8B2E2E" : "#C9A24B",
+                color: arc.type === "divorced" ? "var(--ember-red)" : "#C9A24B",
                 weight: arc.type === "parent-child" ? 1.5 : 2,
                 opacity: arc.type === "parent-child" ? 0.4 : 0.6,
                 dashArray: arc.type === "parent-child" ? "4 4" : undefined,
@@ -666,7 +666,7 @@ export default function MapView() {
       )}
 
       {showPersonPicker && pinMode && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)]">
           <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/20 rounded-xl p-5 max-w-sm w-full shadow-2xl">
             <h3 className="font-display text-sm text-[var(--parchment)] mb-3">
               Pin location to person

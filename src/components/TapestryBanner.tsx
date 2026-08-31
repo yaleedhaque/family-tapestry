@@ -20,7 +20,7 @@ export default function TapestryBanner({ title = "Family Tapestry" }: TapestryBa
         visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
       }`}
     >
-      <div className="relative px-8 py-4 bg-[var(--tapestry-bg)]/80 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-lg shadow-[0_0_40px_rgba(201,162,75,0.08)]">
+      <div className="relative px-8 py-4 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-lg shadow-[0_0_40px_rgba(201,162,75,0.08)]">
         {/* top ornament line */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-px flex items-center gap-2">
           <span className="block w-8 h-px bg-gradient-to-r from-transparent to-[var(--thread-gold)]/50" />

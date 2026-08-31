@@ -54,7 +54,7 @@ export default function MobileNav({ hidden = false }: MobileNavProps) {
       } ${hidden ? "pointer-events-none" : ""}`}
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="mx-2 mb-2 bg-[var(--tapestry-bg)]/90 backdrop-blur-lg border border-[var(--thread-gold-dim)]/30 rounded-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.4)] flex items-center justify-around px-2 py-1.5">
+      <div className="mx-2 mb-2 bg-[var(--tapestry-bg)]/95 backdrop-blur-lg border border-[var(--thread-gold-dim)]/30 rounded-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.4)] flex items-center justify-around px-2 py-1.5">
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           return (

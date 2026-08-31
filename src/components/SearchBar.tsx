@@ -70,7 +70,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="absolute bottom-24 md:bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2.5 bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+        className="absolute bottom-24 md:bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2.5 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
         title="Search people (press /)"
       >
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
@@ -112,8 +112,10 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
                 key={p.id}
                 onClick={() => jumpTo(p)}
                 onMouseEnter={() => setSelectedIdx(i)}
-                className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
-                  i === selectedIdx ? "bg-[var(--thread-gold)]/10" : "hover:bg-white/5"
+                className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors relative ${
+                  i === selectedIdx
+                    ? "bg-[var(--tapestry-bg-alt)] border-l-2 border-l-[var(--thread-gold)]"
+                    : "hover:bg-white/5"
                 }`}
               >
                 <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border"
@@ -128,7 +130,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
                   <span className="text-[10px] text-[var(--parchment-dim)]">{p.birthYear} – {p.deathYear ?? "present"}</span>
                 </div>
                 {p.isAlive === false && (
-                  <span className="ml-auto text-[9px] text-[var(--deceased-frame)] italic shrink-0">deceased</span>
+                  <span className="ml-auto text-[9px] text-[var(--parchment-dim)] italic shrink-0">deceased</span>
                 )}
               </button>
             ))}

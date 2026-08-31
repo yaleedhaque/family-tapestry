@@ -227,12 +227,31 @@ export default function TapestryCanvas() {
   const layoutVersionRef = useRef(0);
   const initialLoadDone = useRef(false);
   const isInitialLoad = useRef(true);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [showFitHint, setShowFitHint] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = "family-tapestry-fit-hint-dismissed";
+    try {
+      if (!localStorage.getItem(key)) {
+        setShowFitHint(true);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const maxGeneration = useMemo(() => {
     if (rawPersons.length === 0) return 0;
     const gen = computeGenerationMap(rawPersons, rawUnions, rawEdges);
     return Math.max(0, ...Object.values(gen));
   }, [rawPersons, rawUnions, rawEdges]);
+
+  // §2.5 — Memoized, stable generation map keyed by graph shape so ring colours
+  // never reshuffle on re-render, tab switch, or demo→live data swap.
+  const generationMap = useMemo(
+    () => computeGenerationMap(rawPersons, rawUnions, rawEdges),
+    [rawPersons, rawUnions, rawEdges]
+  );
 
   // Realtime subscription for multi-user sync
   const handleRealtimeChange = useCallback((change: TreeChange) => {
@@ -271,10 +290,10 @@ export default function TapestryCanvas() {
 
   //  --  --  Build graph + run ELK  --  -- 
   const runLayout = useCallback(
-    async (persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[], animate: boolean) => {
+    async (persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[], animate: boolean, genMap?: Record<string, number>) => {
       const version = ++layoutVersionRef.current;
 
-      const generationMap = computeGenerationMap(persons, unions, parentEdges);
+      const generationMap = genMap ?? computeGenerationMap(persons, unions, parentEdges);
 
       const graphNodes: Node[] = [];
       const graphEdges: Edge[] = [];
@@ -344,7 +363,7 @@ export default function TapestryCanvas() {
         setFlowEdges(graphEdges);
       }
     },
-    [setNodes, setFlowEdges]
+    [setNodes, setFlowEdges, generationMap]
   );
 
   //  --  --  Initial load  --  -- 
@@ -427,6 +446,7 @@ export default function TapestryCanvas() {
       setRawEdges(parentEdges);
       setRawSources(sources);
       await runLayout(persons, unions, parentEdges, true);
+      setDataLoading(false);
     })();
   }, [runLayout, user]);
 
@@ -458,8 +478,8 @@ export default function TapestryCanvas() {
     const sig = `${rawPersons.length}|${rawUnions.length}|${rawEdges.length}`;
     if (sig === prevDataSig.current) return;
     prevDataSig.current = sig;
-    runLayout(rawPersons, rawUnions, rawEdges, false);
-  }, [rawPersons, rawUnions, rawEdges, runLayout]);
+    runLayout(rawPersons, rawUnions, rawEdges, false, generationMap);
+  }, [rawPersons, rawUnions, rawEdges, runLayout, generationMap]);
 
   //  --  --  Keep selectedPerson live  --  -- 
   useEffect(() => {
@@ -667,7 +687,13 @@ export default function TapestryCanvas() {
   );
 
   const handleRecenter = useCallback(() => {
-    fitView({ padding: 0.4, duration: 450 });
+    // §2.1 — reserve the fixed chrome bands (banner top / nav+search bottom) so the
+    // tree never auto-fits content underneath them.
+    const root = getComputedStyle(document.documentElement);
+    const top = parseFloat(root.getPropertyValue("--chrome-top")) || 0;
+    const bottom = parseFloat(root.getPropertyValue("--chrome-bottom")) || 0;
+    const pad = Math.min(0.5, Math.max(0.05, (top + bottom) / window.innerHeight + 0.04));
+    fitView({ padding: pad, duration: 450, maxZoom: 1.5 });
   }, [fitView]);
 
   //  --  --  Switch active tree  --  -- 
@@ -929,9 +955,20 @@ export default function TapestryCanvas() {
           </ReactFlow>
         </div>
 
+        <div aria-hidden="true" className="tapestry-edge-fade" />
+
         <SearchBar persons={rawPersons} onSelect={handleSearchSelect} />
 
-        {rawPersons.length === 0 && !showAddPerson && canEdit && (
+        {dataLoading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+            <div className="pointer-events-auto text-center space-y-3">
+              <div className="mx-auto w-10 h-10 rounded-full border-[3px] border-[var(--thread-gold-dim)]/30 border-t-[var(--thread-gold)] animate-spin" />
+              <p className="text-sm text-[var(--parchment-dim)] font-body">Unfolding the tapestry…</p>
+            </div>
+          </div>
+        )}
+
+        {rawPersons.length === 0 && !showAddPerson && canEdit && !dataLoading && (
           <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <div className="text-center pointer-events-auto space-y-4">
               <div className="space-y-1">
@@ -967,6 +1004,20 @@ export default function TapestryCanvas() {
               <circle cx="12" cy="12" r="3" />
               <path d="M12 2v3M12 19v3M2 12h3M19 12h3" strokeLinecap="round" />
             </svg>
+          </button>
+        )}
+
+        {showFitHint && (
+          <button
+            onClick={() => {
+              handleRecenter();
+              setShowFitHint(false);
+              try { localStorage.setItem("family-tapestry-fit-hint-dismissed", "1"); } catch { /* ignore */ }
+            }}
+            aria-label="Fit tree to screen"
+            className="fixed bottom-32 md:bottom-24 right-6 z-30 hidden md:flex items-center gap-1.5 px-3 py-2 text-xs rounded-full bg-[var(--tapestry-bg-alt)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/40 text-[var(--thread-gold)] hover:border-[var(--thread-gold)] transition-colors shadow-[var(--shadow-lg)]"
+          >
+            <span aria-hidden="true">⤢</span> Fit to screen
           </button>
         )}
 
@@ -1020,7 +1071,7 @@ export default function TapestryCanvas() {
 
       {/* Navigation bar — desktop only */}
       <nav className="fixed bottom-0 left-0 right-0 z-20 hidden md:flex justify-center pb-3 pointer-events-none">
-        <div className="flex items-center gap-1 px-2 py-1.5 bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
+        <div className="flex items-center gap-1 px-2 py-1.5 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
           <a href="/" className="px-3 py-1.5 text-xs rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">Tree</a>
           <a href="/timeline" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
           <a href="/map" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Map</a>
