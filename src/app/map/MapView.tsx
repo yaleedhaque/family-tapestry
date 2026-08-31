@@ -17,8 +17,6 @@ import { useAuth } from "@/components/AuthProvider";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import { computeGenerationMap, GENERATION_COLORS } from "@/lib/generation";
 
-type MapUnion = UnionLike;
-type MapEdge = EdgeLike;
 type GenMap = Record<string, number>;
 
 const TRAVEL_MODES = ["driving", "walking", "cycling"] as const;
