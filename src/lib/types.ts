@@ -9,6 +9,12 @@ export interface DbPerson {
   profession: string | null;
   bio: string | null;
   photo_url: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  website: string | null;
+  lat: number | null;
+  lng: number | null;
   links: unknown[];
   metadata: Record<string, unknown>;
   privacy_level: string;

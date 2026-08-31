@@ -67,13 +67,13 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     bio: dp.bio ?? "",
     birthPlace: dp.birth_place ?? "",
     profession: dp.profession ?? "",
-    email: "",
-    phone: "",
-    address: "",
-    website: "",
-    lat: null,
-    lng: null,
-    photoUrl: "",
+    email: dp.email ?? "",
+    phone: dp.phone ?? "",
+    address: dp.address ?? "",
+    website: dp.website ?? "",
+    lat: dp.lat ?? null,
+    lng: dp.lng ?? null,
+    photoUrl: dp.photo_url ?? "",
   };
 }
 
