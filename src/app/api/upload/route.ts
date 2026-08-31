@@ -6,7 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 const MAX_EDGE = 400;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const PUBLIC_URL = "https://eamcenktssskftpxeykw.supabase.co/storage/v1/object/public/portraits/portraits";
+const PUBLIC_URL = "https://eamcenktssskftpxeykw.supabase.co/storage/v1/object/public/portraits";
 
 export async function POST(request: NextRequest) {
   const rl = checkRateLimit("upload", 10, 60_000);
