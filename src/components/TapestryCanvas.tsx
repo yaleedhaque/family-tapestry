@@ -28,10 +28,12 @@ import KeyboardHelp from "@/components/KeyboardHelp";
 import HelpModal from "@/components/HelpModal";
 import AddPersonModal from "@/components/AddPersonModal";
 import MobileNav from "@/components/MobileNav";
+import Legend from "@/components/Legend";
 import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/components/Toast";
 import { useIsMobile } from "@/lib/mobile";
+import { computeGenerationMap, GENERATION_COLORS } from "@/lib/generation";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import type { Source } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
@@ -144,8 +146,8 @@ function makeChildEdge(source: string, target: string): Edge {
     source,
     target,
     type: "smoothstep",
-    style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, opacity: 0.5 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "var(--thread-gold-dim)", width: 10, height: 10 },
+    style: { stroke: "var(--deceased-frame)", strokeWidth: 1.2, opacity: 0.75 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "var(--deceased-frame)", width: 9, height: 9 },
   };
 }
 
@@ -226,6 +228,12 @@ export default function TapestryCanvas() {
   const initialLoadDone = useRef(false);
   const isInitialLoad = useRef(true);
 
+  const maxGeneration = useMemo(() => {
+    if (rawPersons.length === 0) return 0;
+    const gen = computeGenerationMap(rawPersons, rawUnions, rawEdges);
+    return Math.max(0, ...Object.values(gen));
+  }, [rawPersons, rawUnions, rawEdges]);
+
   // Realtime subscription for multi-user sync
   const handleRealtimeChange = useCallback((change: TreeChange) => {
     if (!user) return;
@@ -266,11 +274,13 @@ export default function TapestryCanvas() {
     async (persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[], animate: boolean) => {
       const version = ++layoutVersionRef.current;
 
+      const generationMap = computeGenerationMap(persons, unions, parentEdges);
+
       const graphNodes: Node[] = [];
       const graphEdges: Edge[] = [];
 
       for (const person of persons) {
-        graphNodes.push({ id: person.id, type: "personNode", data: { person }, position: { x: 0, y: 0 } });
+        graphNodes.push({ id: person.id, type: "personNode", data: { person, generation: generationMap[person.id] ?? 0 }, position: { x: 0, y: 0 } });
       }
       for (const union of unions) {
         graphNodes.push({ id: union.id, type: "unionNode", data: { union }, position: { x: 0, y: 0 } });
@@ -650,6 +660,10 @@ export default function TapestryCanvas() {
     [rawPersons, fitView]
   );
 
+  const handleRecenter = useCallback(() => {
+    fitView({ padding: 0.4, duration: 450 });
+  }, [fitView]);
+
   //  --  --  Switch active tree  --  -- 
   const switchTree = useCallback(
     (newTreeId: string) => {
@@ -862,6 +876,8 @@ export default function TapestryCanvas() {
           viewportRef={viewportRef}
         />
 
+        <Legend maxGeneration={maxGeneration} />
+
         <div className="absolute inset-0 z-10">
           <ReactFlow
             nodes={nodes}
@@ -896,8 +912,10 @@ export default function TapestryCanvas() {
             {!isMobile && (
               <MiniMap
                 nodeStrokeColor="var(--thread-gold)"
-                nodeColor="rgba(201,162,75,0.2)"
-                maskColor="rgba(14,11,10,0.7)"
+                nodeColor={(n) =>
+                  GENERATION_COLORS[((n.data?.generation as number | undefined) ?? 0) % GENERATION_COLORS.length]
+                }
+                maskColor="rgba(22,19,15,0.7)"
                 pannable
                 zoomable
               />
@@ -929,6 +947,20 @@ export default function TapestryCanvas() {
             title="Add Person"
           >
             +
+          </button>
+        )}
+
+        {rawPersons.length > 0 && (
+          <button
+            onClick={handleRecenter}
+            aria-label="Recenter tree"
+            title="Recenter"
+            className="fixed bottom-24 left-4 z-30 md:hidden w-11 h-11 rounded-full bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--thread-gold)] hover:border-[var(--thread-gold)] transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.4)] flex items-center justify-center"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" strokeLinecap="round" />
+            </svg>
           </button>
         )}
 

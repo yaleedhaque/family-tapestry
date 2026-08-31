@@ -4,15 +4,15 @@
 
 :root {
   /* The Tapestry — Design Tokens (Section 6.2) */
-  --tapestry-bg: #0E0B0A;
-  --tapestry-bg-alt: #1E1814;
-  --thread-gold: #C9A24B;
+  --tapestry-bg: #16130F;
+  --tapestry-bg-alt: #201B14;
+  --thread-gold: #C9A544;
   --thread-gold-dim: #9A7B3C;
-  --ember-red: #C2614F;
+  --ember-red: #C96B52;
   --parchment: #EFE6D8;
   --parchment-dim: #B8AC98;
   --living-glow: #D98B3E;
-  --deceased-frame: #5C564C;
+  --deceased-frame: #6E6553;
   --accent-emerald: #3E6B5C;
 }
 

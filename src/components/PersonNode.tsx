@@ -3,19 +3,7 @@
 import { memo, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Person } from "@/data/family";
-
-const AVATAR_COLORS = [
-  "#C9A24B", "#8B2E2E", "#3E6B5C", "#D98B3E", "#6B4C8B",
-  "#4B7A9E", "#9E6B4B", "#5C8B6B", "#8B6B5C", "#4B6B8B",
-];
-
-function hashName(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) {
-    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
+import { GENERATION_COLORS } from "@/lib/generation";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -28,8 +16,12 @@ function PersonNode({ data }: NodeProps) {
   const isDeceased = !person.isAlive;
   const isHighlighted = data.highlighted === true;
   const isDimmed = data.dimmed === true;
+  const generation = (data.generation as number | undefined) ?? 0;
 
-  const avatarColor = useMemo(() => AVATAR_COLORS[hashName(person.fullName) % AVATAR_COLORS.length], [person.fullName]);
+  const avatarColor = useMemo(
+    () => GENERATION_COLORS[generation % GENERATION_COLORS.length],
+    [generation]
+  );
   const initials = useMemo(() => getInitials(person.fullName), [person.fullName]);
 
   return (
