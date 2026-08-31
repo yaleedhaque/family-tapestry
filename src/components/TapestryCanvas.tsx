@@ -283,6 +283,7 @@ export default function TapestryCanvas() {
         graphNodes.push({ id: person.id, type: "personNode", data: { person, generation: generationMap[person.id] ?? 0 }, position: { x: 0, y: 0 } });
       }
       for (const union of unions) {
+        if (!union.partnerB) continue;
         graphNodes.push({ id: union.id, type: "unionNode", data: { union }, position: { x: 0, y: 0 } });
         graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
         if (union.partnerB) {
@@ -290,7 +291,12 @@ export default function TapestryCanvas() {
         }
       }
       for (const edge of parentEdges) {
-        graphEdges.push(makeChildEdge(edge.unionId, edge.childId));
+        const union = unions.find((u) => u.id === edge.unionId);
+        if (union && !union.partnerB) {
+          graphEdges.push(makeChildEdge(union.partnerA, edge.childId));
+        } else {
+          graphEdges.push(makeChildEdge(edge.unionId, edge.childId));
+        }
       }
 
       const elkGraph = {

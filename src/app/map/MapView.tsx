@@ -13,29 +13,20 @@ import {
 import L, { type LeafletMouseEvent } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
-import { persons, unions, parentEdges } from "@/data/family";
-import type { Person } from "@/data/family";
 import { useAuth } from "@/components/AuthProvider";
+import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+import { computeGenerationMap, GENERATION_COLORS } from "@/lib/generation";
 
-const GENERATION_COLORS: Record<number, string> = {
-  0: "#C9A24B",
-  1: "#3E6B5C",
-  2: "#D98B3E",
-  3: "#6B4C8B",
-};
-
-const GENERATIONS: Record<string, number> = {
-  p1: 0, p2: 0, p3: 0,
-  p4: 1, p5: 1, p6: 1, p7: 1, p8: 1,
-  p9: 2, p10: 2, p11: 2, p12: 2,
-};
+type MapUnion = UnionLike;
+type MapEdge = EdgeLike;
+type GenMap = Record<string, number>;
 
 const TRAVEL_MODES = ["driving", "walking", "cycling"] as const;
 
-function createPersonIcon(person: Person) {
-  const gen = GENERATIONS[person.id] ?? 0;
-  const color = GENERATION_COLORS[gen] ?? "#C9A24B";
-  const alive = person.isAlive;
+function createPersonIcon(person: PersonLike, genMap: GenMap) {
+  const gen = genMap[person.id] ?? 0;
+  const color = GENERATION_COLORS[gen % GENERATION_COLORS.length] ?? "#C9A544";
+  const alive = person.isAlive !== false;
   return L.divIcon({
     className: "",
     iconSize: [28, 28],
@@ -55,15 +46,17 @@ function createPersonIcon(person: Person) {
   });
 }
 
-function FitBounds({ persons: ps }: { persons: Person[] }) {
+function FitBounds({ persons }: { persons: PersonLike[] }) {
   const map = useMap();
   useEffect(() => {
-    if (!map || ps.length === 0) return;
-    const bounds = L.latLngBounds(
-      ps.map((p) => [p.lat!, p.lng!] as [number, number])
-    );
+    if (!map || persons.length === 0) return;
+    const pts = persons
+      .filter((p) => p.lat != null && p.lng != null)
+      .map((p) => [p.lat!, p.lng!] as [number, number]);
+    if (pts.length === 0) return;
+    const bounds = L.latLngBounds(pts);
     map.fitBounds(bounds, { padding: [60, 60] });
-  }, [ps, map]);
+  }, [persons, map]);
   return null;
 }
 
@@ -116,9 +109,47 @@ function GeocoderSearch({ onSearch }: { onSearch: (q: string) => void }) {
   );
 }
 
+function toPersonLikeFromDb(p: Record<string, unknown>): PersonLike {
+  return {
+    id: p.id as string,
+    fullName: (p.full_name ?? p.fullName ?? "") as string,
+    birthYear: (p.birth_year ?? p.birthYear ?? null) as number | null,
+    deathYear: (p.death_year ?? p.deathYear ?? null) as number | null,
+    isAlive: (p.is_alive ?? p.isAlive ?? true) as boolean,
+    bio: (p.bio ?? "") as string,
+    birthPlace: (p.birth_place ?? p.birthPlace ?? "") as string,
+    profession: (p.profession ?? "") as string,
+    email: (p.email ?? "") as string,
+    phone: (p.phone ?? "") as string,
+    address: (p.address ?? "") as string,
+    website: (p.website ?? "") as string,
+    lat: (p.lat ?? p.latitude ?? null) as number | null,
+    lng: (p.lng ?? p.longitude ?? null) as number | null,
+    photoUrl: (p.photo_url ?? p.photoUrl ?? "") as string,
+  };
+}
+
+function toUnionLikeFromDb(p: Record<string, unknown>): UnionLike {
+  return {
+    id: p.id as string,
+    partnerA: (p.partner_a ?? p.partnerA ?? "") as string,
+    partnerB: (p.partner_b ?? p.partnerB ?? "") as string,
+    type: (p.union_type ?? p.type ?? "marriage") as string,
+    startYear: (p.start_year ?? p.startYear ?? null) as number | null,
+    endYear: (p.end_year ?? p.endYear ?? null) as number | null,
+  };
+}
+
+function toEdgeLikeFromDb(p: Record<string, unknown>): EdgeLike {
+  return {
+    unionId: (p.union_id ?? p.unionId ?? "") as string,
+    childId: (p.child_id ?? p.childId ?? "") as string,
+  };
+}
+
 export default function MapView() {
-  const { canEdit } = useAuth();
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const { canEdit, user } = useAuth();
+  const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
   const [pinMode, setPinMode] = useState(false);
   const [showPersonPicker, setShowPersonPicker] = useState(false);
   const [pendingLatLng, setPendingLatLng] = useState<[number, number] | null>(
@@ -127,7 +158,9 @@ export default function MapView() {
   const [searchCenter, setSearchCenter] = useState<[number, number] | null>(
     null
   );
-  const [directionsTarget, setDirectionsTarget] = useState<Person | null>(null);
+  const [directionsTarget, setDirectionsTarget] = useState<PersonLike | null>(
+    null
+  );
   const [userPosition, setUserPosition] = useState<[number, number] | null>(
     null
   );
@@ -140,28 +173,62 @@ export default function MapView() {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
 
+  const [persons, setPersons] = useState<PersonLike[]>([]);
+  const [unions, setUnions] = useState<UnionLike[]>([]);
+  const [edges, setEdges] = useState<EdgeLike[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/tree", { cache: "no-store" });
+        if (res.ok) {
+          const db = await res.json();
+          if (!cancelled) {
+            setPersons((db.persons ?? []).map(toPersonLikeFromDb));
+            setUnions((db.unions ?? []).map(toUnionLikeFromDb));
+            setEdges((db.edges ?? []).map(toEdgeLikeFromDb));
+          }
+        }
+      } catch {
+        /* keep empty */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const genMap = useMemo(
+    () => computeGenerationMap(persons, unions, edges),
+    [persons, unions, edges]
+  );
+
   const personsWithCoords = useMemo(
-    () => persons.filter((p) => p.lat && p.lng),
-    []
+    () => persons.filter((p) => p.lat != null && p.lng != null),
+    [persons]
   );
 
   const migrationArcs = useMemo(() => {
-    const arcs: { from: Person; to: Person; type: string }[] = [];
+    const arcs: { from: PersonLike; to: PersonLike; type: string }[] = [];
     for (const u of unions) {
       const a = persons.find((p) => p.id === u.partnerA);
       const b = persons.find((p) => p.id === u.partnerB);
       if (
-        a?.lat &&
-        a.lng &&
-        b?.lat &&
-        b.lng &&
+        a?.lat != null &&
+        a.lng != null &&
+        b?.lat != null &&
+        b.lng != null &&
         (a.lat !== b.lat || a.lng !== b.lng)
       ) {
         arcs.push({ from: a, to: b, type: u.type });
       }
     }
     const seen = new Set<string>();
-    for (const pe of parentEdges) {
+    for (const pe of edges) {
       const union = unions.find((u) => u.id === pe.unionId);
       if (!union) continue;
       const child = persons.find((p) => p.id === pe.childId);
@@ -169,10 +236,10 @@ export default function MapView() {
         (p) => p.id === union.partnerA || p.id === union.partnerB
       );
       if (
-        child?.lat &&
-        child.lng &&
-        parent?.lat &&
-        parent.lng &&
+        child?.lat != null &&
+        child.lng != null &&
+        parent?.lat != null &&
+        parent.lng != null &&
         (child.lat !== parent.lat || child.lng !== parent.lng)
       ) {
         const key = parent.id + "->" + child.id;
@@ -183,9 +250,9 @@ export default function MapView() {
       }
     }
     return arcs;
-  }, []);
+  }, [persons, unions, edges]);
 
-  const handleSelectPerson = useCallback((p: Person) => {
+  const handleSelectPerson = useCallback((p: PersonLike) => {
     setSelectedPerson(p);
     setDirectionsTarget(null);
     setRouteCoords([]);
@@ -213,7 +280,7 @@ export default function MapView() {
   }, []);
 
   const fetchRoute = useCallback(
-    (origin: [number, number], dest: Person, mode: string) => {
+    (origin: [number, number], dest: PersonLike, mode: string) => {
       setLoadingRoute(true);
       setRouteCoords([]);
       setRouteInfo(null);
@@ -224,7 +291,7 @@ export default function MapView() {
         + origin[1]
         + ","
         + origin[0]
-        + ";"
+        + ","
         + dest.lng
         + ","
         + dest.lat
@@ -264,7 +331,7 @@ export default function MapView() {
   );
 
   const handleGetDirections = useCallback(
-    (p: Person) => {
+    (p: PersonLike) => {
       if (!navigator.geolocation) {
         setGeoError("Geolocation not supported");
         return;
@@ -315,11 +382,13 @@ export default function MapView() {
           }),
         });
         if (res.ok) {
-          const person = persons.find((p) => p.id === personId);
-          if (person) {
-            person.lat = pendingLatLng[0];
-            person.lng = pendingLatLng[1];
-          }
+          setPersons((prev) =>
+            prev.map((p) =>
+              p.id === personId
+                ? { ...p, lat: pendingLatLng[0], lng: pendingLatLng[1] }
+                : p
+            )
+          );
         }
       } catch {
         /* noop */
@@ -366,7 +435,7 @@ export default function MapView() {
             </button>
           )}
           <span className="text-xs text-[var(--parchment-dim)]">
-            {personsWithCoords.length} locations
+            {loading ? "Loading…" : personsWithCoords.length + " locations"}
           </span>
         </div>
         <div className="max-w-7xl mx-auto px-6 pb-3 flex items-center gap-3">
@@ -393,7 +462,7 @@ export default function MapView() {
             <Marker
               key={p.id}
               position={[p.lat!, p.lng!]}
-              icon={createPersonIcon(p)}
+              icon={createPersonIcon(p, genMap)}
               eventHandlers={{ click: () => handleSelectPerson(p) }}
             >
               <Popup>
@@ -452,12 +521,14 @@ export default function MapView() {
                         height: 8,
                         borderRadius: "50%",
                         background:
-                          GENERATION_COLORS[GENERATIONS[p.id] ?? 0],
+                          GENERATION_COLORS[
+                            (genMap[p.id] ?? 0) % GENERATION_COLORS.length
+                          ],
                         marginRight: 4,
                         verticalAlign: "middle",
                       }}
                     />
-                    Generation {(GENERATIONS[p.id] ?? 0) + 1}
+                    Generation {(genMap[p.id] ?? 0) + 1}
                   </div>
                   <Link
                     href={"/person/" + p.id}
