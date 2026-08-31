@@ -3,11 +3,11 @@ import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 export const GENERATION_COLORS = [
   "#C9A544",
   "#B5544A",
-  "#7A9B76",
-  "#7A8C9E",
-  "#9E7A9E",
+  "#4F8858",
+  "#3F6E96",
+  "#8A4F96",
   "#8A6F5C",
-  "#6E6553",
+  "#585049",
 ];
 
 export function generationLabel(gen: number): string {
