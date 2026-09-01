@@ -126,12 +126,13 @@ function toEdgeLike(e: {
   };
 }
 
-function makeMarriageEdge(source: string, target: string, unionType: string): Edge {
+function makeMarriageEdge(source: string, target: string, unionType: string, targetHandle?: string): Edge {
   const isDivorced = unionType === "divorced";
   return {
     id: `${source}-${target}-marriage`,
     source,
     target,
+    targetHandle,
     type: "smoothstep",
     style: {
       stroke: isDivorced ? "var(--divorce-red)" : "var(--thread-gold)",
@@ -383,9 +384,9 @@ export default function TapestryCanvas() {
       for (const union of unions) {
         if (!union.partnerB) continue;
         graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons }, position: { x: 0, y: 0 } });
-        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type));
+        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, "partner-a"));
         if (union.partnerB) {
-          graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type));
+          graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, "partner-b"));
         }
       }
       for (const edge of parentEdges) {
