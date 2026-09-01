@@ -592,6 +592,12 @@ export default function TapestryCanvas() {
     [rawUnions, rawPersons, rawEdges, user, toast]
   );
 
+  //  --  --  CRUD: Update union (change type/years of a relationship)  --  -- 
+  const handleUpdateUnion = useCallback((updated: UnionLike) => {
+    setRawUnions((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    if (user) apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions.map((u) => (u.id === updated.id ? updated : u)), edges: rawEdges }, () => toast("Failed to save relationship", "error"));
+  }, [rawUnions, rawPersons, rawEdges, user, toast]);
+
   //  --  --  CRUD: Add child (existing person)  --  -- 
   const handleAddChild = useCallback(
     (parentId: string, childId: string) => {
@@ -1141,6 +1147,7 @@ export default function TapestryCanvas() {
           onUpdatePerson={handleUpdatePerson}
           onDeletePerson={handleDeletePerson}
           onAddPartner={handleAddPartner}
+          onUpdateUnion={handleUpdateUnion}
           onAddChild={handleAddChild}
           onAddParent={handleAddParent}
           onCreatePersonAndLink={handleCreatePersonAndLink}

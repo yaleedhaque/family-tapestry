@@ -55,6 +55,7 @@ interface InfoPanelProps {
   onUpdatePerson: (person: PersonLike) => void;
   onDeletePerson: (personId: string) => void;
   onAddPartner: (personId: string, partnerId: string, unionType: string, startYear: number | null) => void;
+  onUpdateUnion: (union: UnionLike) => void;
   onAddChild: (personId: string, childId: string) => void;
   onAddParent: (childId: string, parentId: string) => void;
   onCreatePersonAndLink: (
@@ -89,6 +90,7 @@ export default function InfoPanel({
   onUpdatePerson,
   onDeletePerson,
   onAddPartner,
+  onUpdateUnion,
   onAddChild,
   onAddParent,
   onCreatePersonAndLink,
@@ -118,6 +120,10 @@ export default function InfoPanel({
   const [newPersonFields, setNewPersonFields] = useState({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
   const [newUnionType, setNewUnionType] = useState("marriage");
   const [newStartYear, setNewStartYear] = useState("");
+  const [editingUnionId, setEditingUnionId] = useState<string | null>(null);
+  const [editUnionType, setEditUnionType] = useState("marriage");
+  const [editStartYear, setEditStartYear] = useState("");
+  const [editEndYear, setEditEndYear] = useState("");
 
   const relatedData = useMemo(() => {
     if (!person) return { parents: [], partners: [], children: [] };
@@ -171,6 +177,7 @@ export default function InfoPanel({
     setSearchQuery("");
     setNewPersonFields({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
     setNewStartYear("");
+    setEditingUnionId(null);
   };
 
   const switchTab = (t: Tab) => { setTab(t); resetAdd(); };
@@ -501,7 +508,7 @@ export default function InfoPanel({
 
           {tab === "partners" && (
             <RelSection
-              items={relatedData.partners.map((pp) => ({ id: pp.person.id, label: pp.person.fullName, sub: `${pp.union.type} · ${pp.union.startYear ?? "?"} – ${pp.union.endYear ?? "present"}`, badge: pp.union.type === "divorced" ? "divorced" : undefined }))}
+              items={relatedData.partners.map((pp) => ({ id: pp.person.id, unionId: pp.union.id, label: pp.person.fullName, sub: `${pp.union.type} · ${pp.union.startYear ?? "?"} – ${pp.union.endYear ?? "present"}`, badge: pp.union.type === "divorced" ? "divorced" : undefined, union: pp.union }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddPartner(person.id, id, newUnionType, newStartYear ? Number(newStartYear) : null); resetAdd(); }}
@@ -512,6 +519,31 @@ export default function InfoPanel({
               showUnionType unionType={newUnionType} onUnionTypeChange={setNewUnionType}
               startYear={newStartYear} onStartYearChange={setNewStartYear}
               onNavigate={onNavigate}
+              onEditUnion={(item) => {
+                setEditingUnionId(item.unionId ?? null);
+                if (item.union) {
+                  setEditUnionType(item.union.type);
+                  setEditStartYear(item.union.startYear != null ? String(item.union.startYear) : "");
+                  setEditEndYear(item.union.endYear != null ? String(item.union.endYear) : "");
+                }
+              }}
+              editingUnionId={editingUnionId}
+              editUnionType={editUnionType} onEditUnionTypeChange={setEditUnionType}
+              editStartYear={editStartYear} onEditStartYearChange={setEditStartYear}
+              editEndYear={editEndYear} onEditEndYearChange={setEditEndYear}
+              onSaveUnion={() => {
+                const target = relatedData.partners.find((pp) => pp.union.id === editingUnionId)?.union;
+                if (target) {
+                  onUpdateUnion({
+                    ...target,
+                    type: editUnionType,
+                    startYear: editStartYear ? Number(editStartYear) : null,
+                    endYear: editEndYear ? Number(editEndYear) : null,
+                  });
+                }
+                setEditingUnionId(null);
+              }}
+              onCancelEditUnion={() => setEditingUnionId(null)}
             />
           )}
 
@@ -587,8 +619,11 @@ function RelSection({
   onStartAdd, onCancelAdd, onRemove, personLabel,
   showUnionType, unionType, onUnionTypeChange, startYear, onStartYearChange,
   onNavigate,
+  onEditUnion, editingUnionId, editUnionType, onEditUnionTypeChange,
+  editStartYear, onEditStartYearChange, editEndYear, onEditEndYearChange,
+  onSaveUnion, onCancelEditUnion,
 }: {
-  items: { id: string; label: string; sub: string; badge?: string }[];
+  items: { id: string; unionId?: string; label: string; sub: string; badge?: string; union?: UnionLike }[];
   addMode: "existing" | "new" | null;
   searchQuery: string;
   searchResults: PersonLike[];
@@ -607,29 +642,74 @@ function RelSection({
   startYear?: string;
   onStartYearChange?: (val: string) => void;
   onNavigate: (id: string) => void;
+  onEditUnion?: (item: { id: string; unionId?: string; union?: UnionLike }) => void;
+  editingUnionId?: string | null;
+  editUnionType?: string;
+  onEditUnionTypeChange?: (val: string) => void;
+  editStartYear?: string;
+  onEditStartYearChange?: (val: string) => void;
+  editEndYear?: string;
+  onEditEndYearChange?: (val: string) => void;
+  onSaveUnion?: () => void;
+  onCancelEditUnion?: () => void;
 }) {
   return (
     <div className="space-y-3">
       {items.length > 0 ? (
         <div className="space-y-2">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between bg-white/[0.03] rounded-lg px-4 py-2.5 border border-[var(--thread-gold-dim)]/10">
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-full bg-[var(--thread-gold)]/10 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="var(--thread-gold-dim)" strokeWidth="1.5">
-                    <circle cx="12" cy="8" r="4" />
-                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                  </svg>
+          {items.map((item) => {
+            const isEditingThis = onEditUnion && item.unionId && editingUnionId === item.unionId;
+            return (
+            <div key={item.id} className="bg-white/[0.03] rounded-lg px-4 py-2.5 border border-[var(--thread-gold-dim)]/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full bg-[var(--thread-gold)]/10 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="var(--thread-gold-dim)" strokeWidth="1.5">
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <button onClick={() => onNavigate(item.id)} className="text-sm text-[var(--parchment)] font-body hover:text-[var(--thread-gold)] transition-colors text-left">{item.label}</button>
+                    {item.badge && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-[var(--ember-red)]/15 text-[var(--ember-red)]">{item.badge}</span>}
+                    <p className="text-[10px] text-[var(--parchment-dim)]">{item.sub}</p>
+                  </div>
                 </div>
-                <div>
-                  <button onClick={() => onNavigate(item.id)} className="text-sm text-[var(--parchment)] font-body hover:text-[var(--thread-gold)] transition-colors text-left">{item.label}</button>
-                  {item.badge && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-[var(--ember-red)]/15 text-[var(--ember-red)]">{item.badge}</span>}
-                  <p className="text-[10px] text-[var(--parchment-dim)]">{item.sub}</p>
+                <div className="flex items-center gap-1 shrink-0">
+                  {onEditUnion && (
+                    <button onClick={() => onEditUnion(item)} aria-label={`Edit relationship with ${item.label}`} title="Change type / years" className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors text-xs">✎</button>
+                  )}
+                  <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.label}`} className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
                 </div>
               </div>
-              <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.label}`} className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
+
+              {isEditingThis && (
+                <div className="mt-3 pt-3 border-t border-[var(--thread-gold-dim)]/10 space-y-2">
+                  <div className="flex gap-2">
+                    <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Type</label>
+                    <select value={editUnionType} onChange={(e) => onEditUnionTypeChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]">
+                      <option value="marriage">Marriage</option>
+                      <option value="partnership">Partnership</option>
+                      <option value="divorced">Divorced</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2">
+                    <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Start</label>
+                    <input type="number" placeholder="Start year" value={editStartYear} onChange={(e) => onEditStartYearChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+                  </div>
+                  <div className="flex gap-2">
+                    <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">End</label>
+                    <input type="number" placeholder="End year (e.g. divorce year)" value={editEndYear} onChange={(e) => onEditEndYearChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]" />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={onSaveUnion} className="flex-1 px-3 py-1.5 text-xs rounded bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body hover:opacity-90 transition-opacity">Save</button>
+                    <button onClick={onCancelEditUnion} className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <p className="text-xs text-[var(--parchment-dim)] italic">No linked yet.</p>
