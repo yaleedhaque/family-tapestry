@@ -145,7 +145,7 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
   };
 }
 
-function makeChildEdge(source: string, target: string, relationshipType?: string, sourceHandle?: string): Edge {
+function makeChildEdge(source: string, target: string, relationshipType?: string, sourceHandle?: string, targetHandle = "top"): Edge {
   const isAdopted = relationshipType === "adopted";
   const isStep = relationshipType === "step";
   const color = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
@@ -154,7 +154,8 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
     source,
     target,
     sourceHandle,
-    type: "smoothstep",
+    targetHandle,
+    type: "straight",
     animated: isAdopted,
     style: {
       stroke: color,
