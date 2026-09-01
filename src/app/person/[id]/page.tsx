@@ -104,7 +104,6 @@ export default function PersonDetailPage() {
   const live = useLiveTree();
 
   const { user } = useAuth();
-  const { t } = useLang();
 
   const hasLive = (live.persons ?? []).length > 0;
   const persons: PersonLike[] = useMemo(
