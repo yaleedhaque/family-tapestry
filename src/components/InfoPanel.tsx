@@ -459,7 +459,26 @@ export default function InfoPanel({
                 <h3 className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Contact</h3>
                 {field("email", "Email")}
                 {field("phone", "Phone")}
-                {field("address", "Address")}
+                <div className="space-y-1">
+                  {field("address", "Address")}
+                  {(() => {
+                    const addr = (isEditing && fields.address ? fields.address : person.address?.trim()) || "";
+                    const coords = person.lat != null && person.lng != null ? `${person.lat},${person.lng}` : "";
+                    const target = addr || (person.birthPlace?.trim() || "") || coords;
+                    if (!target) return null;
+                    return (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(target)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/25 transition-colors font-body"
+                        title="Open in Google Maps to drive there"
+                      >
+                        📍 Drop pin on map
+                      </a>
+                    );
+                  })()}
+                </div>
                 {field("website", "Website")}
               </div>
             </div>

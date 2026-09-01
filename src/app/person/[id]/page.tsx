@@ -258,7 +258,19 @@ export default function PersonDetailPage() {
                 <ContactRow label="Phone" value={person.phone} href={`tel:${person.phone}`} />
               )}
               {person.address && (
-                <ContactRow label="Address" value={person.address} />
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-[9px] md:text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] w-14 md:w-16 shrink-0">Address</span>
+                  <span className="text-xs md:text-sm text-[var(--parchment-dim)]">{person.address}</span>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(person.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/25 transition-colors font-body"
+                    title="Open in Google Maps to drive there"
+                  >
+                    📍 Drop pin on map
+                  </a>
+                </div>
               )}
               {person.website && (
                 <ContactRow label="Web" value={person.website.replace(/^https?:\/\//, "")} href={person.website} external />
