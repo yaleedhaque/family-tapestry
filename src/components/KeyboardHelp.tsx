@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLang } from "@/lib/i18n";
 
 export default function KeyboardHelp() {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -20,21 +22,21 @@ export default function KeyboardHelp() {
   if (!open) return null;
 
   const shortcuts = [
-    { key: "/", desc: "Open search" },
-    { key: "Esc", desc: "Deselect / close panel" },
-    { key: "?", desc: "Toggle this help" },
-    { key: "Click", desc: "Select a person" },
-    { key: "Hover", desc: "Highlight connected family" },
-    { key: "Scroll", desc: "Zoom in/out" },
-    { key: "Drag", desc: "Pan the canvas" },
-    { key: "Ctrl+Scroll", desc: "Zoom (trackpad)" },
+    { key: "/", desc: t("keyhelp.openSearch") },
+    { key: "Esc", desc: t("keyhelp.deselect") },
+    { key: "?", desc: t("keyhelp.toggle") },
+    { key: "Click", desc: t("keyhelp.select") },
+    { key: "Hover", desc: t("keyhelp.highlight") },
+    { key: "Scroll", desc: t("keyhelp.zoom") },
+    { key: "Drag", desc: t("keyhelp.pan") },
+    { key: "Ctrl+Scroll", desc: t("keyhelp.zoomTrackpad") },
   ];
 
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-[90]" onClick={() => setOpen(false)} />
       <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[95] bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--popover-border)] rounded-xl p-5 w-[320px] shadow-[var(--popover-shadow)]">
-        <h3 className="font-display text-sm text-[var(--thread-gold)] mb-3">Keyboard Shortcuts</h3>
+        <h3 className="font-display text-sm text-[var(--thread-gold)] mb-3">{t("keyhelp.title")}</h3>
         <div className="space-y-2">
           {shortcuts.map((s) => (
             <div key={s.key} className="flex items-center justify-between">
@@ -47,8 +49,7 @@ export default function KeyboardHelp() {
         </div>
         <button onClick={() => setOpen(false)} className="mt-4 w-full text-center text-[10px] text-[var(--parchment-dim)]/50 hover:text-[var(--parchment-dim)]">
           Press ? or Esc to close
-        </button>
-      </div>
+        </button>      </div>
     </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import type { PresencePayload } from "@/lib/types";
+import { useLang } from "@/lib/i18n";
 
 interface ViewerCardProps {
   viewer: PresencePayload;
@@ -10,11 +11,12 @@ interface ViewerCardProps {
 }
 
 export default function ViewerCard({ viewer, isFollowing, onFollow, onClose }: ViewerCardProps) {
+  const { t } = useLang();
   const statusLabel = viewer.editing
-    ? `Editing ${viewer.editing}`
+    ? `${t("viewer.editing")} ${viewer.editing}`
     : viewer.viewing
-    ? `Viewing ${viewer.viewing}`
-    : "Online";
+    ? `${t("viewer.viewing")} ${viewer.viewing}`
+    : t("viewer.online");
   const inactive = Date.now() - new Date(viewer.online_at).getTime() > 5 * 60 * 1000;
 
   return (
@@ -49,7 +51,7 @@ export default function ViewerCard({ viewer, isFollowing, onFollow, onClose }: V
         {viewer.editing && (
           <p className="flex items-center gap-1.5 text-[11px] text-[var(--thread-gold)] font-body">
             <span className="inline-block w-2 h-2 rounded-full bg-[var(--living-glow)] animate-pulse" />
-            {viewer.userName.split(" ")[0]} is editing &ldquo;{viewer.editing}&rdquo;
+            {viewer.userName.split(" ")[0]} {t("viewer.isEditing")} &ldquo;{viewer.editing}&rdquo;
           </p>
         )}
 
@@ -62,7 +64,7 @@ export default function ViewerCard({ viewer, isFollowing, onFollow, onClose }: V
               : "bg-[var(--thread-gold)] text-[var(--tapestry-bg)] border-transparent hover:opacity-90"
           }`}
         >
-          {isFollowing ? "✓ Following — stop" : "Follow " + viewer.userName.split(" ")[0]}
+          {isFollowing ? `✓ ${t("viewer.following")}` : `${t("viewer.follow")} ${viewer.userName.split(" ")[0]}`}
         </button>
 
         {viewer.email ? (
@@ -70,24 +72,24 @@ export default function ViewerCard({ viewer, isFollowing, onFollow, onClose }: V
             href={`mailto:${viewer.email}`}
             className="w-full py-2 text-xs rounded-lg font-body text-center border border-[var(--thread-gold-dim)]/30 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]/60 transition-colors block"
           >
-            📧 Contact
+            📧 {t("viewer.contact")}
           </a>
         ) : (
           <p className="text-[10px] text-[var(--parchment-dim)]/60 font-body text-center">
-            No contact info shared
+            {t("viewer.noContact")}
           </p>
         )}
 
         {isFollowing && (
           <p className="text-[10px] text-[var(--parchment-dim)] font-body text-center">
-            Watching {viewer.userName.split(" ")[0]}&apos;s view — move to stop
+            {t("viewer.watching")} {viewer.userName.split(" ")[0]} — {t("viewer.watchingHint")}
           </p>
         )}
       </div>
 
       <div className="px-4 py-2 border-t border-[var(--thread-gold-dim)]/15">
         <p className="text-[10px] text-[var(--parchment-dim)]/60 font-body text-center">
-          Last active {new Date(viewer.online_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {t("viewer.lastActive")} {new Date(viewer.online_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
     </div>

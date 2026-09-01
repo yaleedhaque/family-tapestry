@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useLang } from "@/lib/i18n";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Tree", icon: TreeIcon },
-  { href: "/timeline", label: "Timeline", icon: ClockIcon },
-  { href: "/map", label: "Map", icon: MapIcon },
+  { key: "nav.tree", href: "/", label: "Tree", icon: TreeIcon },
+  { key: "nav.timeline", href: "/timeline", label: "Timeline", icon: ClockIcon },
+  { key: "nav.map", href: "/map", label: "Map", icon: MapIcon },
 ];
 
 interface MobileNavProps {
@@ -17,6 +18,7 @@ interface MobileNavProps {
 
 export default function MobileNav({ hidden = false }: MobileNavProps) {
   const pathname = usePathname();
+  const { t } = useLang();
   const { user, loading: authLoading } = useAuth();
   const suppressScroll = useRef(false);
   const [visible, setVisible] = useState(true);
@@ -68,7 +70,7 @@ export default function MobileNav({ hidden = false }: MobileNavProps) {
               }`}
             >
               <item.icon active={active} />
-              <span className="text-[10px] font-body">{item.label}</span>
+              <span className="text-[10px] font-body">{t(item.key)}</span>
             </Link>
           );
         })}
@@ -88,7 +90,7 @@ export default function MobileNav({ hidden = false }: MobileNavProps) {
                 className="text-[10px] font-body text-[var(--parchment-dim)] hover:text-[var(--parchment)]"
                 aria-label="Sign out"
               >
-                Sign Out
+                {t("auth.signOut")}
               </button>
             </div>
           ) : (
@@ -98,10 +100,9 @@ export default function MobileNav({ hidden = false }: MobileNavProps) {
               aria-label="Sign in"
             >
               <UserIcon />
-              <span className="text-[10px] font-body">Sign In</span>
+              <span className="text-[10px] font-body">{t("auth.signIn")}</span>
             </Link>
-          )
-        )}
+          ))}
       </div>
     </nav>
   );

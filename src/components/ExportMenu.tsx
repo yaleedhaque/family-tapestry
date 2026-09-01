@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+import { useLang } from "@/lib/i18n";
 import {
   exportToJSON,
   exportPersonsCSV,
@@ -19,6 +20,7 @@ interface ExportMenuProps {
 }
 
 export default function ExportMenu({ persons, unions, edges, onExportGedcom, onExportImage }: ExportMenuProps) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -62,7 +64,7 @@ export default function ExportMenu({ persons, unions, edges, onExportGedcom, onE
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
           <path d="M8 2v8M4 7l4 4 4-4M2 13h12" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Export
+        {t("toolbar.export")}
         <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`}>
           <path d="M3 4.5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -71,20 +73,20 @@ export default function ExportMenu({ persons, unions, edges, onExportGedcom, onE
       {open && (
         <div className="mt-2 border border-[var(--popover-border)] rounded-lg overflow-hidden bg-[var(--tapestry-bg-alt)]/70 shadow-[var(--popover-shadow)]">
           <div className="px-3 py-2 border-b border-[var(--thread-gold-dim)]/20">
-            <h3 className="font-display text-xs text-[var(--thread-gold)] font-semibold">Export Format</h3>
+            <h3 className="font-display text-xs text-[var(--thread-gold)] font-semibold">{t("export.title")}</h3>
           </div>
           <div className="py-1">
             {onExportImage ? (
               <>
-                <ExportItem label="PNG Image" desc="Full tree image" icon="🖼" onClick={() => handleExport("png")} disabled={exporting} />
-                <ExportItem label="PDF Document" desc="Full tree (best fit)" icon="📄" onClick={() => handleExport("pdf")} disabled={exporting} />
+                <ExportItem label={t("export.png")} desc={t("export.pngDesc")} icon="🖼" onClick={() => handleExport("png")} disabled={exporting} />
+                <ExportItem label={t("export.pdf")} desc={t("export.pdfDesc")} icon="📄" onClick={() => handleExport("pdf")} disabled={exporting} />
                 <div className="border-t border-[var(--thread-gold-dim)]/15 my-1" />
               </>
             ) : null}
-            <ExportItem label="GEDCOM" desc="Genealogy standard" icon="📋" onClick={() => { if (onExportGedcom) onExportGedcom(); setOpen(false); }} disabled={exporting} />
-            <ExportItem label="JSON" desc="Full tree data" icon="📦" onClick={() => handleExport("json")} disabled={exporting} />
-            <ExportItem label="CSV — Persons" desc="Tabular person data" icon="📊" onClick={() => handleExport("csv-persons")} disabled={exporting} />
-            <ExportItem label="CSV — Relationships" desc="Family connections" icon="📊" onClick={() => handleExport("csv-relationships")} disabled={exporting} />
+            <ExportItem label={t("export.gedcom")} desc={t("export.gedcomDesc")} icon="📋" onClick={() => { if (onExportGedcom) onExportGedcom(); setOpen(false); }} disabled={exporting} />
+            <ExportItem label={t("export.json")} desc={t("export.jsonDesc")} icon="📦" onClick={() => handleExport("json")} disabled={exporting} />
+            <ExportItem label={t("export.csvPersons")} desc={t("export.csvPersonsDesc")} icon="📊" onClick={() => handleExport("csv-persons")} disabled={exporting} />
+            <ExportItem label={t("export.csvRel")} desc={t("export.csvRelDesc")} icon="📊" onClick={() => handleExport("csv-relationships")} disabled={exporting} />
           </div>
         </div>
       )}

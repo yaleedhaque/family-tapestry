@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import type { PersonLike } from "@/components/InfoPanel";
+import { useLang } from "@/lib/i18n";
 
 interface SearchBarProps {
   persons: PersonLike[];
@@ -10,6 +11,7 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({ persons, onSelect }: SearchBarProps) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -77,7 +79,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
           <circle cx="8.5" cy="8.5" r="5.5" />
           <path d="M13 13l4 4" strokeLinecap="round" />
         </svg>
-        <span className="font-body text-sm">Search the tapestry</span>
+        <span className="font-body text-sm">{t("search.closed")}</span>
         <kbd className="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-white/10 border border-white/10 font-mono">/</kbd>
       </button>
     );
@@ -97,7 +99,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelectedIdx(0); }}
             onKeyDown={onKeyNav}
-            placeholder="Search by name..."
+            placeholder={t("search.placeholder")}
             className="flex-1 bg-transparent text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none"
           />
           <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 border border-white/10 text-[var(--parchment-dim)] font-mono">
@@ -130,7 +132,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
                   <span className="text-[10px] text-[var(--parchment-dim)]">{p.birthYear} – {p.deathYear ?? "present"}</span>
                 </div>
                 {p.isAlive === false && (
-                  <span className="ml-auto text-[9px] text-[var(--parchment-dim)] italic shrink-0">deceased</span>
+                  <span className="ml-auto text-[9px] text-[var(--parchment-dim)] italic shrink-0">{t("search.deceased")}</span>
                 )}
               </button>
             ))}
@@ -139,14 +141,16 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
 
         {query && results.length === 0 && (
           <div className="px-4 py-6 text-center">
-            <p className="text-sm text-[var(--parchment-dim)] italic">No one found named &ldquo;{query}&rdquo;</p>
+            <p className="text-sm text-[var(--parchment-dim)] italic">{t("search.noFound")} &ldquo;{query}&rdquo;</p>
           </div>
         )}
 
         {!query && (
           <div className="px-4 pt-1.5 pb-1 border-b border-[var(--thread-gold-dim)]/10">
             <p className="text-[10px] text-[var(--parchment-dim)]/60 tracking-wide">
-              {persons.length > 30 ? `Showing first 30 of ${persons.length} — type to filter` : `All ${persons.length} people — type to filter`}
+              {persons.length > 30
+                ? t("search.showingFirst", `${30}`, `${persons.length}`)
+                : t("search.allPeople", `${persons.length}`)}
             </p>
           </div>
         )}
