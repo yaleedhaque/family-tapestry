@@ -62,6 +62,18 @@
   --z-scrim: 40;
   --z-modal: 50;
   --z-toast: 60;
+
+  /* §9 Themed scrollbar + chrome surfaces (dark) */
+  --scrollbar-thumb: rgba(201,162,75,0.28);
+  --scrollbar-thumb-hover: rgba(201,162,75,0.5);
+  --scrollbar-track: rgba(255,255,255,0.04);
+  --mipmap-bg: rgba(20,17,14,0.85);
+  --control-hover-bg: rgba(201,162,75,0.15);
+  --control-icon: #EFE6D8;
+
+  /* Elevation shadow for floating panels/popovers (theme-aware) */
+  --popover-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4);
+  --popover-border: rgba(154,123,60,0.3);
 }
 
 html.light {
@@ -93,8 +105,21 @@ html.light {
   --shadow-xl: 0 16px 48px var(--shadow-color);
   --glow-living: 0 0 12px rgba(166,91,31,.15);
   --glow-focus: 0 0 0 2px var(--focus-ring);
-}
 
+  /* §9 Themed scrollbar + chrome surfaces (light) */
+  --scrollbar-thumb: rgba(122,91,31,0.35);
+  --scrollbar-thumb-hover: rgba(122,91,31,0.6);
+  --scrollbar-track: rgba(44,37,32,0.06);
+  --mipmap-bg: rgba(255,255,255,0.9);
+  --control-hover-bg: rgba(122,91,31,0.12);
+  --control-icon: #2C2520;
+
+  /* Elevation shadow for floating panels/popovers (theme-aware — lighter in
+     light mode so panels still cast a visible soft shadow that separates them
+     from the bright background) */
+  --popover-shadow: 0 8px 28px rgba(44,37,32,0.18), 0 2px 8px rgba(44,37,32,0.12);
+  --popover-border: rgba(122,91,31,0.28);
+}
 @media (max-width: 767px) {
   :root, html.light {
     --chrome-top: 76px;
@@ -108,6 +133,35 @@ html.light {
     color: var(--parchment);
     font-family: var(--font-body), system-ui, sans-serif;
   }
+}
+
+/* §9 — Themed scrollbars (matching the wesite's thread-gold palette).
+   Applies everywhere (Firefox + WebKit/Blink). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @layer utilities {
@@ -224,15 +278,27 @@ input[type="range"].tapestry-range:focus-visible::-webkit-slider-thumb {
 }
 
 .react-flow__minimap {
-  background: rgba(20,17,14,0.85) !important;
+  background: var(--mipmap-bg, rgba(20,17,14,0.85)) !important;
   border: 1px solid var(--thread-gold-dim) !important;
-  border-radius: 8px !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+}
+
+/* Uniform outline: match the minimap frame radius to the mask's own corner
+   radius so every corner has the same 1px outline thickness as the sides
+   (previously the rounded frame vs square-ish mask made corners look thicker). */
+.react-flow__minimap svg {
+  border-radius: 6px !important;
+}
+.react-flow__minimap svg rect {
+  stroke: none !important;
 }
 
 .react-flow__controls {
-  background: rgba(20,17,14,0.85) !important;
+  background: var(--mipmap-bg, rgba(20,17,14,0.85)) !important;
   border: 1px solid var(--thread-gold-dim) !important;
   border-radius: 8px !important;
+  overflow: hidden !important;
 }
 
 .react-flow__controls button {
@@ -242,15 +308,22 @@ input[type="range"].tapestry-range:focus-visible::-webkit-slider-thumb {
 }
 
 .react-flow__controls button:hover {
-  background: rgba(201,162,75,0.15) !important;
+  background: var(--control-hover-bg, rgba(201,162,75,0.15)) !important;
 }
 
 .react-flow__controls button svg {
-  fill: var(--parchment) !important;
+  fill: var(--control-icon, var(--parchment)) !important;
+}
+
+.react-flow__controls button path,
+.react-flow__controls-button svg path,
+.react-flow__controls svg * {
+  fill: var(--control-icon, var(--parchment)) !important;
+  stroke: var(--control-icon, var(--parchment)) !important;
 }
 
 .react-flow__attribution {
-  background: rgba(20,17,14,0.85) !important;
+  background: var(--mipmap-bg, rgba(20,17,14,0.85)) !important;
   border-radius: 6px !important;
 }
 
@@ -260,6 +333,12 @@ input[type="range"].tapestry-range:focus-visible::-webkit-slider-thumb {
 
 .react-flow__panel {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+/* §10 — react-flow_controls buttons with hard-coded black/white glyphs use the
+   theme token instead, so light mode shows dark icons (not the default white). */
+.react-flow__controls-button svg {
+  fill: var(--control-icon) !important;
 }
 
 select {

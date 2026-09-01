@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { can, type Role } from "@/lib/permissions";
 
 export async function GET() {
   const rl = checkRateLimit("gedcom", 10, 60_000);
@@ -8,12 +10,29 @@ export async function GET() {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
   }
 
-  const supabase = await createClient();
+  const sb = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await sb.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // GEDCOM import/export is Editor/Admin only (spec §8 matrix).
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("approved, role")
+    .eq("id", user.id)
+    .single();
+  if (!profile || !profile.approved) {
+    return NextResponse.json({ error: "Account not approved" }, { status: 403 });
+  }
+  if (!can((profile.role ?? "viewer") as Role, "edit-any")) {
+    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+  }
+
+  // Read via service client (authorized editor/admin export bypasses the
+  // approved-reader RLS policies).
+  const supabase = createServiceClient();
 
   const { data: persons } = await supabase.from("persons").select("*");
   const { data: unions } = await supabase.from("unions").select("*");

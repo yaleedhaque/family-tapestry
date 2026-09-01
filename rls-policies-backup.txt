@@ -1,0 +1,29 @@
+edit_log	Anyone can read edit_log	SELECT	{public}	true	None
+edit_log	Authenticated can insert edit_log	INSERT	{public}	None	(auth.role() = 'authenticated'::text)
+family_roles	Anyone can read family_roles	SELECT	{public}	true	None
+family_roles	Authenticated can manage family_roles	ALL	{public}	(auth.role() = 'authenticated'::text)	None
+life_events	anyone_read_life_events	SELECT	{public}	true	None
+life_events	auth_delete_life_events	DELETE	{public}	(auth.role() = 'authenticated'::text)	None
+life_events	auth_insert_life_events	INSERT	{public}	None	(auth.role() = 'authenticated'::text)
+life_events	auth_update_life_events	UPDATE	{public}	(auth.role() = 'authenticated'::text)	None
+parent_edges	Anyone can read parent_edges	SELECT	{public}	true	None
+parent_edges	Authenticated can delete parent_edges	DELETE	{public}	(auth.role() = 'authenticated'::text)	None
+parent_edges	Authenticated can insert parent_edges	INSERT	{public}	None	(auth.role() = 'authenticated'::text)
+parent_edges	Authenticated can update parent_edges	UPDATE	{public}	(auth.role() = 'authenticated'::text)	None
+persons	Anyone can read persons	SELECT	{public}	true	None
+persons	Authenticated can delete persons	DELETE	{public}	(auth.role() = 'authenticated'::text)	None
+persons	Authenticated can insert persons	INSERT	{public}	None	(auth.role() = 'authenticated'::text)
+persons	Authenticated can update persons	UPDATE	{public}	(auth.role() = 'authenticated'::text)	None
+profiles	Admins can manage all profiles	ALL	{public}	(EXISTS ( SELECT 1
+   FROM profiles profiles_1
+  WHERE ((profiles_1.id = auth.uid()) AND (profiles_1.role = 'admin'::text))))	None
+profiles	Anyone can read profiles	SELECT	{public}	true	None
+profiles	Users can update own profile	UPDATE	{public}	(auth.uid() = id)	None
+sources	Anyone can read sources	SELECT	{public}	true	None
+sources	Authenticated can delete sources	DELETE	{public}	(auth.role() = 'authenticated'::text)	None
+sources	Authenticated can insert sources	INSERT	{public}	None	(auth.role() = 'authenticated'::text)
+sources	Authenticated can update sources	UPDATE	{public}	(auth.role() = 'authenticated'::text)	None
+unions	Anyone can read unions	SELECT	{public}	true	None
+unions	Authenticated can delete unions	DELETE	{public}	(auth.role() = 'authenticated'::text)	None
+unions	Authenticated can insert unions	INSERT	{public}	None	(auth.role() = 'authenticated'::text)
+unions	Authenticated can update unions	UPDATE	{public}	(auth.role() = 'authenticated'::text)	None

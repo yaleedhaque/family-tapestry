@@ -10,10 +10,10 @@ interface TreeToolbarProps {
   parentEdges: EdgeLike[];
   onExportGedcom?: () => void;
   onImportGedcom?: () => void;
-  viewportRef?: React.RefObject<HTMLDivElement | null>;
+  onExportImage?: (format: "png" | "pdf") => void;
 }
 
-export default function TreeToolbar({ persons, unions, parentEdges, onExportGedcom, onImportGedcom, viewportRef }: TreeToolbarProps) {
+export default function TreeToolbar({ persons, unions, parentEdges, onExportGedcom, onImportGedcom, onExportImage }: TreeToolbarProps) {
   const [expanded, setExpanded] = useState(false);
 
   const stats = useMemo(() => {
@@ -44,7 +44,7 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
       </button>
 
       {expanded && (
-        <div className="absolute top-0 right-12 w-56 max-h-[calc(100vh-8rem)] overflow-y-auto bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+        <div className="absolute top-0 right-12 w-60 max-h-[calc(100vh-8rem)] overflow-y-auto bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--popover-border)] rounded-xl shadow-[var(--popover-shadow)]">
           <div className="px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
             <h3 className="font-display text-sm text-[var(--thread-gold)] font-semibold">Tree Overview</h3>
           </div>
@@ -67,8 +67,8 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
               persons={persons}
               unions={unions}
               edges={parentEdges}
-              viewportRef={viewportRef}
               onExportGedcom={onExportGedcom}
+              onExportImage={onExportImage}
             />
             {onImportGedcom && (
               <button

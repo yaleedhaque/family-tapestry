@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 
-export type UserRole = "admin" | "editor" | "viewer";
+export type UserRole = "admin" | "editor" | "user" | "viewer";
 
 interface AuthUser extends User {
   role?: UserRole;
@@ -49,10 +49,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             ?? (u.user_metadata as Record<string, unknown>)?.role as UserRole | undefined;
           try {
             const { data: profile } = await supabase.from("profiles").select("role, approved").eq("id", u.id).single();
-            u.role = (profile?.role as UserRole) ?? metaRole ?? "editor";
+            u.role = (profile?.role as UserRole) ?? metaRole ?? "viewer";
             (u as unknown as Record<string, unknown>).approved = profile?.approved ?? true;
           } catch {
-            u.role = metaRole ?? "editor";
+            u.role = metaRole ?? "viewer";
           }
           setUser(u);
           setLoading(false);
@@ -69,10 +69,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             ?? (u.user_metadata as Record<string, unknown>)?.role as UserRole | undefined;
           try {
             const { data: profile } = await supabase.from("profiles").select("role, approved").eq("id", u.id).single();
-            u.role = (profile?.role as UserRole) ?? metaRole ?? "editor";
+            u.role = (profile?.role as UserRole) ?? metaRole ?? "viewer";
             (u as unknown as Record<string, unknown>).approved = profile?.approved ?? true;
           } catch {
-            u.role = metaRole ?? "editor";
+            u.role = metaRole ?? "viewer";
           }
           setUser({ ...u });
           return;

@@ -33,7 +33,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { useToast } from "@/components/Toast";
 import { useIsMobile } from "@/lib/mobile";
-import { computeGenerationMap, GENERATION_COLORS } from "@/lib/generation";
+import { computeGenerationMap, personRingStatus, STATUS_RING_COLORS } from "@/lib/generation";
 import { persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import type { Source } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
@@ -41,6 +41,7 @@ import type { DbPerson, TreeChange } from "@/lib/types";
 import { useRealtimeTree, useTreePresence, usePresenceFollow } from "@/lib/supabase/realtime";
 import type { PresencePayload } from "@/lib/types";
 import ViewerCard from "@/components/ViewerCard";
+import { useUserCircle } from "@/lib/useUserCircle";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
 
@@ -75,6 +76,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     lat: dp.lat ?? null,
     lng: dp.lng ?? null,
     photoUrl: dp.photo_url ?? "",
+    createdBy: dp.created_by ?? null,
   };
 }
 
@@ -90,6 +92,8 @@ function toUnionLike(raw: {
   start_year?: number | null;
   endYear?: number | null;
   end_year?: number | null;
+  createdBy?: string | null;
+  created_by?: string | null;
 }): UnionLike {
   return {
     id: raw.id,
@@ -98,6 +102,7 @@ function toUnionLike(raw: {
     type: raw.type ?? raw.union_type ?? "marriage",
     startYear: raw.startYear ?? raw.start_year ?? null,
     endYear: raw.endYear ?? raw.end_year ?? null,
+    createdBy: raw.createdBy ?? raw.created_by ?? null,
   };
 }
 
@@ -106,10 +111,13 @@ function toEdgeLike(e: {
   union_id?: string;
   childId?: string;
   child_id?: string;
+  createdBy?: string | null;
+  created_by?: string | null;
 }): EdgeLike {
   return {
     unionId: e.unionId ?? e.union_id ?? "",
     childId: e.childId ?? e.child_id ?? "",
+    createdBy: e.createdBy ?? e.created_by ?? null,
   };
 }
 
@@ -201,7 +209,7 @@ function toDbSource(s: Source) {
 }
 
 export default function TapestryCanvas() {
-  const { fitView, setViewport } = useReactFlow();
+  const { fitView, setViewport, getViewport } = useReactFlow();
   const { user, canEdit, loading: authLoading } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -237,6 +245,11 @@ export default function TapestryCanvas() {
   const [dataLoading, setDataLoading] = useState(true);
   const [showFitHint, setShowFitHint] = useState(false);
 
+  // §9.4 — Per-role, per-person edit gating. Server routes stay authoritative;
+  // this only decides which controls are shown.
+  const gate = useUserCircle(user, rawPersons, rawUnions, rawEdges);
+  const canCreate = gate.isEditorOrAdmin || gate.role === "user";
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const key = "family-tapestry-fit-hint-dismissed";
@@ -246,12 +259,6 @@ export default function TapestryCanvas() {
       }
     } catch { /* ignore */ }
   }, []);
-
-  const maxGeneration = useMemo(() => {
-    if (rawPersons.length === 0) return 0;
-    const gen = computeGenerationMap(rawPersons, rawUnions, rawEdges);
-    return Math.max(0, ...Object.values(gen));
-  }, [rawPersons, rawUnions, rawEdges]);
 
   // §2.5 — Memoized, stable generation map keyed by graph shape so ring colours
   // never reshuffle on re-render, tab switch, or demo→live data swap.
@@ -349,7 +356,7 @@ export default function TapestryCanvas() {
       const graphEdges: Edge[] = [];
 
       for (const person of persons) {
-        graphNodes.push({ id: person.id, type: "personNode", data: { person, generation: generationMap[person.id] ?? 0 }, position: { x: 0, y: 0 } });
+        graphNodes.push({ id: person.id, type: "personNode", data: { person, generation: generationMap[person.id] ?? 0, ringStatus: personRingStatus(person, unions) }, position: { x: 0, y: 0 } });
       }
       for (const union of unions) {
         if (!union.partnerB) continue;
@@ -746,6 +753,38 @@ export default function TapestryCanvas() {
     fitView({ padding: pad, duration: 450, maxZoom: 1.5 });
   }, [fitView]);
 
+  //  --  --  Full-tree image export (PDF/PNG)  --  -- 
+  // Captures the ENTIRE tree (all nodes), not just the current window viewport.
+  // Fits the graph into view, waits for the transition, captures the graph area,
+  // then restores the caller's previous viewport so their editing context is kept.
+  const exportFullTree = useCallback(
+    async (format: "png" | "pdf") => {
+      const flowEl = viewportRef.current?.querySelector(".react-flow");
+      if (!flowEl) return;
+      const prev = getViewport();
+      const x0 = prev.x, y0 = prev.y, z0 = prev.zoom;
+
+      const { exportToPNG, exportToPDF } = await import("@/lib/export");
+
+      // Fit the whole graph with a small padding, capture, then restore the
+      // caller's previous viewport so their editing context is kept.
+      const restore = () => setViewport({ x: x0, y: y0, zoom: z0 }, { duration: 0 });
+      try {
+        fitView({ padding: 0.08, duration: 400, maxZoom: 3 });
+        await new Promise((r) => setTimeout(r, 700));
+        const current = getViewport();
+        if (format === "png") await exportToPNG(flowEl as HTMLDivElement, current.zoom);
+        else await exportToPDF(flowEl as HTMLDivElement, current.zoom);
+      } catch (err) {
+        console.error("Full-tree export failed:", err);
+        toast("Could not export full tree", "error");
+      } finally {
+        restore();
+      }
+    },
+    [fitView, getViewport, setViewport, toast]
+  );
+
   //  --  --  Switch active tree  --  -- 
   const switchTree = useCallback(
     (newTreeId: string) => {
@@ -901,17 +940,36 @@ export default function TapestryCanvas() {
   //  --  --  GEDCOM import handler  --  -- 
   const handleGedcomImport = useCallback(
     (persons: PersonLike[], unions: UnionLike[], edges: EdgeLike[]) => {
+      // #13 — Import ALWAYS creates a brand-new tree in the switcher; it never
+      // replaces (overwrites) the currently-open shared tree.
+      const name = `Imported Tree ${new Date().toLocaleDateString("en-GB")}`;
+      const id = `tree-${Date.now().toString(36)}`;
+      const STORAGE_KEY = "family-tapestry-trees";
+      const saved = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+      let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[]; sources?: Source[] }> = {};
+      let names: Record<string, string> = treeNames;
+      if (saved) {
+        try { const p = JSON.parse(saved); trees = p.trees ?? {}; names = { ...names, ...p.names }; } catch { /* use defaults */ }
+      }
+      // Persist current tree state first, then seed a brand-new tree.
+      trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges, sources: rawSources };
+      names[id] = name;
+      trees[id] = { persons, unions, edges, sources: [] };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: id }));
+
+      setTreeNames(names);
+      setActiveTreeId(id);
       setRawPersons(persons);
       setRawUnions(unions);
       setRawEdges(edges);
+      setRawSources([]);
+      setSelectedPerson(null);
       layoutVersionRef.current++;
       initialLoadDone.current = false;
       runLayout(persons, unions, edges, true);
-      if (user) {
-        apiCall("PUT", "/tree", { persons, unions, edges, sources: [] }, () => toast("Failed to save imported tree", "error"));
-      }
+      toast(`Created new tree: ${name}`, "success");
     },
-    [runLayout, user, toast]
+    [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames, runLayout, toast]
   );
 
   //  --  --  Keyboard shortcuts  --  -- 
@@ -955,10 +1013,10 @@ export default function TapestryCanvas() {
           parentEdges={rawEdges}
           onExportGedcom={handleExportGedcom}
           onImportGedcom={() => setShowGedcomImport(true)}
-          viewportRef={viewportRef}
+          onExportImage={exportFullTree}
         />
 
-        <Legend maxGeneration={maxGeneration} />
+        <Legend />
 
         <div className="absolute inset-0 z-10">
           <ReactFlow
@@ -996,7 +1054,7 @@ export default function TapestryCanvas() {
               <MiniMap
                 nodeStrokeColor="var(--thread-gold)"
                 nodeColor={(n) =>
-                  GENERATION_COLORS[((n.data?.generation as number | undefined) ?? 0) % GENERATION_COLORS.length]
+                  STATUS_RING_COLORS[(n.data?.ringStatus as keyof typeof STATUS_RING_COLORS | undefined) ?? "living"]
                 }
                 maskColor="rgba(22,19,15,0.7)"
                 pannable
@@ -1019,7 +1077,7 @@ export default function TapestryCanvas() {
           </div>
         )}
 
-        {rawPersons.length === 0 && !showAddPerson && canEdit && !dataLoading && (
+        {rawPersons.length === 0 && !showAddPerson && canCreate && !dataLoading && (
           <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <div className="text-center pointer-events-auto space-y-4">
               <div className="space-y-1">
@@ -1033,7 +1091,7 @@ export default function TapestryCanvas() {
           </div>
         )}
 
-        {rawPersons.length > 0 && canEdit && (
+        {rawPersons.length > 0 && canCreate && (
           <button
             onClick={() => setShowAddPerson(true)}
             aria-label="Add person"
@@ -1087,7 +1145,10 @@ export default function TapestryCanvas() {
           onRemoveLink={handleRemoveLink}
           nextPersonId={() => nextPersonId(rawPersons)}
           onNavigate={handleNavigatePerson}
-          canEdit={canEdit}
+          canEdit={selectedPerson ? gate.canEditPerson(selectedPerson.id) : false}
+          canEditPrivate={selectedPerson ? gate.canEditPrivate(selectedPerson.id) : false}
+          canDelete={gate.canDelete}
+          locked={selectedPerson ? gate.locked(selectedPerson.id) : false}
           sources={rawSources.filter((s) => s.personId === selectedPerson?.id)}
           onAddSource={handleAddSource}
           onUpdateSource={handleUpdateSource}
@@ -1199,7 +1260,7 @@ export default function TapestryCanvas() {
 
       {/* Online presence indicators + viewer cards */}
       {selectedViewer && (
-        <div className="fixed bottom-32 left-6 z-40 hidden md:block">
+        <div className="fixed bottom-16 left-16 z-40 hidden md:block">
           <ViewerCard
             viewer={selectedViewer}
             isFollowing={followingId === selectedViewer.userId}
@@ -1209,7 +1270,7 @@ export default function TapestryCanvas() {
         </div>
       )}
       {onlineUsers.length > 0 && (
-        <div className="fixed bottom-6 left-6 z-30 hidden md:flex flex-col-reverse items-start gap-1.5">
+        <div className="fixed bottom-3 left-16 z-30 hidden md:flex items-center gap-1.5">
           {onlineUsers.slice(0, 5).map((u) => {
             const active = selectedViewer?.userId === u.userId;
             const isF = followingId === u.userId;

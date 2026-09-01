@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ROLES } from "@/lib/permissions";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -62,7 +63,12 @@ export async function PATCH(request: NextRequest) {
 
   const db = createServiceClient();
   const update: Record<string, unknown> = {};
-  if (role !== undefined) update.role = role;
+  if (role !== undefined) {
+    if (!ROLES.includes(role as (typeof ROLES)[number])) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+    update.role = role;
+  }
   if (approved !== undefined) update.approved = approved;
   update.updated_at = new Date().toISOString();
 

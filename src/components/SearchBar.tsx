@@ -17,8 +17,8 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
   const rf = useReactFlow();
 
   const results = query.trim()
-    ? persons.filter((p) => p.fullName.toLowerCase().includes(query.toLowerCase())).slice(0, 12)
-    : [];
+    ? persons.filter((p) => p.fullName.toLowerCase().includes(query.toLowerCase())).slice(0, 30)
+    : persons.slice(0, 30);
 
   useEffect(() => {
     if (open) {
@@ -85,7 +85,7 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
 
   return (
     <div className="absolute bottom-24 md:bottom-20 left-1/2 -translate-x-1/2 z-30 w-[380px] max-w-[90vw]">
-      <div className="bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/40 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.6)] overflow-hidden">
+      <div className="bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--popover-border)] rounded-xl shadow-[var(--popover-shadow)] overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
           <svg viewBox="0 0 20 20" fill="none" stroke="var(--thread-gold-dim)" strokeWidth="1.5" className="w-4 h-4 shrink-0">
             <circle cx="8.5" cy="8.5" r="5.5" />
@@ -144,8 +144,10 @@ export default function SearchBar({ persons, onSelect }: SearchBarProps) {
         )}
 
         {!query && (
-          <div className="px-4 py-4 text-center">
-            <p className="text-xs text-[var(--parchment-dim)]/50">Start typing a name to search</p>
+          <div className="px-4 pt-1.5 pb-1 border-b border-[var(--thread-gold-dim)]/10">
+            <p className="text-[10px] text-[var(--parchment-dim)]/60 tracking-wide">
+              {persons.length > 30 ? `Showing first 30 of ${persons.length} — type to filter` : `All ${persons.length} people — type to filter`}
+            </p>
           </div>
         )}
       </div>

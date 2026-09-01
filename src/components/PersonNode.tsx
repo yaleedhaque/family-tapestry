@@ -3,7 +3,7 @@
 import { memo, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Person } from "@/data/family";
-import { GENERATION_COLORS } from "@/lib/generation";
+import { STATUS_RING_COLORS, type PersonRingStatus } from "@/lib/generation";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -16,12 +16,11 @@ function PersonNode({ data }: NodeProps) {
   const isDeceased = !person.isAlive;
   const isHighlighted = data.highlighted === true;
   const isDimmed = data.dimmed === true;
-  const generation = (data.generation as number | undefined) ?? 0;
+  // §6 — Ring colour now reflects life STATUS (living/deceased/divorced) rather
+  // than generation.
+  const ringStatus = (data.ringStatus as PersonRingStatus | undefined) ?? (isDeceased ? "deceased" : "living");
+  const avatarColor = STATUS_RING_COLORS[ringStatus];
 
-  const avatarColor = useMemo(
-    () => GENERATION_COLORS[generation % GENERATION_COLORS.length],
-    [generation]
-  );
   const initials = useMemo(() => getInitials(person.fullName), [person.fullName]);
 
   const nodeLabel = isDeceased

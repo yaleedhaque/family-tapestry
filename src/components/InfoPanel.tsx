@@ -25,6 +25,7 @@ export interface PersonLike {
   lat: number | null;
   lng: number | null;
   photoUrl: string;
+  createdBy?: string | null;
 }
 
 export interface UnionLike {
@@ -34,11 +35,13 @@ export interface UnionLike {
   type: string;
   startYear: number | null;
   endYear: number | null;
+  createdBy?: string | null;
 }
 
 export interface EdgeLike {
   unionId: string;
   childId: string;
+  createdBy?: string | null;
 }
 
 interface InfoPanelProps {
@@ -63,6 +66,9 @@ interface InfoPanelProps {
   nextPersonId: () => string;
   onNavigate: (personId: string) => void;
   canEdit?: boolean;
+  canEditPrivate?: boolean;
+  canDelete?: boolean;
+  locked?: boolean;
   sources?: Source[];
   onAddSource?: (source: Source) => void;
   onUpdateSource?: (source: Source) => void;
@@ -88,6 +94,9 @@ export default function InfoPanel({
   nextPersonId,
   onNavigate,
   canEdit = true,
+  canEditPrivate = true,
+  canDelete = true,
+  locked = false,
   sources = [],
   onAddSource,
   onUpdateSource,
@@ -323,13 +332,14 @@ export default function InfoPanel({
 
           <div className="flex-1" />
 
-          {canEdit && (
+          {canEdit && canDelete && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="px-2 py-1.5 rounded text-xs text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors whitespace-nowrap"
             >
               Delete
             </button>
+
           )}
         </div>
 
@@ -343,7 +353,12 @@ export default function InfoPanel({
           {/* ── Profile tab ── */}
           {tab === "profile" && (
             <div className="space-y-4">
-              {canEdit && (
+              {locked && (
+                <div className="flex items-start gap-2 rounded-lg border border-[var(--thread-gold-dim)]/30 bg-white/5 px-3 py-2 text-xs text-[var(--parchment-dim)]">
+                  <span aria-hidden="true">🔒</span><span>View-only — outside your circle.</span>
+                </div>
+              )}
+              {canEdit && canEditPrivate && (
                 <div className="flex items-center gap-3">
                   <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Photo</label>
                   <label className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors cursor-pointer">
@@ -398,7 +413,7 @@ export default function InfoPanel({
 
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] mb-1 block">Biography</label>
-                {isEditing ? (
+                {isEditing && canEditPrivate ? (
                   <textarea
                     value={fields.bio ?? ""}
                     onChange={(e) => setFields((f) => ({ ...f, bio: e.target.value }))}
@@ -516,10 +531,12 @@ export default function InfoPanel({
   );
 
   function field(key: string, label: string, type = "text") {
+    const privateLocked = !canEditPrivate && ["email", "phone", "address", "website"].includes(key);
+    const showEdit = isEditing && !privateLocked;
     return (
       <div className="space-y-1">
         <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">{label}</label>
-        {isEditing ? (
+        {showEdit ? (
           type === "textarea" ? (
             <textarea value={fields[key] ?? ""} onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))} className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body resize-none h-24 focus:outline-none focus:border-[var(--thread-gold)]" />
           ) : (

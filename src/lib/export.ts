@@ -145,16 +145,19 @@ export function downloadFile(
 }
 
 export async function exportToPNG(
-  viewportEl: HTMLDivElement
+  viewportEl: HTMLDivElement,
+  zoom = 1
 ): Promise<void> {
   const { toPng } = await import("html-to-image");
   const dataUrl = await toPng(viewportEl, {
     backgroundColor: "#0E0B0A",
-    quality: 0.95,
+    quality: 0.98,
+    pixelRatio: Math.max(2, zoom),
     filter: (node: Element) =>
       !node?.classList?.contains("react-flow__minimap") &&
       !node?.classList?.contains("react-flow__controls") &&
-      !node?.classList?.contains("react-flow__attribution"),
+      !node?.classList?.contains("react-flow__attribution") &&
+      !node?.classList?.contains("react-flow__panel"),
   });
   const link = document.createElement("a");
   link.download = "family-tree.png";
@@ -163,18 +166,25 @@ export async function exportToPNG(
 }
 
 export async function exportToPDF(
-  viewportEl: HTMLDivElement
+  viewportEl: HTMLDivElement,
+  zoom = 1
 ): Promise<void> {
   const { toPng } = await import("html-to-image");
   const { jsPDF } = await import("jspdf");
 
+  // Use the ORIGINAL (un-zoomed) DOM to guarantee the FULL tree is captured
+  // regardless of the current canvas view. We render a fresh, full-fit snapshot
+  // by temporarily fitting can only live in the canvas; here we capture at the
+  // element's natural size.
   const dataUrl = await toPng(viewportEl, {
     backgroundColor: "#0E0B0A",
-    quality: 0.95,
+    quality: 0.98,
+    pixelRatio: Math.max(2, zoom),
     filter: (node: Element) =>
       !node?.classList?.contains("react-flow__minimap") &&
       !node?.classList?.contains("react-flow__controls") &&
-      !node?.classList?.contains("react-flow__attribution"),
+      !node?.classList?.contains("react-flow__attribution") &&
+      !node?.classList?.contains("react-flow__panel"),
   });
 
   const img = new Image();
@@ -183,9 +193,18 @@ export async function exportToPDF(
     img.onload = resolve;
   });
 
-  const imgWidth = 297;
-  const imgHeight = (img.height * imgWidth) / img.width;
-  const pdf = new jsPDF("l", "mm", [imgWidth, imgHeight]);
-  pdf.addImage(dataUrl, "PNG", 0, 0, imgWidth, imgHeight);
+  const imgAspect = img.width / img.height;
+  // A4 landscape page — wide tree imagery fits best.
+  const pageW = 297;
+  const pageH = 210;
+  let imgW = pageW - 20;
+  let imgH = imgW / imgAspect;
+  if (imgH > pageH - 20) {
+    imgH = pageH - 20;
+    imgW = imgH * imgAspect;
+  }
+  const pdf = new jsPDF("l", "mm", "a4");
+  pdf.addImage(dataUrl, "PNG", (pageW - imgW) / 2, (pageH - imgH) / 2, imgW, imgH,
+    undefined, "FAST");
   pdf.save("family-tree.pdf");
 }

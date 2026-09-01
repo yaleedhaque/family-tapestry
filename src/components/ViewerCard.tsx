@@ -46,6 +46,13 @@ export default function ViewerCard({ viewer, isFollowing, onFollow, onClose }: V
       </div>
 
       <div className="px-4 py-3 space-y-2">
+        {viewer.editing && (
+          <p className="flex items-center gap-1.5 text-[11px] text-[var(--thread-gold)] font-body">
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--living-glow)] animate-pulse" />
+            {viewer.userName.split(" ")[0]} is editing &ldquo;{viewer.editing}&rdquo;
+          </p>
+        )}
+
         <button
           onClick={onFollow}
           aria-pressed={isFollowing}
@@ -76,6 +83,12 @@ export default function ViewerCard({ viewer, isFollowing, onFollow, onClose }: V
             Watching {viewer.userName.split(" ")[0]}&apos;s view — move to stop
           </p>
         )}
+      </div>
+
+      <div className="px-4 py-2 border-t border-[var(--thread-gold-dim)]/15">
+        <p className="text-[10px] text-[var(--parchment-dim)]/60 font-body text-center">
+          Last active {new Date(viewer.online_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </p>
       </div>
     </div>
   );

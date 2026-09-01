@@ -32,8 +32,8 @@ export default function KeyboardHelp() {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 z-[60]" onClick={() => setOpen(false)} />
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[65] bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-xl p-5 w-[320px] shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
+      <div className="fixed inset-0 bg-black/30 z-[90]" onClick={() => setOpen(false)} />
+      <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[95] bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--popover-border)] rounded-xl p-5 w-[320px] shadow-[var(--popover-shadow)]">
         <h3 className="font-display text-sm text-[var(--thread-gold)] mb-3">Keyboard Shortcuts</h3>
         <div className="space-y-2">
           {shortcuts.map((s) => (

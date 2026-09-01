@@ -197,6 +197,7 @@ export default function AdminPage() {
                     >
                       <option value="admin">Admin</option>
                       <option value="editor">Editor</option>
+                      <option value="user">User</option>
                       <option value="viewer">Viewer</option>
                     </select>
                   </div>
