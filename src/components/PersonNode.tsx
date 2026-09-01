@@ -13,7 +13,7 @@ function getInitials(name: string): string {
 
 function PersonNode({ data }: NodeProps) {
   const person = data.person as Person;
-  const isDeceased = !person.isAlive;
+  const isDeceased = !person.isAlive || person.deathYear != null;
   const isHighlighted = data.highlighted === true;
   const isDimmed = data.dimmed === true;
   // §6 — Ring colour now reflects life STATUS (living/deceased/divorced) rather

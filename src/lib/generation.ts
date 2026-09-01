@@ -21,10 +21,10 @@ export const GENERATION_COLORS = [
 export type PersonRingStatus = "living" | "deceased" | "divorced";
 
 export function personRingStatus(
-  person: { isAlive: boolean; id?: string },
+  person: { isAlive: boolean; deathYear?: number | null; id?: string },
   unions: UnionLike[]
 ): PersonRingStatus {
-  if (!person.isAlive) return "deceased";
+  if (!person.isAlive || person.deathYear != null) return "deceased";
   const id = person.id;
   const divorced = !!id && unions.some(
     (u) => u.type === "divorced" && (u.partnerA === id || u.partnerB === id)
