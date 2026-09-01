@@ -33,7 +33,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   if ("fullName" in p && "birthPlace" in p) return p as PersonLike;
   const dp = p as DbPerson;
   return {
-    id: dp.id, fullName: dp.full_name, birthYear: dp.birth_year, deathYear: dp.death_year,
+    id: dp.id, fullName: dp.full_name, gender: dp.gender ?? "", birthYear: dp.birth_year, deathYear: dp.death_year,
     isAlive: dp.is_alive, bio: dp.bio ?? "", birthPlace: dp.birth_place ?? "",
     profession: dp.profession ?? "", email: "", phone: "", address: "", website: "",
     lat: null, lng: null, photoUrl: dp.photo_url ?? "",

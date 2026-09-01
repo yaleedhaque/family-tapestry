@@ -1,6 +1,7 @@
 export interface DbPerson {
   id: string;
   full_name: string;
+  gender: string;
   birth_year: number | null;
   death_year: number | null;
   is_alive: boolean;

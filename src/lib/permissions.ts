@@ -11,6 +11,7 @@ export const PRIVATE_FIELDS = ["bio", "photo_url", "email", "phone", "address", 
 // Genealogical fields a "user" may edit on circle members (parents/children).
 export const GENEALOGICAL_FIELDS = [
   "full_name",
+  "gender",
   "birth_year",
   "death_year",
   "is_alive",

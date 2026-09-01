@@ -43,6 +43,7 @@ import type { PresencePayload } from "@/lib/types";
 import ViewerCard from "@/components/ViewerCard";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useUserCircle } from "@/lib/useUserCircle";
+import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
 
@@ -68,6 +69,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     id: dp.id,
     fullName: dp.full_name,
     nameNative: dp.name_native ?? null,
+    gender: dp.gender ?? "",
     birthYear: dp.birth_year,
     deathYear: dp.death_year,
     isAlive: dp.is_alive,
@@ -220,7 +222,8 @@ function apiCall(method: string, path: string, body?: unknown, onError?: () => v
 
 function toDbPerson(p: PersonLike) {
   return {
-    id: p.id, fullName: p.fullName, nameNative: p.nameNative ?? null, birthYear: p.birthYear, deathYear: p.deathYear,
+    id: p.id, fullName: p.fullName, nameNative: p.nameNative ?? null, gender: p.gender ?? "",
+    birthYear: p.birthYear, deathYear: p.deathYear,
     isAlive: p.isAlive, bio: p.bio, birthPlace: p.birthPlace, profession: p.profession,
     email: p.email, phone: p.phone, address: p.address, website: p.website,
     lat: p.lat, lng: p.lng, photoUrl: p.photoUrl,
@@ -601,6 +604,26 @@ export default function TapestryCanvas() {
     [rawUnions]
   );
 
+  //  --  --  Parent-role rule: "a child cannot have two biological mothers/fathers"  --  
+  const genderById = useMemo(() => {
+    return new Map<string, Gender>(rawPersons.map((p) => [p.id, (p.gender as Gender) ?? ""]));
+  }, [rawPersons]);
+
+  const wouldConflict = useCallback(
+    (unionId: string, childId: string, rel?: string): boolean => {
+      // Compute the FINAL union/edge set (what would exist after this add).
+      const newEdge = { unionId, childId, relationshipType: rel ?? "biological" };
+      const finalEdges = rawEdges.some(
+        (e) => e.unionId === unionId && e.childId === childId
+      )
+        ? rawEdges
+        : [...rawEdges, newEdge];
+      const conflicts = findDualParentConflicts(rawUnions, finalEdges, genderById);
+      return conflicts.some((c) => c.childId === childId);
+    },
+    [rawUnions, rawEdges, genderById]
+  );
+
   //  --  --  CRUD: Update person  --  -- 
   const handleUpdatePerson = useCallback((updated: PersonLike) => {
     setRawPersons((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -660,8 +683,18 @@ export default function TapestryCanvas() {
   const handleAddParent = useCallback(
     (childId: string, parentId: string, relationshipType?: string) => {
       const union = findParentUnion(parentId);
+      const rel = relationshipType ?? "biological";
+      if (union && wouldConflict(union.id, childId, rel)) {
+        toast(
+          rel === "biological"
+            ? "This child already has a biological parent of that gender. Add the extra parent as Step or Adopted (different-coloured line)."
+            : "This change was not saved.",
+          "error"
+        );
+        return;
+      }
       if (union) {
-        const newEdge = { unionId: union.id, childId, relationshipType: relationshipType ?? "biological" };
+        const newEdge = { unionId: union.id, childId, relationshipType: rel };
         setRawEdges((prev) => {
           if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
           return [...prev, newEdge];
@@ -670,13 +703,13 @@ export default function TapestryCanvas() {
         const newId = nextUnionId(rawUnions);
         const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
         setRawUnions((prev) => [...prev, newUnion]);
-        setRawEdges((prev) => [...prev, { unionId: newId, childId, relationshipType: relationshipType ?? "biological" }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId, relationshipType: rel }]);
       }
       if (user) setTimeout(() => {
         apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
       }, 0);
     },
-    [findParentUnion, rawUnions, rawPersons, rawEdges, user, toast]
+    [findParentUnion, wouldConflict, rawUnions, rawPersons, rawEdges, user, toast]
   );
 
   //  --  --  CRUD: Create new person + link  --  -- 
@@ -709,11 +742,37 @@ export default function TapestryCanvas() {
           setRawEdges((prev) => [...prev, { unionId: newId, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }]);
         }
       } else {
-        const newId = nextUnionId(rawUnions);
+        const rel = relationshipType ?? "biological";
+        // The new parent gets a fresh single-parent union. Guard the parent-role
+        // rule (e.g. adding a second biological mother to a child that already
+        // has one).
+        const newU: UnionLike = { id: nextUnionId(rawUnions), partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null };
+        const prospective = [...rawUnions, { ...newU, id: newU.id }];
+        const finalEdges = [
+          ...rawEdges,
+          { unionId: newU.id, childId: relatedToId, relationshipType: rel },
+        ];
+        const mergedGenders = new Map<string, Gender>(genderById);
+        mergedGenders.set(newPerson.id, (newPerson.gender as Gender) ?? "");
+        const conflict = findDualParentConflicts(
+          prospective,
+          finalEdges,
+          mergedGenders
+        ).some((c) => c.childId === relatedToId);
+        if (conflict) {
+          setRawPersons((prev) => prev.filter((p) => p.id !== newPerson.id));
+          toast(
+            rel === "biological"
+              ? "This child already has a biological parent of that gender. Add the new parent as Step or Adopted instead."
+              : "This change was not saved.",
+            "error"
+          );
+          return;
+        }
+        const newId = newU.id;
         setRawUnions((prev) => [...prev, { id: newId, partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
-        setRawEdges((prev) => [...prev, { unionId: newId, childId: relatedToId, relationshipType: relationshipType ?? "biological" }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId: relatedToId, relationshipType: rel }]);
       }
-
       if (user) {
         apiCall("POST", "/tree/persons", toDbPerson(newPerson), () => toast("Failed to save new person", "error"));
         setTimeout(() => {
@@ -721,7 +780,7 @@ export default function TapestryCanvas() {
         }, 0);
       }
     },
-    [findParentUnion, rawUnions, rawPersons, rawEdges, user, toast]
+    [findParentUnion, genderById, rawUnions, rawPersons, rawEdges, user, toast]
   );
 
   //  --  --  CRUD: Remove link  --  -- 

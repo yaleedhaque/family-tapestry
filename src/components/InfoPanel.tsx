@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { Source } from "@/data/family";
 import { useLang } from "@/lib/i18n";
 import { sanitizeField, validateEmail, validateUrl, validateYear } from "@/lib/validation";
+import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -14,6 +15,7 @@ export interface PersonLike {
   id: string;
   fullName: string;
   nameNative?: string | null;
+  gender?: string;
   birthYear: number | null;
   deathYear: number | null;
   isAlive: boolean;
@@ -119,7 +121,7 @@ export default function InfoPanel({
 
   const [addMode, setAddMode] = useState<"existing" | "new" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newPersonFields, setNewPersonFields] = useState({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
+  const [newPersonFields, setNewPersonFields] = useState({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "", gender: "" });
   const [newUnionType, setNewUnionType] = useState("marriage");
   const [newStartYear, setNewStartYear] = useState("");
   const [newRelType, setNewRelType] = useState("biological");
@@ -127,6 +129,18 @@ export default function InfoPanel({
   const [editUnionType, setEditUnionType] = useState("marriage");
   const [editStartYear, setEditStartYear] = useState("");
   const [editEndYear, setEditEndYear] = useState("");
+
+  // --- -- -- -- -- --
+  // Parent role labels tie into the "no two mothers" rule: each parent shows a
+  // role tag (Mother / Father / Step Mother / Adopted Father) that reflects the
+  // parent edge's relationship type and the person's gender.
+  // --- -- -- -- -- --
+  function parentRoleLabel(gender: string | undefined, relType: string | undefined): string {
+    const rel = relType === "step" ? "Step " : relType === "adopted" ? "Adopted " : "";
+    const role =
+      gender === "female" ? "Mother" : gender === "male" ? "Father" : "Parent";
+    return `${rel}${role}`;
+  }
 
   const relatedData = useMemo(() => {
     if (!person) return { parents: [], partners: [], children: [] };
@@ -142,15 +156,16 @@ export default function InfoPanel({
       }
     }
 
-    const parents: PersonLike[] = [];
+    const parents: { person: PersonLike; relType: string; role: string }[] = [];
     for (const pe of parentEdges) {
       if (pe.childId === person.id) {
         const union = unions.find((u) => u.id === pe.unionId);
         if (union) {
+          const relType = pe.relationshipType ?? "biological";
           const pA = persons.find((p) => p.id === union.partnerA);
           const pB = persons.find((p) => p.id === union.partnerB);
-          if (pA) parents.push(pA);
-          if (pB) parents.push(pB);
+          if (pA) parents.push({ person: pA, relType, role: parentRoleLabel(pA.gender, relType) });
+          if (pB) parents.push({ person: pB, relType, role: parentRoleLabel(pB.gender, relType) });
         }
       }
     }
@@ -173,12 +188,26 @@ export default function InfoPanel({
     return persons.filter((p) => p.id !== person.id && p.fullName.toLowerCase().includes(q));
   }, [person, persons, searchQuery]);
 
+  // Audit: does THIS person already carry two known biological mothers/fathers?
+  const hasDualBioParents = useMemo(() => {
+    if (!person) return false;
+    const genderById = new Map<string, Gender>(
+      persons.map((p) => [p.id, (p.gender as Gender) ?? ""])
+    );
+    const conflicts = findDualParentConflicts(
+      unions.map((u) => ({ id: u.id, partnerA: u.partnerA, partnerB: u.partnerB })),
+      parentEdges.map((e) => ({ unionId: e.unionId, childId: e.childId, relationshipType: e.relationshipType })),
+      genderById
+    );
+    return conflicts.some((c) => c.childId === person.id);
+  }, [person, persons, unions, parentEdges]);
+
   if (!person) return null;
 
   const resetAdd = () => {
     setAddMode(null);
     setSearchQuery("");
-    setNewPersonFields({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
+    setNewPersonFields({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "", gender: "" });
     setNewStartYear("");
     setNewRelType("biological");
     setEditingUnionId(null);
@@ -211,6 +240,7 @@ export default function InfoPanel({
       address: sanitizeField("address", fields.address ?? person.address),
       website,
       nameNative: sanitizeField("nameNative", fields.nameNative ?? person.nameNative ?? ""),
+      gender: (fields.gender ?? person.gender ?? "").trim(),
     });
     setIsEditing(false);
     setFields({});
@@ -220,9 +250,10 @@ export default function InfoPanel({
     const fullName = sanitizeField("fullName", newPersonFields.fullName);
     if (!fullName) return;
     const id = nextPersonId();
-    const np: PersonLike = {
+const np: PersonLike = {
       id,
       fullName,
+      gender: (newPersonFields.gender ?? "").trim() as Gender,
       birthYear: newPersonFields.birthYear ? Number(newPersonFields.birthYear) : null,
       deathYear: null,
       isAlive: true,
@@ -423,6 +454,7 @@ export default function InfoPanel({
               )}
 
               <div className="space-y-3">
+                {field("gender", "Gender", "select")}
                 {field("fullName", "Full Name")}
                 {field("nameNative", "Name (your script)")}
                 {field("birthYear", "Birth Year", "number")}
@@ -455,7 +487,7 @@ export default function InfoPanel({
                 ) : canEdit ? (
                   <button
                     onClick={() => {
-                      setFields({ fullName: person.fullName, nameNative: person.nameNative ?? "", birthYear: String(person.birthYear ?? ""), deathYear: person.deathYear != null ? String(person.deathYear) : "", birthPlace: person.birthPlace, profession: person.profession, bio: person.bio, email: person.email, phone: person.phone, address: person.address, website: person.website });
+                      setFields({ fullName: person.fullName, nameNative: person.nameNative ?? "", gender: person.gender ?? "", birthYear: String(person.birthYear ?? ""), deathYear: person.deathYear != null ? String(person.deathYear) : "", birthPlace: person.birthPlace, profession: person.profession, bio: person.bio, email: person.email, phone: person.phone, address: person.address, website: person.website });
                       setIsEditing(true);
                     }}
                     className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors"
@@ -498,18 +530,30 @@ export default function InfoPanel({
 
           {/* ── Relationship tabs ── */}
           {tab === "parents" && (
-            <RelSection
-              items={relatedData.parents.map((p) => ({ id: p.id, label: p.fullName, sub: `${p.birthYear} – ${p.deathYear ?? "present"}` }))}
-              addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
-              onSearch={setSearchQuery}
-              onPickExisting={(id) => { onAddParent(person.id, id, newRelType); resetAdd(); }}
-              onCreateNew={handleCreateAndLink}
-              onNewFieldChange={(k, v) => setNewPersonFields((f) => ({ ...f, [k]: v }))}
-              onStartAdd={setAddMode} onCancelAdd={resetAdd}
-              onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Parent"
-              showRelType relType={newRelType} onRelTypeChange={setNewRelType}
-              onNavigate={onNavigate}
-            />
+            <>
+              <RelSection
+                items={relatedData.parents.map(({ person: p, role }) => ({
+                  id: p.id,
+                  label: p.fullName,
+                  sub: `${role} · ${p.birthYear} – ${p.deathYear ?? "present"}`,
+                  badge: role.startsWith("Step") ? "step" : role.startsWith("Adopted") ? "adopted" : undefined,
+                }))}
+                addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
+                onSearch={setSearchQuery}
+                onPickExisting={(id) => { onAddParent(person.id, id, newRelType); resetAdd(); }}
+                onCreateNew={handleCreateAndLink}
+                onNewFieldChange={(k, v) => setNewPersonFields((f) => ({ ...f, [k]: v }))}
+                onStartAdd={setAddMode} onCancelAdd={resetAdd}
+                onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Parent"
+                showRelType relType={newRelType} onRelTypeChange={setNewRelType}
+                onNavigate={onNavigate}
+              />
+              {hasDualBioParents && (
+                <p className="text-[11px] text-[var(--ember-red)] bg-[var(--ember-red)]/10 rounded px-3 py-2 leading-relaxed">
+                  ⚠️ This person already has two recorded biological parents of the same gender. Add the extra parent as <b>Step</b> or <b>Adopted</b> — those draw with a different-coloured line and are not limited.
+                </p>
+              )}
+            </>
           )}
 
           {tab === "partners" && (
@@ -607,12 +651,23 @@ export default function InfoPanel({
         {showEdit ? (
           type === "textarea" ? (
             <textarea value={fields[key] ?? ""} onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))} className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body resize-none h-24 focus:outline-none focus:border-[var(--thread-gold)]" />
+          ) : type === "select" ? (
+            <select
+              value={fields["gender"] ?? person!.gender ?? ""}
+              onChange={(e) => setFields((f) => ({ ...f, gender: e.target.value }))}
+              className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]"
+            >
+              <option value="">Not specified</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+            </select>
           ) : (
             <input type={type} value={fields[key] ?? ""} onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))} className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]" />
           )
         ) : (
           <p className="text-sm text-[var(--parchment)] font-body">
-            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : ((person as unknown as Record<string, unknown>)[key] as string) || "—"}
+            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : key === "gender" ? ((person as unknown as Record<string, unknown>)[key] as string || "Not specified") : ((person as unknown as Record<string, unknown>)[key] as string) || "—"}
           </p>
         )}
       </div>
@@ -635,7 +690,7 @@ function RelSection({
   addMode: "existing" | "new" | null;
   searchQuery: string;
   searchResults: PersonLike[];
-  newPersonFields: { fullName: string; birthYear: string; birthPlace: string; profession: string; email: string; phone: string; address: string; website: string };
+  newPersonFields: { fullName: string; birthYear: string; birthPlace: string; profession: string; email: string; phone: string; address: string; website: string; gender: string };
   onSearch: (q: string) => void;
   onPickExisting: (id: string) => void;
   onCreateNew: () => void;
@@ -739,14 +794,25 @@ function RelSection({
           </div>
 
           {showRelType && (
-            <div className="flex gap-2">
-              <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Rel</label>
-              <select value={relType} onChange={(e) => onRelTypeChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]">
-                <option value="biological">Biological</option>
-                <option value="adopted">Adopted</option>
-                <option value="step">Step</option>
-              </select>
-            </div>
+            <>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Rel</label>
+                <select value={relType} onChange={(e) => onRelTypeChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]">
+                  <option value="biological">Biological</option>
+                  <option value="adopted">Adopted</option>
+                  <option value="step">Step</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Gender</label>
+                <select value={newPersonFields.gender} onChange={(e) => onNewFieldChange("gender", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]">
+                  <option value="">Not specified</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </>
           )}
 
           {addMode === "existing" ? (

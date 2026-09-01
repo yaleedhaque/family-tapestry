@@ -43,6 +43,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   return {
     id: dp.id,
     fullName: dp.full_name,
+    gender: dp.gender ?? "",
     birthYear: dp.birth_year,
     deathYear: dp.death_year,
     isAlive: dp.is_alive,

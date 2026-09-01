@@ -135,6 +135,7 @@ function toPersonLikeFromDb(p: Record<string, unknown>): PersonLike {
   return {
     id: p.id as string,
     fullName: (p.full_name ?? p.fullName ?? "") as string,
+    gender: (p.gender ?? "") as string,
     birthYear: (p.birth_year ?? p.birthYear ?? null) as number | null,
     deathYear: (p.death_year ?? p.deathYear ?? null) as number | null,
     isAlive: (p.is_alive ?? p.isAlive ?? true) as boolean,

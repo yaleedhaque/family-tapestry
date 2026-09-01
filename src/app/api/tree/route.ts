@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadCircleData, resolveEdit } from "@/lib/server-permissions";
 import { canEditField, type Role } from "@/lib/permissions";
+import {
+  findDualParentConflicts,
+  normalizeGender,
+  type Gender,
+} from "@/lib/parentRules";
 
 async function requireAuth() {
   const supabase = await createClient();
@@ -26,6 +31,47 @@ interface TreePutBody {
   unions?: Record<string, unknown>[];
   edges?: Record<string, unknown>[];
   sources?: Record<string, unknown>[];
+}
+
+/** Read gender for a list of persons from the DB into an id -> normalized map. */
+async function loadGenders(
+  db: ReturnType<typeof createServiceClient>,
+  ids: string[]
+): Promise<Map<string, Gender>> {
+  const unique = Array.from(new Set(ids)).filter(Boolean);
+  const map = new Map<string, Gender>();
+  if (unique.length === 0) return map;
+  const { data } = await db.from("persons").select("id, gender").in("id", unique);
+  for (const r of data ?? []) {
+    map.set(String(r.id), normalizeGender((r as { gender?: string }).gender));
+  }
+  return map;
+}
+
+/** 400 reply when any child would gain two known biological mothers/fathers. */
+function dualParentError(payload: {
+  unions: Record<string, unknown>[];
+  edges: Record<string, unknown>[];
+  genders: Map<string, Gender>;
+}): { error: string } | null {
+  const unionRows = payload.unions.map((u) => ({
+    id: String(u.id),
+    partnerA: String(u.partnerA ?? u.partner_a ?? ""),
+    partnerB: String(u.partnerB ?? u.partner_b ?? ""),
+  }));
+  const edgeRows = payload.edges.map((e) => ({
+    unionId: String(e.unionId ?? e.union_id ?? ""),
+    childId: String(e.childId ?? e.child_id ?? ""),
+    relationshipType: (e.relationshipType ?? e.relationship_type ?? "biological") as string,
+  }));
+  const conflicts = findDualParentConflicts(unionRows, edgeRows, payload.genders);
+  if (conflicts.length > 0) {
+    const c = conflicts[0];
+    return {
+      error: `A child would end up with two biological ${c.role === "mother" ? "mothers" : "fathers"}. Use "Step" or "Adopted" to add a second one — those draw with a different-coloured line.`,
+    };
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -61,6 +107,7 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
   const personRows = persons.map((p: Record<string, unknown>) => ({
     id: String(p.id),
     full_name: p.fullName ?? p.full_name ?? "",
+    gender: p.gender ?? p.gender ?? "",
     birth_year: p.birthYear ?? p.birth_year ?? null,
     death_year: p.deathYear ?? p.death_year ?? null,
     is_alive: p.isAlive ?? p.is_alive ?? true,
@@ -89,6 +136,16 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
     const err = await deleteMissing("persons", persons, (r) => String(r.id), existing);
     if (err) return NextResponse.json({ error: `Persons delete failed: ${err.message}` }, { status: 500 });
   }
+
+  // Enforce the "no two biological mothers/fathers per child" rule using the
+  // FINAL union/edge set plus the persons' genders (payload + existing DB rows).
+  const genders = await loadGenders(db, personRows.map((r) => r.id));
+  for (const p of persons) {
+    const g = normalizeGender((p.gender ?? p.gender ?? "") as string);
+    if (g) genders.set(String(p.id), g);
+  }
+  const violation = dualParentError({ unions, edges, genders });
+  if (violation) return NextResponse.json(violation, { status: 400 });
 
   // unions
   const unionRows = unions.map((u: Record<string, unknown>) => ({
@@ -211,6 +268,25 @@ async function syncUserTree(db: ReturnType<typeof createServiceClient>, body: Tr
   if (personRows.length > 0) {
     const { error } = await db.from("persons").upsert(personRows, { onConflict: "id" });
     if (error) return NextResponse.json({ error: `Persons upsert failed: ${error.message}` }, { status: 500 });
+  }
+
+  // Enforce the parent-role rule for the user's circle changes using the
+  // FINAL union/edge set plus genders of every person in the payload.
+  if (unions.length > 0 || edges.length > 0) {
+    const allPersonIds = new Set<string>(personRows.map((r) => String(r.id)));
+    for (const u of unions) {
+      const a = String(u.partnerA ?? u.partner_a ?? "");
+      const b = String(u.partnerB ?? u.partner_b ?? "");
+      if (a) allPersonIds.add(a);
+      if (b) allPersonIds.add(b);
+    }
+    for (const e of edges) {
+      const c = String(e.childId ?? e.child_id ?? "");
+      if (c) allPersonIds.add(c);
+    }
+    const genders = await loadGenders(db, Array.from(allPersonIds));
+    const violation = dualParentError({ unions, edges, genders });
+    if (violation) return NextResponse.json(violation, { status: 400 });
   }
 
   // ---- Unions & edges (structural changes) ---------------------------
@@ -367,6 +443,7 @@ function normalizePerson(p: Record<string, unknown>, createdBy: string): Record<
   return {
     id: String(p.id),
     full_name: p.fullName ?? p.full_name ?? "",
+    gender: p.gender ?? p.gender ?? "",
     birth_year: p.birthYear ?? p.birth_year ?? null,
     death_year: p.deathYear ?? p.death_year ?? null,
     is_alive: p.isAlive ?? p.is_alive ?? true,
@@ -390,7 +467,7 @@ function normalizePerson(p: Record<string, unknown>, createdBy: string): Record<
 
 function personFieldsDiffer(dbRow: Record<string, unknown>, payload: Record<string, unknown>): boolean {
   return [
-    "full_name", "birth_year", "death_year", "is_alive", "birth_place", "death_place",
+    "full_name", "gender", "birth_year", "death_year", "is_alive", "birth_place", "death_place",
     "profession", "bio", "photo_url", "email", "phone", "address", "website", "lat", "lng",
   ].some((col) => {
     const pv = payload[col] ?? payload[camel(col)];

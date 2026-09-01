@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadCircleData, resolveEdit } from "@/lib/server-permissions";
 import { can, canEditField, type Role } from "@/lib/permissions";
+import {
+  normalizeGender,
+  wouldGenderChangeBreakRule,
+  type Gender,
+} from "@/lib/parentRules";
 
 async function requireAuth() {
   const supabase = await createClient();
@@ -35,7 +40,7 @@ export async function POST(request: NextRequest) {
   if (!can(role, "create-person")) return forbidden();
 
   const body = await request.json();
-  const { id, fullName, full_name, nameNative, name_native, birthYear, birth_year, deathYear, death_year, isAlive, is_alive, bio, birthPlace, birth_place, profession, photoUrl, photo_url, email, phone, address, website, lat, lng } = body;
+  const { id, fullName, full_name, nameNative, name_native, gender, birthYear, birth_year, deathYear, death_year, isAlive, is_alive, bio, birthPlace, birth_place, profession, photoUrl, photo_url, email, phone, address, website, lat, lng } = body;
 
   if (!id || !fullName && !full_name) {
     return NextResponse.json({ error: "id and fullName required" }, { status: 400 });
@@ -45,6 +50,7 @@ export async function POST(request: NextRequest) {
   const { error } = await db.from("persons").insert({
     id,
     full_name: fullName ?? full_name ?? "",
+    gender: normalizeGender(gender as string | undefined),
     name_native: nameNative ?? name_native ?? null,
     birth_year: birthYear ?? birth_year ?? null,
     death_year: deathYear ?? death_year ?? null,
@@ -79,6 +85,44 @@ export async function PATCH(request: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const db = createServiceClient();
+
+  // Changing gender can retroactively create two biological mothers/fathers
+  // for the person's children — block that (any role).
+  if (fields.gender !== undefined || fields.gender !== undefined) {
+    const newGender = normalizeGender((fields.gender ?? fields.gender ?? "") as string);
+    const oldGender =
+      (await db.from("persons").select("gender").eq("id", id).single()).data?.gender ?? "";
+    if (newGender !== oldGender) {
+      const [unionsRes, edgesRes] = await Promise.all([
+        db.from("unions").select("id, partner_a, partner_b"),
+        db.from("parent_edges").select("union_id, child_id, relationship_type"),
+      ]);
+      const personsRes = await db.from("persons").select("id, gender");
+      const genderById = new Map<string, Gender>();
+      for (const p of personsRes.data ?? []) genderById.set(String(p.id), normalizeGender((p as { gender?: string }).gender));
+      const violation = wouldGenderChangeBreakRule(
+        (unionsRes.data ?? []).map((u) => ({
+          id: String(u.id),
+          partnerA: String((u as { partner_a?: string }).partner_a ?? ""),
+          partnerB: String((u as { partner_b?: string }).partner_b ?? ""),
+        })),
+        (edgesRes.data ?? []).map((e) => ({
+          unionId: String((e as { union_id?: string }).union_id ?? ""),
+          childId: String((e as { child_id?: string }).child_id ?? ""),
+          relationshipType: (e as { relationship_type?: string }).relationship_type,
+        })),
+        genderById,
+        String(id),
+        newGender
+      );
+      if (violation) {
+        return NextResponse.json(
+          { error: `Changing this person's gender to that value would leave a child with two biological ${violation === "mother" ? "mothers" : "fathers"}. Use "Step" or "Adopted" instead.` },
+          { status: 400 }
+        );
+      }
+    }
+  }
 
   if (role === "admin" || role === "editor") {
     const update = mapFields(fields);
@@ -146,6 +190,7 @@ export async function DELETE(request: NextRequest) {
 function mapFields(fields: Record<string, unknown>): Record<string, unknown> {
   const update: Record<string, unknown> = {};
   if (fields.fullName !== undefined || fields.full_name !== undefined) update.full_name = fields.fullName ?? fields.full_name;
+  if (fields.gender !== undefined || fields.gender !== undefined) update.gender = normalizeGender((fields.gender ?? fields.gender ?? "") as string);
   if (fields.nameNative !== undefined || fields.name_native !== undefined) update.name_native = fields.nameNative ?? fields.name_native;
   if (fields.birthYear !== undefined || fields.birth_year !== undefined) update.birth_year = fields.birthYear ?? fields.birth_year;
   if (fields.deathYear !== undefined || fields.death_year !== undefined) update.death_year = fields.deathYear ?? fields.death_year;

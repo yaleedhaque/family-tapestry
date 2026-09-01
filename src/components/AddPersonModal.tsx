@@ -16,6 +16,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
   const { t } = useLang();
   const [fullName, setFullName] = useState("");
   const [nameNative, setNameNative] = useState("");
+  const [gender, setGender] = useState("");
   const [birthYear, setBirthYear] = useState("");
   const [deathYear, setDeathYear] = useState("");
   const [birthPlace, setBirthPlace] = useState("");
@@ -48,6 +49,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
       id: nextId(),
       fullName: name,
       nameNative: sanitizeField("nameNative", nameNative) || undefined,
+      gender: gender.trim(),
       birthYear: by,
       deathYear: dy,
       isAlive: !dy,
@@ -94,6 +96,18 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
             <div>
               <label className={labelCls}>{t("add.nameNative")}</label>
               <input type="text" value={nameNative} onChange={(e) => setNameNative(e.target.value)} placeholder="Name in Bengali, Hindi, Arabic… (optional)" dir="auto" className={inputCls} />
+            </div>
+          </Group>
+
+          <Group label={t("add.identity")}>
+            <div>
+              <label className={labelCls}>Gender</label>
+              <select value={gender} onChange={(e) => setGender(e.target.value)} className={inputCls}>
+                <option value="">Not specified</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+              </select>
             </div>
           </Group>
 
