@@ -20,9 +20,47 @@ const body = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Digital Family Tapestry",
+  metadataBase: new URL("https://family-tapestry-nine.vercel.app"),
+  title: {
+    default: "Family Tapestry | Digital Family Tree Builder",
+    template: "%s | Family Tapestry",
+  },
   description:
-    "A collaborative, graph-based web application that visualizes a family's entire ancestry as an interactive, living tapestry.",
+    "Build and preserve your family history with Family Tapestry — a collaborative, graph-based web app that visualizes your family's entire ancestry as an interactive, living tapestry.",
+  keywords: [
+    "family tree",
+    "family history",
+    "genealogy",
+    "ancestry",
+    "family tapestry",
+    "family tree builder",
+    "interactive family tree",
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://family-tapestry-nine.vercel.app",
+    siteName: "Family Tapestry",
+    title: "Family Tapestry | Digital Family Tree Builder",
+    description:
+      "Build and preserve your family history with Family Tapestry — an interactive, living tapestry of your entire ancestry.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Family Tapestry | Digital Family Tree Builder",
+    description:
+      "Build and preserve your family history with Family Tapestry.",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
