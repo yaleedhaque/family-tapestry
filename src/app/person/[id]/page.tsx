@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getPerson as getStaticPerson, getPersonEvents as getStaticEvents, persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import type { LifeEvent } from "@/data/family";
 import { useLiveTree } from "@/lib/useLiveTree";
+import { useUserCircle } from "@/lib/useUserCircle";
+import { useAuth } from "@/components/AuthProvider";
+import { useLang } from "@/lib/i18n";
 import type { DbUnion, DbParentEdge, DbPerson } from "@/lib/types";
 
 const EVENT_COLORS: Record<string, string> = {
@@ -34,8 +37,9 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   return {
     id: dp.id, fullName: dp.full_name, gender: dp.gender ?? "", birthYear: dp.birth_year, deathYear: dp.death_year,
     isAlive: dp.is_alive, bio: dp.bio ?? "", birthPlace: dp.birth_place ?? "",
-    profession: dp.profession ?? "", email: "", phone: "", address: "", website: "",
-    lat: null, lng: null, photoUrl: dp.photo_url ?? "",
+    profession: dp.profession ?? "", email: dp.email ?? "", phone: dp.phone ?? "",
+    address: dp.address ?? "", website: dp.website ?? "",
+    lat: dp.lat, lng: dp.lng, photoUrl: dp.photo_url ?? "",
     nameNative: dp.name_native, createdBy: dp.created_by,
   };
 }
@@ -99,6 +103,9 @@ export default function PersonDetailPage() {
 
   const live = useLiveTree();
 
+  const { user } = useAuth();
+  const { t } = useLang();
+
   const hasLive = (live.persons ?? []).length > 0;
   const persons: PersonLike[] = useMemo(
     () => (hasLive ? (live.persons ?? []).map((p) => toPersonLike(p)) : staticPersons),
@@ -112,6 +119,10 @@ export default function PersonDetailPage() {
     () => (hasLive ? (live.edges ?? []).map(toEdgeLike) : staticEdges.map((e) => ({ ...e }))),
     [live.edges, hasLive]
   );
+
+  const gate = useUserCircle(user, persons, unions, parentEdges);
+
+  const [editing, setEditing] = useState(false);
 
   const person = useMemo(() => persons.find((p) => p.id === id) ?? getStaticPerson(id), [persons, id]);
 
@@ -177,6 +188,17 @@ export default function PersonDetailPage() {
     return { parents, partners, children, siblings };
   }, [person, persons, unions, parentEdges]);
 
+  const editPerson = (patch: Record<string, unknown>) => {
+    fetch(`/api/tree/persons`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    })
+      .then((res) => { if (!res.ok) throw new Error("save failed"); })
+      .then(() => { setEditing(false); })
+      .catch(() => alert("Failed to save changes. Please try again."));
+  };
+
   if (!person) {
     return (
       <div className="min-h-screen bg-[var(--tapestry-bg)] flex items-center justify-center">
@@ -206,6 +228,14 @@ export default function PersonDetailPage() {
           </Link>
           <div className="flex-1" />
           <span className="text-[10px] md:text-xs text-[var(--parchment-dim)]">Person Profile</span>
+          {gate.canEditPerson(id) && (
+            <button
+              onClick={() => setEditing((e) => !e)}
+              className="text-[10px] md:text-xs px-2.5 py-1.5 rounded-lg bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/25 transition-colors font-body"
+            >
+              {editing ? "Done" : "Edit"}
+            </button>
+          )}
         </div>
       </header>
 
@@ -240,6 +270,16 @@ export default function PersonDetailPage() {
             <span className="text-[10px] text-[var(--parchment-dim)]">{person.isAlive ? "Living" : "Deceased"}</span>
           </div>
         </div>
+
+        {/* Edit Profile */}
+        {editing && (
+          <EditForm
+            person={person}
+            canEditPrivate={gate.canEditPrivate(id)}
+            onSave={(patch) => editPerson(patch)}
+            onCancel={() => setEditing(false)}
+          />
+        )}
 
         {/* Bio */}
         {person.bio && (
@@ -396,6 +436,137 @@ function ContactRow({ label, value, href, external }: { label: string; value: st
       <span className="text-[9px] md:text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] w-14 md:w-16 shrink-0">{label}</span>
       {content}
     </div>
+  );
+}
+
+function EditForm({ person, canEditPrivate, onSave, onCancel }: {
+  person: PersonLike;
+  canEditPrivate: boolean;
+  onSave: (patch: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useLang();
+  const [fields, setFields] = useState({
+    fullName: person.fullName,
+    nameNative: person.nameNative ?? "",
+    gender: person.gender ?? "",
+    birthYear: person.birthYear ?? "",
+    deathYear: person.deathYear ?? "",
+    isAlive: person.isAlive ?? true,
+    birthPlace: person.birthPlace ?? "",
+    profession: person.profession ?? "",
+    bio: person.bio ?? "",
+    email: person.email ?? "",
+    phone: person.phone ?? "",
+    address: person.address ?? "",
+    website: person.website ?? "",
+  });
+
+  const set = (k: string, v: string | boolean) => setFields((f) => ({ ...f, [k]: v }));
+
+  const input = "w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]";
+  const label = "block text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] mb-1";
+
+  const save = () => {
+    const patch: Record<string, unknown> = {
+      id: person.id,
+      fullName: fields.fullName,
+      nameNative: fields.nameNative || null,
+      gender: fields.gender,
+      birthYear: fields.birthYear || null,
+      deathYear: fields.deathYear || null,
+      isAlive: fields.deathYear ? false : fields.isAlive,
+      birthPlace: fields.birthPlace || null,
+      profession: fields.profession || null,
+    };
+    if (canEditPrivate) {
+      patch.bio = fields.bio || null;
+      patch.email = fields.email || null;
+      patch.phone = fields.phone || null;
+      patch.address = fields.address || null;
+      patch.website = fields.website || null;
+    }
+    onSave(patch);
+  };
+
+  return (
+    <section className="bg-white/[0.03] rounded-xl p-4 md:p-5 border border-[var(--thread-gold-dim)]/20 mb-8 md:mb-10">
+      <h2 className="font-display text-base md:text-lg text-[var(--thread-gold)] mb-4">Edit Profile</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className={label}>{t("add.fullName")}</label>
+          <input className={input} value={fields.fullName} onChange={(e) => set("fullName", e.target.value)} />
+        </div>
+        <div>
+          <label className={label}>Name (your script)</label>
+          <input className={input} value={fields.nameNative} onChange={(e) => set("nameNative", e.target.value)} dir="auto" />
+        </div>
+        <div>
+          <label className={label}>Gender</label>
+          <select className={input} value={fields.gender} onChange={(e) => set("gender", e.target.value)}>
+            <option value="">{t("gender.notSpecified")}</option>
+            <option value="female">{t("gender.female")}</option>
+            <option value="male">{t("gender.male")}</option>
+            <option value="other">{t("gender.other")}</option>
+          </select>
+        </div>
+        <div>
+          <label className={label}>{t("add.birthYear")}</label>
+          <input className={input} value={fields.birthYear ?? ""} onChange={(e) => set("birthYear", e.target.value)} placeholder="e.g. 1950" />
+        </div>
+        <div>
+          <label className={label}>{t("add.deathYear")}</label>
+          <input className={input} value={fields.deathYear ?? ""} onChange={(e) => set("deathYear", e.target.value)} placeholder="Leave empty if living" />
+        </div>
+        <div>
+          <label className={label}>Place of birth</label>
+          <input className={input} value={fields.birthPlace} onChange={(e) => set("birthPlace", e.target.value)} />
+        </div>
+        <div>
+          <label className={label}>Profession</label>
+          <input className={input} value={fields.profession} onChange={(e) => set("profession", e.target.value)} />
+        </div>
+        {canEditPrivate && (
+          <>
+            <div>
+              <label className={label}>Email</label>
+              <input className={input} value={fields.email} onChange={(e) => set("email", e.target.value)} type="email" />
+            </div>
+            <div>
+              <label className={label}>Phone</label>
+              <input className={input} value={fields.phone} onChange={(e) => set("phone", e.target.value)} />
+            </div>
+            <div>
+              <label className={label}>Address</label>
+              <input className={input} value={fields.address} onChange={(e) => set("address", e.target.value)} />
+            </div>
+            <div>
+              <label className={label}>Website</label>
+              <input className={input} value={fields.website} onChange={(e) => set("website", e.target.value)} type="url" />
+            </div>
+          </>
+        )}
+      </div>
+      {canEditPrivate && (
+        <div className="mt-4">
+          <label className={label}>About / Bio</label>
+          <textarea className={input + " min-h-[100px] resize-y"} value={fields.bio} onChange={(e) => set("bio", e.target.value)} />
+        </div>
+      )}
+      <div className="flex items-center gap-3 mt-5">
+        <button onClick={save} className="px-5 py-2 text-sm rounded-lg bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body hover:opacity-90 transition-opacity">
+          Save changes
+        </button>
+        <button onClick={onCancel} className="px-5 py-2 text-sm rounded-lg border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">
+          Cancel
+        </button>
+      </div>
+      {!canEditPrivate && (
+        <p className="text-[10px] text-[var(--parchment-dim)] mt-4 italic">
+          Private contact details are only editable by the person themself. As Editor you can update the public genealogical fields here.
+        </p>
+      )}
+    </section>
   );
 }
 
