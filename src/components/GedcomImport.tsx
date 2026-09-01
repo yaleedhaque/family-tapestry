@@ -243,7 +243,7 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
                 </div>
               </div>
             </div>
-            <p className="text-[10px] text-[var(--ember-red)] italic">This will replace the current tree data.</p>
+            <p className="text-[10px] text-[var(--parchment-dim)] italic">This will create a brand-new tree in the tree switcher — it does not modify your current tree.</p>
           </div>
         )}
 
