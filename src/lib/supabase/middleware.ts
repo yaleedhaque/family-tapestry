@@ -31,11 +31,18 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  const PUBLIC_PATHS = [
+    "/",
+    "/timeline",
+    "/map",
+    "/privacy",
+    "/sitemap.xml",
+    "/robots.txt",
+  ];
+
   if (
     !user &&
-    pathname !== "/" &&
-    pathname !== "/timeline" &&
-    pathname !== "/map" &&
+    !PUBLIC_PATHS.includes(pathname) &&
     !pathname.startsWith("/login") &&
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api") &&
