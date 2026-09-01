@@ -12,7 +12,7 @@ import type { DbPerson } from "@/lib/types";
 
 const EVENT_COLORS: Record<string, string> = {
   birth: "var(--living-glow)", death: "var(--deceased-frame)",
-  marriage: "var(--thread-gold)", divorce: "var(--ember-red)",
+  marriage: "var(--thread-gold)", divorce: "var(--divorce-red)",
   career: "#4B7A9E", education: "#6B4C8B",
   migration: "#3E6B5C", achievement: "#C9A24B",
   military: "#8B6B5C", other: "var(--parchment-dim)",

@@ -553,7 +553,7 @@ export default function MapView() {
                 [arc.to.lat!, arc.to.lng!],
               ]}
               pathOptions={{
-                color: arc.type === "divorced" ? "var(--ember-red)" : "#C9A24B",
+                color: arc.type === "divorced" ? "var(--divorce-red)" : "#C9A24B",
                 weight: arc.type === "parent-child" ? 1.5 : 2,
                 opacity: arc.type === "parent-child" ? 0.4 : 0.6,
                 dashArray: arc.type === "parent-child" ? "4 4" : undefined,

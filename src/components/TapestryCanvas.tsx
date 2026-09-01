@@ -131,14 +131,14 @@ function makeMarriageEdge(source: string, target: string, unionType: string): Ed
     target,
     type: "smoothstep",
     style: {
-      stroke: isDivorced ? "var(--ember-red)" : "var(--thread-gold)",
+      stroke: isDivorced ? "var(--divorce-red)" : "var(--thread-gold)",
       strokeWidth: 2,
       opacity: isDivorced ? 0.7 : 0.8,
       strokeDasharray: isDivorced ? "6 4" : undefined,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      color: isDivorced ? "var(--ember-red)" : "var(--thread-gold-dim)",
+      color: isDivorced ? "var(--divorce-red)" : "var(--thread-gold-dim)",
       width: 12,
       height: 12,
     },

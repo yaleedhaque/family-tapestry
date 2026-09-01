@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+import { useLang } from "@/lib/i18n";
 
 interface GedcomImportProps {
   onImport: (persons: PersonLike[], unions: UnionLike[], edges: EdgeLike[]) => void;
@@ -170,6 +171,7 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<{ persons: number; unions: number; edges: number } | null>(null);
   const [parsed, setParsed] = useState<{ persons: ParsedPerson[]; unions: ParsedUnion[]; edges: ParsedEdge[] } | null>(null);
+  const { t } = useLang();
 
   const handleFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -180,23 +182,23 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       if (!text.includes("INDI") && !text.includes("0 HEAD")) {
-        setError("This doesn't look like a valid GEDCOM file.");
+        setError(t("gedcom.invalid"));
         return;
       }
       try {
         const result = parseGedcom(text);
         if (result.persons.length === 0) {
-          setError("No individuals found in the file.");
+          setError(t("gedcom.noIndividuals"));
           return;
         }
         setParsed(result);
         setStats({ persons: result.persons.length, unions: result.unions.length, edges: result.edges.length });
       } catch {
-        setError("Failed to parse GEDCOM file. Check the format and try again.");
+        setError(t("gedcom.invalid"));
       }
     };
     reader.readAsText(file);
-  }, []);
+  }, [t]);
 
   const handleConfirm = useCallback(() => {
     if (!parsed) return;
@@ -211,8 +213,8 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
       <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/30 rounded-xl p-6 max-w-md w-full shadow-2xl">
-        <h3 className="font-display text-lg text-[var(--parchment)] mb-1">Import GEDCOM</h3>
-        <p className="text-xs text-[var(--parchment-dim)] mb-4">Upload a .ged file to import your family tree data.</p>
+        <h3 className="font-display text-lg text-[var(--parchment)] mb-1">{t("gedcom.title")}</h3>
+        <p className="text-xs text-[var(--parchment-dim)] mb-4">{t("gedcom.desc")}</p>
 
         {!parsed ? (
           <div className="border-2 border-dashed border-[var(--thread-gold-dim)]/30 rounded-lg p-8 text-center">
@@ -221,29 +223,29 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
               <svg viewBox="0 0 24 24" fill="none" stroke="var(--thread-gold-dim)" strokeWidth="1.5" className="w-10 h-10 mx-auto mb-3">
                 <path d="M12 16V4M8 8l4-4 4 4M4 20h16" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span className="text-sm text-[var(--parchment-dim)]">Click to select a GEDCOM file</span>
+              <span className="text-sm text-[var(--parchment-dim)]">{t("gedcom.click")}</span>
             </label>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="bg-white/[0.03] rounded-lg p-4 border border-white/[0.05]">
-              <p className="text-sm text-[var(--parchment)] mb-2 font-body">Ready to import:</p>
+              <p className="text-sm text-[var(--parchment)] mb-2 font-body">{t("gedcom.ready")}</p>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <span className="block text-lg font-display text-[var(--thread-gold)]">{stats?.persons}</span>
-                  <span className="text-[10px] text-[var(--parchment-dim)]">People</span>
+                  <span className="text-[10px] text-[var(--parchment-dim)]">{t("gedcom.people")}</span>
                 </div>
                 <div>
                   <span className="block text-lg font-display text-[var(--thread-gold)]">{stats?.unions}</span>
-                  <span className="text-[10px] text-[var(--parchment-dim)]">Unions</span>
+                  <span className="text-[10px] text-[var(--parchment-dim)]">{t("gedcom.unions")}</span>
                 </div>
                 <div>
                   <span className="block text-lg font-display text-[var(--thread-gold)]">{stats?.edges}</span>
-                  <span className="text-[10px] text-[var(--parchment-dim)]">Parent links</span>
+                  <span className="text-[10px] text-[var(--parchment-dim)]">{t("gedcom.parentLinks")}</span>
                 </div>
               </div>
             </div>
-            <p className="text-[10px] text-[var(--parchment-dim)] italic">This will create a brand-new tree in the tree switcher — it does not modify your current tree.</p>
+            <p className="text-[10px] text-[var(--parchment-dim)] italic">{t("gedcom.newTree")}</p>
           </div>
         )}
 
@@ -251,11 +253,11 @@ export default function GedcomImport({ onImport, onClose }: GedcomImportProps) {
 
         <div className="flex justify-end gap-3 mt-5">
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">
-            Cancel
+            {t("common.cancel")}
           </button>
           {parsed && (
             <button onClick={handleConfirm} className="px-4 py-2 text-sm rounded-lg bg-[var(--thread-gold)] text-[var(--tapestry-bg)] hover:opacity-90 transition-opacity font-body">
-              Import Tree
+              {t("gedcom.import")}
             </button>
           )}
         </div>

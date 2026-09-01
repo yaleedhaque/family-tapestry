@@ -61,7 +61,7 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
 
             <StatRow label={t("toolbar.marriages")} value={stats.marriages} icon="&#x25C6;" color="var(--thread-gold)" />
             <StatRow label={t("toolbar.partnerships")} value={stats.partnerships} icon="&#x25C6;" color="var(--thread-gold-dim)" />
-            <StatRow label={t("toolbar.divorced")} value={stats.divorced} icon="&#x2716;" color="var(--ember-red)" />
+            <StatRow label={t("toolbar.divorced")} value={stats.divorced} icon="&#x2716;" color="var(--divorce-red)" />
           </div>
 
           <div className="px-4 py-3 border-t border-[var(--thread-gold-dim)]/20 space-y-2">

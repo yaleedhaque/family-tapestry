@@ -26,7 +26,7 @@ const EVENT_COLORS: Record<string, string> = {
   birth: "var(--living-glow)",
   death: "var(--deceased-frame)",
   marriage: "var(--thread-gold)",
-  divorce: "var(--ember-red)",
+  divorce: "var(--divorce-red)",
   career: "#4B7A9E",
   education: "#6B4C8B",
   migration: "#3E6B5C",

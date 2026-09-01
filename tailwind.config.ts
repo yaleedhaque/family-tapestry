@@ -20,6 +20,9 @@ const config: Config = {
         ember: {
           red: "var(--ember-red)",
         },
+        divorce: {
+          red: "var(--divorce-red)",
+        },
         parchment: {
           DEFAULT: "var(--parchment)",
           dim: "var(--parchment-dim)",

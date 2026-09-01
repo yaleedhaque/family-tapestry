@@ -14,7 +14,7 @@ export const GENERATION_COLORS = [
  *  The avatar ring on each person reflects their LIFE STATUS, not generation:
  *    - living    → golden  (var(--living-glow))
  *    - deceased  → grayish (var(--deceased-frame))
- *    - divorced  → reddish (var(--ember-red))
+ *    - divorced  → reddish (var(--divorce-red))
  *  Precedence when a person is both deceased and was once divorced: deceased wins
  *  (a deceased person reads as deceased-gray, not as still "divorced-red").
  */
@@ -36,7 +36,7 @@ export function personRingStatus(
 export const STATUS_RING_COLORS: Record<PersonRingStatus, string> = {
   living: "var(--living-glow)",
   deceased: "var(--deceased-frame)",
-  divorced: "var(--ember-red)",
+  divorced: "var(--divorce-red)",
 };
 
 export function generationLabel(gen: number): string {

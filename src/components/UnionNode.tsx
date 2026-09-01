@@ -20,18 +20,18 @@ function UnionNode({ data }: NodeProps) {
       <div
         className={`relative w-8 h-8 rotate-45 border ${
           isDivorced
-            ? "border-ember-red"
+            ? "border-divorce-red"
             : "border-thread-gold"
         } bg-tapestry-bg-alt`}
       >
         <div
           className={`absolute inset-1 border ${
-            isDivorced ? "border-ember-red/50" : "border-thread-gold-dim"
+            isDivorced ? "border-divorce-red/50" : "border-thread-gold-dim"
           }`}
         />
         {isDivorced && (
           <div className="absolute inset-0 flex items-center justify-center -rotate-45">
-            <span className="text-ember-red text-[8px] font-bold">✕</span>
+            <span className="text-divorce-red text-[8px] font-bold">✕</span>
           </div>
         )}
       </div>
@@ -50,13 +50,13 @@ function UnionNode({ data }: NodeProps) {
         )}
         <span
           className={`font-body text-[8px] italic ${
-            isDivorced ? "text-ember-red" : "text-thread-gold-dim"
+            isDivorced ? "text-divorce-red" : "text-thread-gold-dim"
           }`}
         >
           {union.startYear} – {union.endYear ?? "present"}
         </span>
         {isDivorced && (
-          <span className="font-body text-[7px] text-ember-red uppercase tracking-wider">
+          <span className="font-body text-[7px] text-divorce-red uppercase tracking-wider">
             divorced
           </span>
         )}
