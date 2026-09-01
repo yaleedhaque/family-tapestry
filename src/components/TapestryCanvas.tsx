@@ -378,7 +378,9 @@ export default function TapestryCanvas() {
       for (const edge of parentEdges) {
         const union = unions.find((u) => u.id === edge.unionId);
         if (union && !union.partnerB) {
-          graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType));
+          // Single parent (no diamond): child drops straight from the parent's
+          // bottom handle, not from the card centre (avoid lines under avatar).
+          graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType, "bottom"));
         } else {
           graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType, "child"));
         }
@@ -397,7 +399,9 @@ export default function TapestryCanvas() {
 
       // Decide which diamond corner each partner connects to. Routes are shortest
       // and crossing-free: assign the partner left of the diamond to the LEFT
-      // corner and the one on the RIGHT to the RIGHT corner.
+      // corner and the one on the RIGHT to the RIGHT corner. Each partner's edge
+      // must also START from the person's side handle facing the diamond (so the
+      // line leaves horizontally, never through/under the avatar or card).
       for (const union of unions) {
         if (!union.partnerB) continue;
         const pa = layoutPositions.get(union.partnerA);
@@ -406,9 +410,17 @@ export default function TapestryCanvas() {
         const aLeftOfB = pa.x <= pb.x;
         const aCorner = aLeftOfB ? "partner-left" : "partner-right";
         const bCorner = aLeftOfB ? "partner-right" : "partner-left";
+        // Left partner leaves from its RIGHT side; right partner from its LEFT side.
+        const aSide = aLeftOfB ? "partner-r" : "partner-l";
+        const bSide = aLeftOfB ? "partner-l" : "partner-r";
         for (const e of graphEdges) {
-          if (e.id === `${union.partnerA}-${union.id}-marriage`) e.targetHandle = aCorner;
-          else if (e.id === `${union.partnerB}-${union.id}-marriage`) e.targetHandle = bCorner;
+          if (e.id === `${union.partnerA}-${union.id}-marriage`) {
+            e.sourceHandle = aSide;
+            e.targetHandle = aCorner;
+          } else if (e.id === `${union.partnerB}-${union.id}-marriage`) {
+            e.sourceHandle = bSide;
+            e.targetHandle = bCorner;
+          }
         }
       }
 
