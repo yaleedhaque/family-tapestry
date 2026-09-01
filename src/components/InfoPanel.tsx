@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import type { Source } from "@/data/family";
 import { useLang } from "@/lib/i18n";
 import { sanitizeField, validateEmail, validateUrl, validateYear } from "@/lib/validation";
-import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
+import { findDualParentConflicts, isBiological, type Gender } from "@/lib/parentRules";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -61,6 +61,7 @@ interface InfoPanelProps {
   onUpdateUnion: (union: UnionLike) => void;
   onAddChild: (personId: string, childId: string, relationshipType?: string) => void;
   onAddParent: (childId: string, parentId: string, relationshipType?: string) => void;
+  onUpdateEdgeType: (unionId: string, childId: string, relationshipType: string) => void;
   onCreatePersonAndLink: (
     newPerson: PersonLike,
     linkType: "partner" | "child" | "parent",
@@ -97,6 +98,7 @@ export default function InfoPanel({
   onUpdateUnion,
   onAddChild,
   onAddParent,
+  onUpdateEdgeType,
   onCreatePersonAndLink,
   onRemoveLink,
   nextPersonId,
@@ -129,6 +131,8 @@ export default function InfoPanel({
   const [editUnionType, setEditUnionType] = useState("marriage");
   const [editStartYear, setEditStartYear] = useState("");
   const [editEndYear, setEditEndYear] = useState("");
+  const [editingEdgeKey, setEditingEdgeKey] = useState<string | null>(null);
+  const [editEdgeRel, setEditEdgeRel] = useState("biological");
 
   // --- -- -- -- -- --
   // Parent role labels tie into the "no two mothers" rule: each parent shows a
@@ -158,7 +162,7 @@ export default function InfoPanel({
       }
     }
 
-    const parents: { person: PersonLike; relType: string; role: string }[] = [];
+    const parents: { person: PersonLike; relType: string; role: string; unionId: string }[] = [];
     for (const pe of parentEdges) {
       if (pe.childId === person.id) {
         const union = unions.find((u) => u.id === pe.unionId);
@@ -166,18 +170,18 @@ export default function InfoPanel({
           const relType = pe.relationshipType ?? "biological";
           const pA = persons.find((p) => p.id === union.partnerA);
           const pB = persons.find((p) => p.id === union.partnerB);
-          if (pA) parents.push({ person: pA, relType, role: parentRoleLabel(pA.gender, relType) });
-          if (pB) parents.push({ person: pB, relType, role: parentRoleLabel(pB.gender, relType) });
+          if (pA) parents.push({ person: pA, relType, role: parentRoleLabel(pA.gender, relType), unionId: pe.unionId });
+          if (pB) parents.push({ person: pB, relType, role: parentRoleLabel(pB.gender, relType), unionId: pe.unionId });
         }
       }
     }
 
-    const children: PersonLike[] = [];
+    const children: { person: PersonLike; edge: EdgeLike }[] = [];
     for (const pe of parentEdges) {
       const union = unions.find((u) => u.id === pe.unionId);
       if (union && (union.partnerA === person.id || union.partnerB === person.id)) {
         const child = persons.find((p) => p.id === pe.childId);
-        if (child) children.push(child);
+        if (child) children.push({ person: child, edge: pe });
       }
     }
 
@@ -534,8 +538,9 @@ const np: PersonLike = {
           {tab === "parents" && (
             <>
               <RelSection
-                items={relatedData.parents.map(({ person: p, role, relType }) => ({
+                items={relatedData.parents.map(({ person: p, relType, role, unionId }) => ({
                   id: p.id,
+                  edge: { unionId, childId: person.id, relationshipType: relType },
                   label: p.fullName,
                   sub: `${role} · ${p.birthYear} – ${p.deathYear ?? "present"}`,
                   badge: relType === "step" ? "step" : relType === "adopted" ? "adopted" : undefined,
@@ -549,6 +554,19 @@ const np: PersonLike = {
                 onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Parent"
                 showRelType relType={newRelType} onRelTypeChange={setNewRelType}
                 onNavigate={onNavigate}
+                canEdit={canEdit}
+                onEditEdge={(item) => {
+                  setEditingEdgeKey(`${item.edge?.unionId}|${item.edge?.childId}`);
+                  setEditEdgeRel(item.edge?.relationshipType ?? "biological");
+                }}
+                editingEdgeKey={editingEdgeKey}
+                editEdgeRel={editEdgeRel} onEditEdgeRelChange={setEditEdgeRel}
+                onSaveEdge={() => {
+                  const e = relatedData.parents.find(({ unionId }) => `${unionId}|${person.id}` === editingEdgeKey);
+                  if (e) onUpdateEdgeType(e.unionId, person.id, editEdgeRel);
+                  setEditingEdgeKey(null);
+                }}
+                onCancelEditEdge={() => setEditingEdgeKey(null)}
               />
               {hasDualBioParents && (
                 <p className="text-[11px] text-[var(--ember-red)] bg-[var(--ember-red)]/10 rounded px-3 py-2 leading-relaxed">
@@ -601,7 +619,13 @@ const np: PersonLike = {
 
           {tab === "children" && (
             <RelSection
-              items={relatedData.children.map((c) => ({ id: c.id, label: c.fullName, sub: `${c.birthYear} – ${c.deathYear ?? "present"}` }))}
+              items={relatedData.children.map(({ person: c, edge }) => ({
+                id: c.id,
+                edge: { unionId: edge.unionId, childId: edge.childId, relationshipType: edge.relationshipType ?? "biological" },
+                label: c.fullName,
+                sub: `${c.birthYear} – ${c.deathYear ?? "present"}`,
+                badge: (edge.relationshipType ?? "biological") === "step" ? "step" : (edge.relationshipType ?? "biological") === "adopted" ? "adopted" : undefined,
+              }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
               onPickExisting={(id) => { onAddChild(person.id, id, newRelType); resetAdd(); }}
@@ -611,6 +635,19 @@ const np: PersonLike = {
               onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Child"
               showRelType relType={newRelType} onRelTypeChange={setNewRelType}
               onNavigate={onNavigate}
+              canEdit={canEdit}
+              onEditEdge={(item) => {
+                setEditingEdgeKey(`${item.edge?.unionId}|${item.edge?.childId}`);
+                setEditEdgeRel(item.edge?.relationshipType ?? "biological");
+              }}
+              editingEdgeKey={editingEdgeKey}
+              editEdgeRel={editEdgeRel} onEditEdgeRelChange={setEditEdgeRel}
+              onSaveEdge={() => {
+                const e = relatedData.children.find(({ edge }) => `${edge.unionId}|${edge.childId}` === editingEdgeKey)?.edge;
+                if (e) onUpdateEdgeType(e.unionId, e.childId, editEdgeRel);
+                setEditingEdgeKey(null);
+              }}
+              onCancelEditEdge={() => setEditingEdgeKey(null)}
             />
           )}
 
@@ -687,8 +724,11 @@ function RelSection({
   onEditUnion, editingUnionId, editUnionType, onEditUnionTypeChange,
   editStartYear, onEditStartYearChange, editEndYear, onEditEndYearChange,
   onSaveUnion, onCancelEditUnion,
+  canEdit,
+  onEditEdge, editingEdgeKey, editEdgeRel, onEditEdgeRelChange,
+  onSaveEdge, onCancelEditEdge,
 }: {
-  items: { id: string; unionId?: string; label: string; sub: string; badge?: string; union?: UnionLike }[];
+  items: { id: string; unionId?: string; edge?: { unionId: string; childId: string; relationshipType: string }; label: string; sub: string; badge?: string; union?: UnionLike }[];
   addMode: "existing" | "new" | null;
   searchQuery: string;
   searchResults: PersonLike[];
@@ -720,6 +760,13 @@ function RelSection({
   onEditEndYearChange?: (val: string) => void;
   onSaveUnion?: () => void;
   onCancelEditUnion?: () => void;
+  canEdit?: boolean;
+  onEditEdge?: (item: { id: string; edge?: { unionId: string; childId: string; relationshipType: string } }) => void;
+  editingEdgeKey?: string | null;
+  editEdgeRel?: string;
+  onEditEdgeRelChange?: (val: string) => void;
+  onSaveEdge?: () => void;
+  onCancelEditEdge?: () => void;
 }) {
   const { t } = useLang();
   return (
@@ -728,6 +775,8 @@ function RelSection({
         <div className="space-y-2">
           {items.map((item) => {
             const isEditingThis = onEditUnion && item.unionId && editingUnionId === item.unionId;
+            const edgeKey = item.edge ? `${item.edge.unionId}|${item.edge.childId}` : undefined;
+            const isEditingEdge = onEditEdge && editingEdgeKey && edgeKey === editingEdgeKey;
             return (
             <div key={item.id} className="bg-white/[0.03] rounded-lg px-4 py-2.5 border border-[var(--thread-gold-dim)]/10">
               <div className="flex items-center justify-between">
@@ -745,12 +794,37 @@ function RelSection({
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {canEdit && onEditEdge && item.edge && !isEditingEdge && (
+                    <button onClick={() => onEditEdge?.(item)} aria-label={`Change relationship with ${item.label}`} title="Change biological / adopted / step" className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors text-xs">✎</button>
+                  )}
                   {onEditUnion && (
                     <button onClick={() => onEditUnion(item)} aria-label={`Edit relationship with ${item.label}`} title="Change type / years" className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors text-xs">✎</button>
                   )}
                   <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.label}`} className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
                 </div>
               </div>
+
+              {isEditingEdge && (
+                <div className="mt-3 pt-3 border-t border-[var(--thread-gold-dim)]/10 space-y-2">
+                  <div className="flex gap-2">
+                    <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Rel</label>
+                    <select value={editEdgeRel} onChange={(e) => onEditEdgeRelChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]" aria-label="Relationship type">
+                      <option value="biological">{t("rel.biological")}</option>
+                      <option value="adopted">{t("rel.adopted")}</option>
+                      <option value="step">{t("rel.step")}</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={onSaveEdge} className="flex-1 px-3 py-1.5 text-xs rounded bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body hover:opacity-90 transition-opacity">Save</button>
+                    <button onClick={onCancelEditEdge} className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">Cancel</button>
+                  </div>
+                  {isBiological(editEdgeRel) && (
+                    <p className="text-[10px] text-[var(--parchment-dim)] italic">
+                      Biological lines are brown; Adopted are dashed green; Step are amber. Only one biological mother &amp; one biological father per child.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {isEditingThis && (
                 <div className="mt-3 pt-3 border-t border-[var(--thread-gold-dim)]/10 space-y-2">

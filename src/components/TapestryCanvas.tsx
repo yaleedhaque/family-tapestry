@@ -123,7 +123,7 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
     source,
     target,
     targetHandle,
-    type: "smoothstep",
+    type: "straight",
     style: {
       stroke: isDivorced ? "var(--divorce-red)" : "var(--thread-gold)",
       strokeWidth: 2,
@@ -634,6 +634,20 @@ export default function TapestryCanvas() {
     setRawUnions((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     if (user) apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions.map((u) => (u.id === updated.id ? updated : u)), edges: rawEdges }, () => toast("Failed to save relationship", "error"));
   }, [rawUnions, rawPersons, rawEdges, user, toast]);
+
+  //  --  --  CRUD: Update a parent→child relationship type (bio/adopted/step)  -- 
+  const handleUpdateEdgeType = useCallback(
+    (unionId: string, childId: string, relationshipType: string) => {
+      const rel = (["biological", "adopted", "step"].includes(relationshipType) ? relationshipType : "biological") as "biological" | "adopted" | "step";
+      setRawEdges((prev) =>
+        prev.map((e) => (e.unionId === unionId && e.childId === childId ? { ...e, relationshipType: rel } : e))
+      );
+      if (user) setTimeout(() => {
+        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
+      }, 0);
+    },
+    [rawUnions, rawPersons, rawEdges, user, toast]
+  );
 
   //  --  --  CRUD: Add child (existing person)  --  -- 
   const handleAddChild = useCallback(
@@ -1224,6 +1238,7 @@ export default function TapestryCanvas() {
           onUpdateUnion={handleUpdateUnion}
           onAddChild={handleAddChild}
           onAddParent={handleAddParent}
+          onUpdateEdgeType={handleUpdateEdgeType}
           onCreatePersonAndLink={handleCreatePersonAndLink}
           onRemoveLink={handleRemoveLink}
           nextPersonId={() => nextPersonId(rawPersons)}
