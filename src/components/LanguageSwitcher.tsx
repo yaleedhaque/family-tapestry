@@ -37,7 +37,7 @@ export default function LanguageSwitcher() {
       {open && (
         <div
           role="listbox"
-          className="absolute right-0 top-full mt-2 w-36 py-1 rounded-lg bg-[var(--tapestry-bg-alt)] border border-[var(--panel-border)] shadow-[var(--popover-shadow)] overflow-hidden z-[60]"
+          className="absolute left-0 top-full mt-2 w-36 py-1 rounded-lg bg-[var(--tapestry-bg-alt)] border border-[var(--panel-border)] shadow-[var(--popover-shadow)] overflow-hidden z-[60]"
           dir="ltr"
         >
           {LANGS.map((l) => (
