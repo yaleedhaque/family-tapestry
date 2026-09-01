@@ -3,10 +3,12 @@
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useLang } from "@/lib/i18n";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLang();
   const redirect = searchParams.get("redirect") || "/";
 
   const [email, setEmail] = useState("");
@@ -77,7 +79,7 @@ function LoginForm() {
         <div className="text-center mb-8">
           <Link href="/" className="font-display text-2xl text-[var(--thread-gold)]">Family Tapestry</Link>
           <p className="text-sm text-[var(--parchment-dim)] mt-2">
-            {isSignUp ? "Create an account to collaborate" : "Sign in to your tree"}
+            {isSignUp ? t("auth.taglineSignUp") : t("auth.taglineSignIn")}
           </p>
         </div>
 
@@ -85,7 +87,7 @@ function LoginForm() {
           {!hasSupabase && (
             <div className="mb-4 p-3 rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--thread-gold)]/20">
               <p className="text-xs text-[var(--thread-gold)]">
-                No Supabase configured. Click sign in to continue without auth.
+                {t("auth.noSupabase")}
               </p>
             </div>
           )}
@@ -98,12 +100,12 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] block mb-1">Email</label>
+              <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] block mb-1">{t("auth.email")}</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder={t("auth.emailPlaceholder")}
                 required
                 className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2.5 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]"
               />
@@ -111,9 +113,9 @@ function LoginForm() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">Password</label>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)]">{t("auth.password")}</label>
                 <Link href="/auth/reset" className="text-[10px] text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] transition-colors">
-                  Forgot password?
+                  {t("auth.forgot")}
                 </Link>
               </div>
               <div className="relative">
@@ -121,16 +123,16 @@ function LoginForm() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Your password"
+                  placeholder={t("auth.passwordPlaceholder")}
                   required
                   className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2.5 pr-10 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? t("auth.hide") : t("auth.show")}
                   aria-pressed={showPassword}
-                  title={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? t("auth.hide") : t("auth.show")}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] hover:bg-white/5 transition-colors"
                 >
                   {showPassword ? (
@@ -155,7 +157,7 @@ function LoginForm() {
               disabled={loading}
               className="w-full py-2.5 rounded-lg bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
+              {loading ? t("auth.loading") : isSignUp ? t("auth.create") : t("auth.signIn")}
             </button>
           </form>
 
@@ -164,7 +166,7 @@ function LoginForm() {
               onClick={() => { setIsSignUp(!isSignUp); setError(""); }}
               className="text-xs text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] transition-colors"
             >
-              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+              {isSignUp ? t("auth.switchToSignIn") : t("auth.switchToSignUp")}
             </button>
           </div>
 
@@ -173,7 +175,7 @@ function LoginForm() {
               <div className="w-full border-t border-[var(--thread-gold-dim)]/20" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-[var(--tapestry-bg-alt)] px-3 text-[var(--parchment-dim)]">or continue with</span>
+              <span className="bg-[var(--tapestry-bg-alt)] px-3 text-[var(--parchment-dim)]">{t("auth.or")}</span>
             </div>
           </div>
 
@@ -184,7 +186,7 @@ function LoginForm() {
             style={{ fontFamily: "Inter, system-ui, sans-serif" }}
           >
             {googleLoading ? (
-              "Redirecting..."
+              t("auth.googleLoading")
             ) : (
               <>
                 <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
@@ -193,7 +195,7 @@ function LoginForm() {
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                 </svg>
-                Continue with Google
+                {t("auth.google")}
               </>
             )}
           </button>
@@ -201,7 +203,7 @@ function LoginForm() {
 
         <p className="text-center mt-6">
           <Link href="/" className="text-xs text-[var(--link)] hover:text-[var(--parchment)] transition-colors">
-            ← Browse the demo tree without signing in
+            {t("auth.browseDemo")}
           </Link>
         </p>
       </div>
@@ -211,8 +213,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[var(--tapestry-bg)] flex items-center justify-center"><p className="text-[var(--parchment-dim)]">Loading...</p></div>}>
-      <LoginForm />
+    <Suspense fallback={<div className="min-h-screen bg-[var(--tapestry-bg)] flex items-center justify-center"><p className="text-[var(--parchment-dim)]">Loading...</p></div>}>      <LoginForm />
     </Suspense>
   );
 }
