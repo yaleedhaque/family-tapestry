@@ -13,7 +13,7 @@ import {
   MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import ELK from "elkjs/lib/elk.bundled.js";
+import { manualFamilyLayout } from "@/lib/familyLayout";
 
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
@@ -46,21 +46,6 @@ import { useUserCircle } from "@/lib/useUserCircle";
 import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
-
-const elk = new ELK();
-const ELK_OPTIONS = {
-  "elk.algorithm": "layered",
-  "elk.direction": "DOWN",
-  "elk.layered.layering.strategy": "NETWORK_SIMPLEX",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "150",
-  "elk.layered.spacing.nodeNode": "90",
-  "elk.layered.spacing.edgeNode": "30",
-  "elk.spacing.nodeNode": "90",
-  "elk.spacing.edgeNode": "30",
-  "elk.spacing.componentComponent": "90",
-  "elk.padding": "[top=60,left=60,bottom=60,right=60]",
-  "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
-};
 
 function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   if ("fullName" in p && "birthPlace" in p && "bio" in p) return p as PersonLike;
@@ -190,10 +175,6 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 }
 
 const ANIM_DURATION = 1200;
-const PERSON_NODE_W = 210;
-const PERSON_NODE_H = 231;
-const UNION_NODE_W = 110;
-const UNION_NODE_H = 150;
 
 function nextUnionId(unions: UnionLike[]) {
   const maxN = unions.reduce((max, u) => {
@@ -403,45 +384,25 @@ export default function TapestryCanvas() {
         }
       }
 
-      const elkGraph = {
-        id: "root",
-        children: graphNodes.map((n) => {
-          // Explicit generation-based layers: all spouses + their union land in
-          // the SAME layer, so marriage edges stay short and horizontal within
-          // that layer and never slice across other generations' nodes. Child
-          // edges always go one layer down.
-          const layer =
-            n.type === "unionNode"
-              ? generationMap[unions.find((u) => u.id === n.id)?.partnerA ?? ""] ?? 0
-              : generationMap[n.id] ?? 0;
-          return {
-            id: n.id,
-            width: n.type === "unionNode" ? UNION_NODE_W : PERSON_NODE_W,
-            height: n.type === "unionNode" ? UNION_NODE_H : PERSON_NODE_H,
-            properties: { "elk.layered.node.layer": String(layer) },
-          };
-        }),
-        edges: graphEdges.map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
-      };
-
-      const layout = await elk.layout(elkGraph, { layoutOptions: ELK_OPTIONS });
+      //  --  --  Lay out the tree  --  -- 
+      // Manual generation-layered layout: partners flank a centred union diamond,
+      // every single child drops straight down under its union, and re-marriages
+      // fan the shared person's families left and right. (No ELK dependency.)
+      const { positions } = manualFamilyLayout(persons, unions, parentEdges);
       if (version !== layoutVersionRef.current) return;
 
-      const positions = new Map<string, { x: number; y: number }>();
-      for (const c of layout.children ?? []) {
-        if (c.x !== undefined && c.y !== undefined) positions.set(c.id, { x: c.x, y: c.y });
-      }
+      // UNION layout returns node positions (top-left) keyed by node id, incl.
+      // union diamonds centred exactly between their partners.
+      const layoutPositions = new Map<string, { x: number; y: number }>(positions);
 
-      // Decide which diamond corner each partner connects to. Routes are kept
-      // shortest and crossing-free by assigning the partner on the LEFT of the
-      // union to the diamond's LEFT corner and the one on the RIGHT to the RIGHT
-      // corner — auto-swapped per union based on where ELK placed the two.
+      // Decide which diamond corner each partner connects to. Routes are shortest
+      // and crossing-free: assign the partner left of the diamond to the LEFT
+      // corner and the one on the RIGHT to the RIGHT corner.
       for (const union of unions) {
         if (!union.partnerB) continue;
-        const pa = positions.get(union.partnerA);
-        const pb = positions.get(union.partnerB);
+        const pa = layoutPositions.get(union.partnerA);
+        const pb = layoutPositions.get(union.partnerB);
         if (!pa || !pb) continue;
-        // union node dimensions: the reserved ELK width is centered on the union
         const aLeftOfB = pa.x <= pb.x;
         const aCorner = aLeftOfB ? "partner-left" : "partner-right";
         const bCorner = aLeftOfB ? "partner-right" : "partner-left";
@@ -451,7 +412,7 @@ export default function TapestryCanvas() {
         }
       }
 
-      const positioned = graphNodes.map((n) => ({ ...n, position: positions.get(n.id) ?? { x: 0, y: 0 } }));
+      const positioned = graphNodes.map((n) => ({ ...n, position: layoutPositions.get(n.id) ?? { x: 0, y: 0 } }));
 
       if (animate && !initialLoadDone.current) {
         initialLoadDone.current = true;
