@@ -1,14 +1,13 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getPerson as getStaticPerson, getPersonEvents as getStaticEvents, persons as staticPersons, unions as staticUnions, parentEdges as staticEdges } from "@/data/family";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import type { LifeEvent } from "@/data/family";
-import { useAuth } from "@/components/AuthProvider";
-import { fetchFamilyData } from "@/lib/data";
-import type { DbPerson } from "@/lib/types";
+import { useLiveTree } from "@/lib/useLiveTree";
+import type { DbUnion, DbParentEdge, DbPerson } from "@/lib/types";
 
 const EVENT_COLORS: Record<string, string> = {
   birth: "var(--living-glow)", death: "var(--deceased-frame)",
@@ -37,57 +36,93 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     isAlive: dp.is_alive, bio: dp.bio ?? "", birthPlace: dp.birth_place ?? "",
     profession: dp.profession ?? "", email: "", phone: "", address: "", website: "",
     lat: null, lng: null, photoUrl: dp.photo_url ?? "",
+    nameNative: dp.name_native, createdBy: dp.created_by,
   };
+}
+
+function toUnionLike(u: DbUnion): UnionLike {
+  return {
+    id: u.id,
+    partnerA: u.partner_a,
+    partnerB: u.partner_b,
+    type: u.union_type,
+    startYear: u.start_year,
+    endYear: u.end_year,
+  };
+}
+
+function toEdgeLike(e: DbParentEdge): EdgeLike {
+  return {
+    unionId: e.union_id,
+    childId: e.child_id,
+    relationshipType: e.relationship_type,
+  };
+}
+
+/* Life events are derived from the LIVE tree data (birth/death/career plus
+   marriages/divorces for the person) so edits made anywhere appear here. */
+function deriveEvents(person: PersonLike | null, persons: PersonLike[], unions: UnionLike[]): LifeEvent[] {
+  if (!person) return [];
+  const events: LifeEvent[] = [];
+  if (person.birthYear) {
+    events.push({ id: `${person.id}-birth`, personId: person.id, year: person.birthYear, type: "birth", title: `Born`, place: person.birthPlace || undefined });
+  }
+  if (person.deathYear) {
+    events.push({ id: `${person.id}-death`, personId: person.id, year: person.deathYear, type: "death", title: `Died`, place: undefined });
+  }
+  if (person.profession) {
+    events.push({ id: `${person.id}-career`, personId: person.id, year: person.birthYear ? person.birthYear + 22 : 1900, type: "career", title: person.profession, place: person.birthPlace || undefined });
+  }
+  for (const u of unions) {
+    if (!u.startYear) continue;
+    const isMine = u.partnerA === person.id || u.partnerB === person.id;
+    if (!isMine) continue;
+    const otherId = u.partnerA === person.id ? u.partnerB : u.partnerA;
+    const other = persons.find((p) => p.id === otherId);
+    const label = other ? other.fullName : "Unknown";
+    const div = u.type === "divorced";
+    events.push({
+      id: `${u.id}-union`,
+      personId: person.id,
+      year: u.startYear,
+      type: div ? "divorce" : "marriage",
+      title: div ? `Divorced: ${label}` : `Married: ${label}`,
+      place: undefined,
+    });
+  }
+  return events.sort((a, b) => a.year - b.year);
 }
 
 export default function PersonDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const { user } = useAuth();
-  const [persons, setPersons] = useState<PersonLike[]>(staticPersons);
-  const [unions, setUnions] = useState<UnionLike[]>(staticUnions.map((u) => ({ ...u })));
-  const [parentEdges, setParentEdges] = useState<EdgeLike[]>(staticEdges.map((e) => ({ ...e })));
 
-  useEffect(() => {
-    if (user) {
-      fetch("/api/tree")
-        .then((r) => r.json())
-        .then((db) => {
-          if (db.persons?.length > 0) {
-            setPersons(db.persons.map(toPersonLike));
-            setUnions(db.unions.map((u: Record<string, unknown>) => ({
-              id: u.id as string, partnerA: (u.partner_a ?? u.partnerA) as string,
-              partnerB: (u.partner_b ?? u.partnerB) as string,
-              type: (u.union_type ?? u.type) as string,
-              startYear: (u.start_year ?? u.startYear) as number | null,
-              endYear: (u.end_year ?? u.endYear) as number | null,
-            })));
-            setParentEdges(db.edges.map((e: Record<string, unknown>) => ({
-              unionId: (e.union_id ?? e.unionId) as string,
-              childId: (e.child_id ?? e.childId) as string,
-            })));
-          }
-        })
-        .catch(() => {});
-    } else {
-      fetchFamilyData()
-        .then((data) => {
-          if (data.persons.length > 0) {
-            setPersons(data.persons.map(toPersonLike));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user]);
+  const live = useLiveTree();
+
+  const hasLive = (live.persons ?? []).length > 0;
+  const persons: PersonLike[] = useMemo(
+    () => (hasLive ? (live.persons ?? []).map((p) => toPersonLike(p)) : staticPersons),
+    [live.persons, hasLive]
+  );
+  const unions: UnionLike[] = useMemo(
+    () => (hasLive ? (live.unions ?? []).map(toUnionLike) : staticUnions.map((u) => ({ ...u }))),
+    [live.unions, hasLive]
+  );
+  const parentEdges: EdgeLike[] = useMemo(
+    () => (hasLive ? (live.edges ?? []).map(toEdgeLike) : staticEdges.map((e) => ({ ...e }))),
+    [live.edges, hasLive]
+  );
 
   const person = useMemo(() => persons.find((p) => p.id === id) ?? getStaticPerson(id), [persons, id]);
 
-  const [dbEvents] = useState<LifeEvent[]>([]);
-
   const events = useMemo(() => {
-    if (dbEvents.length > 0) return dbEvents.filter((e) => e.personId === id);
+    if (!person) return [];
+    if (hasLive && person.id === id) {
+      const derived = deriveEvents(person, persons, unions);
+      if (derived.length > 0) return derived;
+    }
     return getStaticEvents(id);
-  }, [dbEvents, id]);
+  }, [person, id, persons, unions, hasLive]);
 
   const relationships = useMemo(() => {
     if (!person) return { parents: [] as { name: string; id: string }[], partners: [] as { name: string; id: string; union: string; type: string }[], children: [] as { name: string; id: string }[], siblings: [] as { name: string; id: string }[] };

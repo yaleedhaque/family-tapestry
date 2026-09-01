@@ -6,8 +6,8 @@ import { getAllEventsSorted, persons as staticPersons, unions as staticUnions } 
 import type { LifeEvent } from "@/data/family";
 import type { PersonLike, UnionLike } from "@/components/InfoPanel";
 import { useAuth } from "@/components/AuthProvider";
-import { fetchFamilyData } from "@/lib/data";
-import type { DbPerson } from "@/lib/types";
+import { useLiveTree } from "@/lib/useLiveTree";
+import type { DbUnion, DbPerson } from "@/lib/types";
 
 const EVENT_ICONS: Record<string, string> = {
   birth: "\u{1F476}",
@@ -57,13 +57,24 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     lat: null,
     lng: null,
     photoUrl: dp.photo_url ?? "",
+    nameNative: dp.name_native,
+    createdBy: dp.created_by,
+  };
+}
+
+function toUnionLike(u: DbUnion): UnionLike {
+  return {
+    id: u.id,
+    partnerA: u.partner_a,
+    partnerB: u.partner_b,
+    type: u.union_type,
+    startYear: u.start_year,
+    endYear: u.end_year,
   };
 }
 
 export default function TimelinePage() {
   const { user } = useAuth();
-  const [persons, setPersons] = useState<PersonLike[]>(staticPersons);
-  const [unions] = useState<UnionLike[]>(staticUnions.map((u) => ({ ...u })));
   const [selectedType, setSelectedType] = useState("all");
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
@@ -71,26 +82,22 @@ export default function TimelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const rangeInited = useRef(false);
 
-  useEffect(() => {
-    if (user) {
-      fetch("/api/tree")
-        .then((r) => r.json())
-        .then((db) => {
-          if (db.persons?.length > 0) {
-            setPersons(db.persons.map(toPersonLike));
-          }
-        })
-        .catch(() => {});
-    } else {
-      fetchFamilyData()
-        .then((data) => {
-          if (data.persons.length > 0) {
-            setPersons(data.persons.map(toPersonLike));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user]);
+  /* Live tree: fetches /api/tree, subscribes to realtime, refetches on focus —
+     so people AND marriages/divorces added/removed anywhere appear instantly. */
+  const live = useLiveTree();
+
+  const persons: PersonLike[] = useMemo(() => {
+    const livePs = (live.persons ?? []).map((p) => toPersonLike(p));
+    if (livePs.length > 0) return livePs;
+    if (user) return staticPersons;
+    return staticPersons;
+  }, [live.persons, user]);
+
+  const unions: UnionLike[] = useMemo(() => {
+    const liveUs = (live.unions ?? []).map(toUnionLike);
+    if (liveUs.length > 0) return liveUs;
+    return staticUnions.map((u) => ({ ...u }));
+  }, [live.unions]);
 
   const allEvents = useMemo(() => {
     const staticEvents = getAllEventsSorted();

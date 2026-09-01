@@ -34,6 +34,11 @@ export function useRealtimeTree(
         { event: "*", schema: "public", table: "life_events" },
         (payload) => onChangeRef.current({ ...payload, table: "life_events" } as TreeChange)
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sources" },
+        (payload) => onChangeRef.current({ ...payload, table: "sources" } as TreeChange)
+      )
       .subscribe();
 
     return () => {

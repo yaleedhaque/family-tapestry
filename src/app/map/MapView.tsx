@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLiveTree } from "@/lib/useLiveTree";
 import {
   MapContainer,
   TileLayer,
@@ -16,8 +17,33 @@ import { useAuth } from "@/components/AuthProvider";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import { computeGenerationMap, GENERATION_COLORS } from "@/lib/generation";
 import { useLang } from "@/lib/i18n";
+import type { DbUnion, DbParentEdge, DbPerson } from "@/lib/types";
+
+function toUnionLike(u: DbUnion): UnionLike {
+  return {
+    id: u.id,
+    partnerA: u.partner_a,
+    partnerB: u.partner_b,
+    type: u.union_type,
+    startYear: u.start_year,
+    endYear: u.end_year,
+  };
+}
+
+function toEdgeLike(e: DbParentEdge): EdgeLike {
+  return {
+    unionId: e.union_id,
+    childId: e.child_id,
+    relationshipType: e.relationship_type,
+  };
+}
 
 type GenMap = Record<string, number>;
+
+/* An address-derived pin is drawn identically but flagged in the popup so the
+   user knows the person's spot came from their saved address, not a manually
+   dropped coordinate. */
+type MapPerson = PersonLike & { isAddressPin?: boolean };
 
 /* Build a Google Maps URL that lets the user drive/direct to a pinned place
    straight from their current location. Works on phone (opens the Google Maps
@@ -131,37 +157,52 @@ function GeocoderSearch({ onSearch, strings }: { onSearch: (q: string) => void; 
   );
 }
 
-function toPersonLikeFromDb(p: Record<string, unknown>): PersonLike {
+function toPersonLikeFromDb(p: DbPerson): PersonLike {
   return {
-    id: p.id as string,
-    fullName: (p.full_name ?? p.fullName ?? "") as string,
-    gender: (p.gender ?? "") as string,
-    birthYear: (p.birth_year ?? p.birthYear ?? null) as number | null,
-    deathYear: (p.death_year ?? p.deathYear ?? null) as number | null,
-    isAlive: (p.is_alive ?? p.isAlive ?? true) as boolean,
-    bio: (p.bio ?? "") as string,
-    birthPlace: (p.birth_place ?? p.birthPlace ?? "") as string,
-    profession: (p.profession ?? "") as string,
-    email: (p.email ?? "") as string,
-    phone: (p.phone ?? "") as string,
-    address: (p.address ?? "") as string,
-    website: (p.website ?? "") as string,
-    lat: (p.lat ?? p.latitude ?? null) as number | null,
-    lng: (p.lng ?? p.longitude ?? null) as number | null,
-    photoUrl: (p.photo_url ?? p.photoUrl ?? "") as string,
+    id: p.id,
+    fullName: p.full_name ?? "",
+    gender: p.gender ?? "",
+    birthYear: p.birth_year,
+    deathYear: p.death_year,
+    isAlive: p.is_alive ?? true,
+    bio: p.bio ?? "",
+    birthPlace: p.birth_place ?? "",
+    profession: p.profession ?? "",
+    email: p.email ?? "",
+    phone: p.phone ?? "",
+    address: p.address ?? "",
+    website: p.website ?? "",
+    lat: p.lat,
+    lng: p.lng,
+    photoUrl: p.photo_url ?? "",
+    nameNative: p.name_native,
+    createdBy: p.created_by,
   };
 }
 
 export default function MapView() {
-  const { user, canEdit } = useAuth();
+  const { canEdit } = useAuth();
   const { t } = useLang();
 
   const [searchCenter, setSearchCenter] = useState<[number, number] | null>(null);
 
-  const [persons, setPersons] = useState<PersonLike[]>([]);
-  const [unions, setUnions] = useState<UnionLike[]>([]);
-  const [edges, setEdges] = useState<EdgeLike[]>([]);
-  const [loading, setLoading] = useState(true);
+  /* Live tree — fetches /api/tree, subscribes to realtime, and refetches when
+     the tab regains focus, so any person edit/removal lands here immediately. */
+  const live = useLiveTree();
+
+  const persons = useMemo(
+    () => (live.persons ?? []).map(toPersonLikeFromDb),
+    [live.persons]
+  );
+  const unions = useMemo(
+    () => (live.unions ?? []).map(toUnionLike),
+    [live.unions]
+  );
+  const edges = useMemo(
+    () => (live.edges ?? []).map(toEdgeLike),
+    [live.edges]
+  );
+  const loading = live.loading;
 
   /* Pin-drop flow */
   const [showPicker, setShowPicker] = useState(false);
@@ -170,40 +211,83 @@ export default function MapView() {
   const [saving, setSaving] = useState(false);
   const [pinMsg, setPinMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/tree", { cache: "no-store" });
-        if (res.ok) {
-          const db = await res.json();
-          if (!cancelled) {
-            setPersons((db.persons ?? []).map(toPersonLikeFromDb));
-            setUnions((db.unions ?? []) as UnionLike[]);
-            setEdges((db.edges ?? []) as EdgeLike[]);
-          }
-        }
-      } catch {
-        /* keep empty */
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
   const genMap = useMemo(
     () => computeGenerationMap(persons, unions, edges),
     [persons, unions, edges]
   );
 
-  /* Every person with coordinates gets a pin the moment the map loads. */
-  const pinned = useMemo(
-    () => persons.filter((p) => p.lat != null && p.lng != null),
-    [persons]
-  );
+  /* Address-based auto-pins: people with an address (but no saved coordinates)
+     get geocoded and pinned automatically, so "put the address in the profile"
+     is enough to appear on the big map. Cached per session to stay polite to
+     Nominatim. */
+  const geoCacheRef = useRef<Map<string, [number, number]>>(new Map());
+  const [autoPins, setAutoPins] = useState<Record<string, [number, number]>>({});
+
+  /* Geocode every address-only person once per session. Skips people who
+     already have saved coordinates (their explicit pin wins). */
+  useEffect(() => {
+    let cancelled = false;
+    const pending = persons.filter(
+      (p) =>
+        (p.lat == null || p.lng == null) &&
+        (p.address?.trim() || p.birthPlace?.trim()) &&
+        !autoPins[p.id]
+    );
+    (async () => {
+      for (const p of pending) {
+        if (cancelled) break;
+        const q = p.address?.trim() || p.birthPlace?.trim() || "";
+        if (!q) continue;
+        let coord: [number, number] | null | undefined = geoCacheRef.current.get(q);
+        if (coord == null) {
+          coord = await geocode(q);
+          if (coord) geoCacheRef.current.set(q, coord);
+        }
+        if (coord && !cancelled) {
+          setAutoPins((prev) => ({ ...prev, [p.id]: coord }));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persons, live.refreshedAt]);
+
+  /* Auto-pinned addresses are cleared when the person gains real coordinates,
+     loses their address, or is deleted entirely. */
+  useEffect(() => {
+    setAutoPins((prev) => {
+      const next = { ...prev };
+      for (const id of Object.keys(next)) {
+        const p = persons.find((x) => x.id === id);
+        if (!p) delete next[id];
+        else if (p.lat != null && p.lng != null) delete next[id];
+        else if (!(p.address?.trim() || p.birthPlace?.trim())) delete next[id];
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persons, live.refreshedAt]);
+
+  /* Pin on the big map = explicit saved coords + auto-pinned addresses. */
+  const pinned = useMemo(() => {
+    const explicit = persons
+      .filter((p) => p.lat != null && p.lng != null)
+      .map((p) => ({ ...p, isAddressPin: false }));
+    const auto = persons
+      .filter((p) => {
+        const c = autoPins[p.id];
+        return p.lat == null && p.lng == null && c;
+      })
+      .map((p) => ({
+        ...p,
+        lat: autoPins[p.id][0],
+        lng: autoPins[p.id][1],
+        isAddressPin: true,
+      })) as unknown as MapPerson[];
+    return [...explicit, ...auto];
+  }, [persons, autoPins]);
 
   const handleGeocodeSearch = useCallback(async (q: string) => {
     try {
@@ -277,10 +361,8 @@ export default function MapView() {
           body: JSON.stringify({ id: pinTarget.id, lat, lng }),
         });
         if (res.ok) {
-          setPersons((prev) =>
-            prev.map((p) => (p.id === pinTarget.id ? { ...p, lat, lng } : p))
-          );
           setPinMsg(t("map.pinSaved"));
+          void live.refetch();
         } else {
           setPinMsg(t("map.pinError"));
         }
@@ -291,7 +373,7 @@ export default function MapView() {
       setTempPin(null);
       setPinTarget(null);
     },
-    [pinTarget, saving, t]
+    [pinTarget, saving, t, live]
   );
 
   const strings = {
@@ -312,7 +394,33 @@ export default function MapView() {
     cancel: t("common.cancel"),
     searchPeople: t("map.pinSearch"),
     movePin: t("map.movePin"),
+    removePin: t("map.removePin"),
+    pinRemoved: t("map.pinRemoved"),
+    pinFromAddress: t("map.pinFromAddress"),
   };
+
+  /* Clear a manually dropped pin for a person (address-derived pins vanish on
+     their own once the address is removed from the profile). */
+  const removePin = useCallback(
+    async (person: PersonLike) => {
+      if (saving) return;
+      setSaving(true);
+      setPinMsg(null);
+      try {
+        const res = await fetch("/api/tree/persons", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: person.id, lat: null, lng: null }),
+        });
+        setPinMsg(res.ok ? t("map.pinRemoved") : t("map.pinError"));
+        if (res.ok) void live.refetch();
+      } catch {
+        setPinMsg(t("map.pinError"));
+      }
+      setSaving(false);
+    },
+    [saving, live, t]
+  );
 
   return (
     <div className="min-h-screen bg-[var(--tapestry-bg)] text-[var(--parchment)]">
@@ -413,6 +521,21 @@ export default function MapView() {
                     <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
                       {p.fullName}
                     </div>
+                    {p.isAddressPin && (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "#3E6B5C",
+                          marginBottom: 4,
+                          background: "#3E6B5C18",
+                          borderRadius: 4,
+                          padding: "2px 6px",
+                          display: "inline-block",
+                        }}
+                      >
+                        {strings.pinFromAddress}
+                      </div>
+                    )}
                     <div style={{ fontSize: 12, color: "#666", marginBottom: 2 }}>
                       {p.birthYear} – {p.deathYear ?? "present"}
                     </div>
@@ -463,7 +586,43 @@ export default function MapView() {
                         {strings.noAddress}
                       </div>
                     )}
-                    {canEdit && (
+                    {canEdit && !p.isAddressPin && (
+                      <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => startPinning(p)}
+                        style={{
+                          display: "block",
+                          fontSize: 11,
+                          color: "#C9A544",
+                          textDecoration: "underline",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          marginTop: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        📍 {strings.movePin}
+                      </button>
+                      <button
+                        onClick={() => void removePin(p)}
+                        style={{
+                          display: "block",
+                          fontSize: 11,
+                          color: "#E2554B",
+                          textDecoration: "underline",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          marginTop: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✕ {strings.removePin}
+                      </button>
+                      </div>
+                    )}
+                    {canEdit && p.isAddressPin && (
                       <button
                         onClick={() => startPinning(p)}
                         style={{
