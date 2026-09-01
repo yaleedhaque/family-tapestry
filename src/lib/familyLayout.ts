@@ -225,6 +225,40 @@ export function manualFamilyLayout(
     cursor = xRight + (rightUs.length ? prevRSp / 2 : halfFan) + GAP;
   }
 
+  // single-parent unions have no diamond node: their children hang straight
+  // under the lone parent person, one generation below, fanned symmetrically.
+  const singleParent: { parentId: string; unionId: string; kids: string[] }[] = [];
+  for (const u of unions) {
+    if (u.partnerB || !u.partnerA) continue;
+    const kids = kidsOf[u.id];
+    if (!kids || !kids.length) continue;
+    singleParent.push({ parentId: u.partnerA, unionId: u.id, kids });
+  }
+  if (singleParent.length) {
+    let progress = true;
+    let guard = 0;
+    while (progress && guard++ < singleParent.length * 2 + 4) {
+      progress = false;
+      for (const sp of singleParent) {
+        if (!placedP[sp.parentId] || sp.kids.every((k) => placedP[k])) continue;
+        const parentRow = (pY[sp.parentId] || 0) / ROW;
+        let total = 0;
+        const kw: Record<string, number> = {};
+        for (const k of sp.kids) {
+          kw[k] = kidSpan(k, sp.unionId);
+          total += kw[k] + GAP;
+        }
+        total -= GAP;
+        let x0 = (pX[sp.parentId] || 0) - total / 2;
+        for (const k of sp.kids) {
+          if (!placedP[k]) placeChild(k, parentRow + 1, x0 + kw[k] / 2, sp.unionId);
+          x0 += kw[k] + GAP;
+          progress = true;
+        }
+      }
+    }
+  }
+
   // any unplaced person (defensive): lone box in its own row slot
   let maxY = 0;
   for (const p of persons) {
