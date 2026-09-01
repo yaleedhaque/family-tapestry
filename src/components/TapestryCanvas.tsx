@@ -113,12 +113,15 @@ function toEdgeLike(e: {
   union_id?: string;
   childId?: string;
   child_id?: string;
+  relationshipType?: string;
+  relationship_type?: string;
   createdBy?: string | null;
   created_by?: string | null;
 }): EdgeLike {
   return {
     unionId: e.unionId ?? e.union_id ?? "",
     childId: e.childId ?? e.child_id ?? "",
+    relationshipType: e.relationshipType ?? e.relationship_type ?? "biological",
     createdBy: e.createdBy ?? e.created_by ?? null,
   };
 }
@@ -151,14 +154,31 @@ function makeMarriageEdge(source: string, target: string, unionType: string): Ed
   };
 }
 
-function makeChildEdge(source: string, target: string): Edge {
+function makeChildEdge(source: string, target: string, relationshipType?: string): Edge {
+  const isAdopted = relationshipType === "adopted";
+  const isStep = relationshipType === "step";
+  const color = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
   return {
     id: `${source}-${target}-child`,
     source,
     target,
     type: "smoothstep",
-    style: { stroke: "var(--deceased-frame)", strokeWidth: 1.2, opacity: 0.75 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "var(--deceased-frame)", width: 9, height: 9 },
+    animated: isAdopted,
+    style: {
+      stroke: color,
+      strokeWidth: isAdopted ? 2 : 1.2,
+      opacity: 0.8,
+      strokeDasharray: isAdopted ? "6 4" : undefined,
+    },
+    markerEnd: { type: MarkerType.ArrowClosed, color, width: 9, height: 9 },
+    label: isAdopted ? "adopted" : isStep ? "step" : undefined,
+    labelStyle: isAdopted
+      ? { fill: "var(--accent-emerald)", fontSize: 9, fontFamily: "var(--font-body)" }
+      : isStep
+      ? { fill: "var(--link)", fontSize: 9, fontFamily: "var(--font-body)" }
+      : undefined,
+    labelBgStyle: isAdopted || isStep ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
+    labelBgPadding: isAdopted || isStep ? ([5, 2] as [number, number]) : undefined,
   };
 }
 
@@ -371,9 +391,9 @@ export default function TapestryCanvas() {
       for (const edge of parentEdges) {
         const union = unions.find((u) => u.id === edge.unionId);
         if (union && !union.partnerB) {
-          graphEdges.push(makeChildEdge(union.partnerA, edge.childId));
+          graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType));
         } else {
-          graphEdges.push(makeChildEdge(edge.unionId, edge.childId));
+          graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType));
         }
       }
 
@@ -600,10 +620,10 @@ export default function TapestryCanvas() {
 
   //  --  --  CRUD: Add child (existing person)  --  -- 
   const handleAddChild = useCallback(
-    (parentId: string, childId: string) => {
+    (parentId: string, childId: string, relationshipType?: string) => {
       const union = findParentUnion(parentId);
       if (union) {
-        const newEdge = { unionId: union.id, childId };
+        const newEdge = { unionId: union.id, childId, relationshipType: relationshipType ?? "biological" };
         setRawEdges((prev) => {
           if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
           return [...prev, newEdge];
@@ -612,7 +632,7 @@ export default function TapestryCanvas() {
         const newId = nextUnionId(rawUnions);
         const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
         setRawUnions((prev) => [...prev, newUnion]);
-        setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId, relationshipType: relationshipType ?? "biological" }]);
       }
       if (user) setTimeout(() => {
         apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
@@ -623,10 +643,10 @@ export default function TapestryCanvas() {
 
   //  --  --  CRUD: Add parent (existing person)  --  -- 
   const handleAddParent = useCallback(
-    (childId: string, parentId: string) => {
+    (childId: string, parentId: string, relationshipType?: string) => {
       const union = findParentUnion(parentId);
       if (union) {
-        const newEdge = { unionId: union.id, childId };
+        const newEdge = { unionId: union.id, childId, relationshipType: relationshipType ?? "biological" };
         setRawEdges((prev) => {
           if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
           return [...prev, newEdge];
@@ -635,7 +655,7 @@ export default function TapestryCanvas() {
         const newId = nextUnionId(rawUnions);
         const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
         setRawUnions((prev) => [...prev, newUnion]);
-        setRawEdges((prev) => [...prev, { unionId: newId, childId }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId, relationshipType: relationshipType ?? "biological" }]);
       }
       if (user) setTimeout(() => {
         apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
@@ -651,7 +671,8 @@ export default function TapestryCanvas() {
       linkType: "partner" | "child" | "parent",
       relatedToId: string,
       unionType?: string,
-      startYear?: number | null
+      startYear?: number | null,
+      relationshipType?: string
     ) => {
       if (!newPerson.fullName.trim()) return;
       if (newPerson.id === relatedToId) return;
@@ -666,16 +687,16 @@ export default function TapestryCanvas() {
       } else if (linkType === "child") {
         const union = findParentUnion(relatedToId);
         if (union) {
-          setRawEdges((prev) => [...prev, { unionId: union.id, childId: newPerson.id }]);
+          setRawEdges((prev) => [...prev, { unionId: union.id, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }]);
         } else {
           const newId = nextUnionId(rawUnions);
           setRawUnions((prev) => [...prev, { id: newId, partnerA: relatedToId, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
-          setRawEdges((prev) => [...prev, { unionId: newId, childId: newPerson.id }]);
+          setRawEdges((prev) => [...prev, { unionId: newId, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }]);
         }
       } else {
         const newId = nextUnionId(rawUnions);
         setRawUnions((prev) => [...prev, { id: newId, partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
-        setRawEdges((prev) => [...prev, { unionId: newId, childId: relatedToId }]);
+        setRawEdges((prev) => [...prev, { unionId: newId, childId: relatedToId, relationshipType: relationshipType ?? "biological" }]);
       }
 
       if (user) {

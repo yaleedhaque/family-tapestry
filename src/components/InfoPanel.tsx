@@ -43,6 +43,7 @@ export interface UnionLike {
 export interface EdgeLike {
   unionId: string;
   childId: string;
+  relationshipType?: string;
   createdBy?: string | null;
 }
 
@@ -56,14 +57,15 @@ interface InfoPanelProps {
   onDeletePerson: (personId: string) => void;
   onAddPartner: (personId: string, partnerId: string, unionType: string, startYear: number | null) => void;
   onUpdateUnion: (union: UnionLike) => void;
-  onAddChild: (personId: string, childId: string) => void;
-  onAddParent: (childId: string, parentId: string) => void;
+  onAddChild: (personId: string, childId: string, relationshipType?: string) => void;
+  onAddParent: (childId: string, parentId: string, relationshipType?: string) => void;
   onCreatePersonAndLink: (
     newPerson: PersonLike,
     linkType: "partner" | "child" | "parent",
     relatedToId: string,
     unionType?: string,
     startYear?: number | null,
+    relationshipType?: string,
   ) => void;
   onRemoveLink: (linkType: "partner" | "child", fromId: string, toId: string) => void;
   nextPersonId: () => string;
@@ -120,6 +122,7 @@ export default function InfoPanel({
   const [newPersonFields, setNewPersonFields] = useState({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
   const [newUnionType, setNewUnionType] = useState("marriage");
   const [newStartYear, setNewStartYear] = useState("");
+  const [newRelType, setNewRelType] = useState("biological");
   const [editingUnionId, setEditingUnionId] = useState<string | null>(null);
   const [editUnionType, setEditUnionType] = useState("marriage");
   const [editStartYear, setEditStartYear] = useState("");
@@ -177,6 +180,7 @@ export default function InfoPanel({
     setSearchQuery("");
     setNewPersonFields({ fullName: "", birthYear: "", birthPlace: "", profession: "", email: "", phone: "", address: "", website: "" });
     setNewStartYear("");
+    setNewRelType("biological");
     setEditingUnionId(null);
   };
 
@@ -198,6 +202,7 @@ export default function InfoPanel({
       fullName,
       birthYear,
       deathYear,
+      isAlive: deathYear == null,
       birthPlace: sanitizeField("birthPlace", fields.birthPlace ?? person.birthPlace),
       profession: sanitizeField("profession", fields.profession ?? person.profession),
       bio: sanitizeField("bio", fields.bio ?? person.bio),
@@ -233,8 +238,8 @@ export default function InfoPanel({
       photoUrl: "",
     };
     if (tab === "partners") onCreatePersonAndLink(np, "partner", person.id, newUnionType, newStartYear ? Number(newStartYear) : null);
-    else if (tab === "children") onCreatePersonAndLink(np, "child", person.id);
-    else if (tab === "parents") onCreatePersonAndLink(np, "parent", person.id);
+    else if (tab === "children") onCreatePersonAndLink(np, "child", person.id, undefined, undefined, newRelType);
+    else if (tab === "parents") onCreatePersonAndLink(np, "parent", person.id, undefined, undefined, newRelType);
     resetAdd();
   };
 
@@ -497,11 +502,12 @@ export default function InfoPanel({
               items={relatedData.parents.map((p) => ({ id: p.id, label: p.fullName, sub: `${p.birthYear} – ${p.deathYear ?? "present"}` }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
-              onPickExisting={(id) => { onAddParent(person.id, id); resetAdd(); }}
+              onPickExisting={(id) => { onAddParent(person.id, id, newRelType); resetAdd(); }}
               onCreateNew={handleCreateAndLink}
               onNewFieldChange={(k, v) => setNewPersonFields((f) => ({ ...f, [k]: v }))}
               onStartAdd={setAddMode} onCancelAdd={resetAdd}
               onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Parent"
+              showRelType relType={newRelType} onRelTypeChange={setNewRelType}
               onNavigate={onNavigate}
             />
           )}
@@ -552,11 +558,12 @@ export default function InfoPanel({
               items={relatedData.children.map((c) => ({ id: c.id, label: c.fullName, sub: `${c.birthYear} – ${c.deathYear ?? "present"}` }))}
               addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
               onSearch={setSearchQuery}
-              onPickExisting={(id) => { onAddChild(person.id, id); resetAdd(); }}
+              onPickExisting={(id) => { onAddChild(person.id, id, newRelType); resetAdd(); }}
               onCreateNew={handleCreateAndLink}
               onNewFieldChange={(k, v) => setNewPersonFields((f) => ({ ...f, [k]: v }))}
               onStartAdd={setAddMode} onCancelAdd={resetAdd}
               onRemove={(id) => onRemoveLink("child", person.id, id)} personLabel="Child"
+              showRelType relType={newRelType} onRelTypeChange={setNewRelType}
               onNavigate={onNavigate}
             />
           )}
@@ -618,6 +625,7 @@ function RelSection({
   onSearch, onPickExisting, onCreateNew, onNewFieldChange,
   onStartAdd, onCancelAdd, onRemove, personLabel,
   showUnionType, unionType, onUnionTypeChange, startYear, onStartYearChange,
+  showRelType, relType, onRelTypeChange,
   onNavigate,
   onEditUnion, editingUnionId, editUnionType, onEditUnionTypeChange,
   editStartYear, onEditStartYearChange, editEndYear, onEditEndYearChange,
@@ -641,6 +649,9 @@ function RelSection({
   onUnionTypeChange?: (val: string) => void;
   startYear?: string;
   onStartYearChange?: (val: string) => void;
+  showRelType?: boolean;
+  relType?: string;
+  onRelTypeChange?: (val: string) => void;
   onNavigate: (id: string) => void;
   onEditUnion?: (item: { id: string; unionId?: string; union?: UnionLike }) => void;
   editingUnionId?: string | null;
@@ -726,6 +737,17 @@ function RelSection({
             <span className="text-xs font-body text-[var(--thread-gold)]">{addMode === "existing" ? `Link existing ${personLabel.toLowerCase()}` : `Create new ${personLabel.toLowerCase()}`}</span>
             <button onClick={onCancelAdd} aria-label="Cancel" className="text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs">✕</button>
           </div>
+
+          {showRelType && (
+            <div className="flex gap-2">
+              <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Rel</label>
+              <select value={relType} onChange={(e) => onRelTypeChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]">
+                <option value="biological">Biological</option>
+                <option value="adopted">Adopted</option>
+                <option value="step">Step</option>
+              </select>
+            </div>
+          )}
 
           {addMode === "existing" ? (
             <>
