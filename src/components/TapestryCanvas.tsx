@@ -50,10 +50,13 @@ const elk = new ELK();
 const ELK_OPTIONS = {
   "elk.algorithm": "layered",
   "elk.direction": "DOWN",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "120",
-  "elk.layered.spacing.nodeNode": "60",
-  "elk.spacing.nodeNode": "60",
-  "elk.spacing.componentComponent": "60",
+  "elk.layered.layering.strategy": "NETWORK_SIMPLEX",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "150",
+  "elk.layered.spacing.nodeNode": "90",
+  "elk.layered.spacing.edgeNode": "30",
+  "elk.spacing.nodeNode": "90",
+  "elk.spacing.edgeNode": "30",
+  "elk.spacing.componentComponent": "90",
   "elk.padding": "[top=60,left=60,bottom=60,right=60]",
   "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
 };
@@ -184,10 +187,10 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 }
 
 const ANIM_DURATION = 1200;
-const PERSON_NODE_W = 160;
-const PERSON_NODE_H = 130;
-const UNION_NODE_W = 80;
-const UNION_NODE_H = 80;
+const PERSON_NODE_W = 210;
+const PERSON_NODE_H = 231;
+const UNION_NODE_W = 110;
+const UNION_NODE_H = 150;
 
 function nextUnionId(unions: UnionLike[]) {
   const maxN = unions.reduce((max, u) => {
@@ -400,11 +403,22 @@ export default function TapestryCanvas() {
 
       const elkGraph = {
         id: "root",
-        children: graphNodes.map((n) => ({
-          id: n.id,
-          width: n.type === "unionNode" ? UNION_NODE_W : PERSON_NODE_W,
-          height: n.type === "unionNode" ? UNION_NODE_H : PERSON_NODE_H,
-        })),
+        children: graphNodes.map((n) => {
+          // Explicit generation-based layers: all spouses + their union land in
+          // the SAME layer, so marriage edges stay short and horizontal within
+          // that layer and never slice across other generations' nodes. Child
+          // edges always go one layer down.
+          const layer =
+            n.type === "unionNode"
+              ? generationMap[unions.find((u) => u.id === n.id)?.partnerA ?? ""] ?? 0
+              : generationMap[n.id] ?? 0;
+          return {
+            id: n.id,
+            width: n.type === "unionNode" ? UNION_NODE_W : PERSON_NODE_W,
+            height: n.type === "unionNode" ? UNION_NODE_H : PERSON_NODE_H,
+            properties: { "elk.layered.node.layer": String(layer) },
+          };
+        }),
         edges: graphEdges.map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
       };
 
