@@ -7,6 +7,7 @@ import {
   Marker,
   Popup,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -77,6 +78,33 @@ function MapController({ center }: { center: [number, number] | null }) {
   return null;
 }
 
+/* A temporary "drop here" pin shown while placing a person on the map. */
+function dropPinIcon() {
+  return L.divIcon({
+    className: "",
+    iconSize: [34, 34],
+    iconAnchor: [17, 34],
+    html:
+      '<div style="width:34px;height:34px;border-radius:50% 50% 50% 0;background:#E2554B;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.5);border:2px solid #fff">' +
+      '<span style="width:12px;height:12px;border-radius:50%;background:#fff;transform:rotate(45deg)"></span></div>',
+  });
+}
+
+/* While dropping, a single click on the map reports the coordinate. */
+function DropEvents({ enabled, onDrop }: { enabled: boolean; onDrop: (lat: number, lng: number) => void }) {
+  const map = useMapEvents({
+    click(e) {
+      if (enabled) onDrop(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  // Change the cursor to hint that a click places a pin.
+  useEffect(() => {
+    if (!map) return;
+    map.getContainer().style.cursor = enabled ? "crosshair" : "";
+  }, [map, enabled]);
+  return null;
+}
+
 function GeocoderSearch({ onSearch, strings }: { onSearch: (q: string) => void; strings: { placeholder: string; go: string } }) {
   const [query, setQuery] = useState("");
   return (
@@ -124,7 +152,7 @@ function toPersonLikeFromDb(p: Record<string, unknown>): PersonLike {
 }
 
 export default function MapView() {
-  const { user } = useAuth();
+  const { user, canEdit } = useAuth();
   const { t } = useLang();
 
   const [searchCenter, setSearchCenter] = useState<[number, number] | null>(null);
@@ -133,6 +161,13 @@ export default function MapView() {
   const [unions, setUnions] = useState<UnionLike[]>([]);
   const [edges, setEdges] = useState<EdgeLike[]>([]);
   const [loading, setLoading] = useState(true);
+
+  /* Pin-drop flow */
+  const [showPicker, setShowPicker] = useState(false);
+  const [pinTarget, setPinTarget] = useState<PersonLike | null>(null);
+  const [tempPin, setTempPin] = useState<[number, number] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [pinMsg, setPinMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,6 +224,75 @@ export default function MapView() {
     }
   }, []);
 
+  const geocode = useCallback(async (q: string): Promise<[number, number] | null> => {
+    try {
+      const res = await fetch(
+        "https://nominatim.openstreetmap.org/search?format=json&q="
+          + encodeURIComponent(q)
+          + "&limit=1",
+        { headers: { "User-Agent": "FamilyTapestry/1.0" } }
+      );
+      const results = await res.json();
+      if (results[0]) {
+        return [parseFloat(results[0].lat), parseFloat(results[0].lon)];
+      }
+    } catch {
+      /* noop */
+    }
+    return null;
+  }, []);
+
+  /* Start placing a pin for the chosen person: move the map to their saved
+     coords or geocoded address, then wait for a click to drop the pin. */
+  const startPinning = useCallback(
+    async (person: PersonLike) => {
+      setPinTarget(person);
+      setTempPin(null);
+      setPinMsg(null);
+      let center: [number, number] | null = null;
+      if (person.lat != null && person.lng != null) {
+        center = [person.lat, person.lng];
+      } else {
+        const q = person.address?.trim() || person.birthPlace?.trim() || person.fullName;
+        center = q ? await geocode(q) : null;
+      }
+      if (center) setSearchCenter(center);
+      setShowPicker(false);
+      setPinMsg(t("map.pickSpot"));
+    },
+    [geocode, t]
+  );
+
+  const dropPin = useCallback(
+    async (lat: number, lng: number) => {
+      if (!pinTarget || saving) return;
+      setTempPin([lat, lng]);
+      setSaving(true);
+      setPinMsg(null);
+      try {
+        const res = await fetch("/api/tree/persons", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: pinTarget.id, lat, lng }),
+        });
+        if (res.ok) {
+          setPersons((prev) =>
+            prev.map((p) => (p.id === pinTarget.id ? { ...p, lat, lng } : p))
+          );
+          setPinMsg(t("map.pinSaved"));
+        } else {
+          setPinMsg(t("map.pinError"));
+        }
+      } catch {
+        setPinMsg(t("map.pinError"));
+      }
+      setSaving(false);
+      setTempPin(null);
+      setPinTarget(null);
+    },
+    [pinTarget, saving, t]
+  );
+
   const strings = {
     tree: t("nav.tree"),
     timeline: t("nav.timeline"),
@@ -201,6 +305,12 @@ export default function MapView() {
     viewProfile: t("map.viewProfile"),
     gen: (n: number) => t("map.gen", String(n)),
     noAddress: t("map.noAddress"),
+    pin: t("map.pin"),
+    pinPerson: t("map.pinPerson"),
+    pinning: t("map.pinning"),
+    cancel: t("common.cancel"),
+    searchPeople: t("map.pinSearch"),
+    movePin: t("map.movePin"),
   };
 
   return (
@@ -223,6 +333,19 @@ export default function MapView() {
             {strings.map}
           </span>
           <div className="flex-1" />
+          {canEdit && (
+            <button
+              onClick={() => { setShowPicker((s) => !s); setPinMsg(null); }}
+              className={
+                "px-3 py-1.5 text-xs rounded border transition-colors whitespace-nowrap "
+                + (pinTarget
+                  ? "bg-[var(--divorce-red)]/20 border-[var(--divorce-red)]/50 text-[var(--divorce-red)]"
+                  : "border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10")
+              }
+            >
+              {pinTarget ? strings.pinning : strings.pin}
+            </button>
+          )}
           <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--parchment-dim)] font-body whitespace-nowrap">
             {loading ? strings.loading : strings.locations(pinned.length)}
           </span>
@@ -231,6 +354,21 @@ export default function MapView() {
           <GeocoderSearch onSearch={handleGeocodeSearch} strings={{ placeholder: strings.searchPlaceholder, go: strings.go }} />
         </div>
       </header>
+
+      {showPicker && (
+        <PersonPicker
+          people={persons}
+          onPick={startPinning}
+          onCancel={() => setShowPicker(false)}
+          strings={{ title: strings.pinPerson, search: strings.searchPeople, cancel: strings.cancel }}
+        />
+      )}
+
+      {pinMsg && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-full bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/40 text-xs text-[var(--parchment)] shadow-2xl pointer-events-none">
+          {pinMsg}
+        </div>
+      )}
 
       <div className="h-[calc(100vh-96px)]">
         <MapContainer
@@ -245,6 +383,15 @@ export default function MapView() {
           />
           <MapController center={searchCenter} />
           <FitBounds persons={pinned} />
+          <DropEvents enabled={!!pinTarget} onDrop={dropPin} />
+
+          {tempPin && (
+            <Marker
+              position={tempPin}
+              icon={dropPinIcon()}
+              zIndexOffset={1000}
+            />
+          )}
 
           {pinned.map((p) => {
             const url = googleMapsUrl(p);
@@ -315,6 +462,24 @@ export default function MapView() {
                         {strings.noAddress}
                       </div>
                     )}
+                    {canEdit && (
+                      <button
+                        onClick={() => startPinning(p)}
+                        style={{
+                          display: "block",
+                          fontSize: 11,
+                          color: "#C9A544",
+                          textDecoration: "underline",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          marginTop: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        📍 {strings.movePin}
+                      </button>
+                    )}
                     <Link
                       href={"/person/" + p.id}
                       style={{
@@ -333,6 +498,77 @@ export default function MapView() {
             );
           })}
         </MapContainer>
+      </div>
+    </div>
+  );
+}
+
+/* A light, filterable list to choose which person to place on the map. */
+function PersonPicker({
+  people,
+  onPick,
+  onCancel,
+  strings,
+}: {
+  people: PersonLike[];
+  onPick: (p: PersonLike) => void;
+  onCancel: () => void;
+  strings: { title: string; search: string; cancel: string };
+}) {
+  const [q, setQ] = useState("");
+  const shown = people
+    .filter((p) => (p.lat == null && p.lng == null) || q.trim())
+    .filter((p) => !q.trim() || p.fullName.toLowerCase().includes(q.toLowerCase()))
+    .slice(0, 40);
+
+  return (
+    <div className="fixed inset-0 z-[55] flex items-start justify-center pt-16 px-4">
+      <div
+        className="absolute inset-0 bg-[var(--overlay-scrim)]"
+        onClick={onCancel}
+      />
+      <div className="relative bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/30 rounded-xl p-5 w-full max-w-sm shadow-2xl">
+        <h3 className="font-display text-sm text-[var(--parchment)] mb-3">
+          {strings.title}
+        </h3>
+        <input
+          type="text"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={strings.search}
+          autoFocus
+          className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)] mb-3"
+        />
+        <div className="max-h-64 overflow-y-auto space-y-1">
+          {shown.length === 0 ? (
+            <p className="text-xs text-[var(--parchment-dim)] italic px-1 py-2">
+              {strings.search && q ? "—" : ""}
+            </p>
+          ) : (
+            shown.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onPick(p)}
+                className="w-full text-left px-3 py-2 rounded hover:bg-[var(--thread-gold)]/10 text-sm text-[var(--parchment)] font-body transition-colors flex items-center gap-2"
+              >
+                <span
+                  className="inline-block w-2 h-2 rounded-full shrink-0"
+                  style={{ background: p.lat != null ? "var(--thread-gold)" : "var(--parchment-dim)" }}
+                />
+                <span className="truncate">{p.fullName}</span>
+                {p.lat != null && (
+                  <span className="ml-auto text-[9px] text-[var(--parchment-dim)] shrink-0">✓</span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+        <button
+          onClick={onCancel}
+          className="mt-3 w-full py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors"
+        >
+          {strings.cancel}
+        </button>
       </div>
     </div>
   );
