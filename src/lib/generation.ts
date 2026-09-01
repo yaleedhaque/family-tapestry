@@ -82,8 +82,38 @@ export function computeGenerationMap(
     return d;
   };
 
+  // First pass: every person's generation from their lineage (parents' depth + 1).
   for (const p of persons) {
     gen[p.id] = depthOf(p.id, new Set());
   }
+
+  // Second pass: spouse-alignment. A spouse who married INTO the family has no
+  // parent edges, so they'd stay at gen 0 and their marriage line would stretch
+  // diagonally across the whole tree. Align each spouse with their partner so
+  // partners + their union always share one ELK layer → short, straight, flat
+  // marriage lines. Uses a fixpoint so chains of couples converge; a partner who
+  // is also a child keeps dragging their own children down correctly because we
+  // raise (never lower) each person to the couple's maximum.
+  let changed = true;
+  const MAX_ITER = persons.length * unions.length * 2 + 10;
+  let iter = 0;
+  while (changed && iter < MAX_ITER) {
+    changed = false;
+    iter++;
+    for (const u of unions) {
+      const a = u.partnerA;
+      const b = u.partnerB;
+      if (!a || !b) continue;
+      const ga = gen[a] ?? 0;
+      const gb = gen[b] ?? 0;
+      // Only collapse when they differ — raise the lower spouse to the higher.
+      // We never lower, so lineage-bearing partners that are ALSO children aren't
+      // dragged above their parents' band (that would misplace child edges).
+      const target = Math.max(ga, gb);
+      if (gen[a] !== target) { gen[a] = target; changed = true; }
+      if (gen[b] !== target) { gen[b] = target; changed = true; }
+    }
+  }
+
   return gen;
 }

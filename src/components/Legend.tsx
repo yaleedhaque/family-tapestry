@@ -84,6 +84,14 @@ export default function Legend() {
                 <span className="w-4 h-px bg-[var(--deceased-frame)] shrink-0 opacity-70" />
                 <span className="text-[11px] text-[var(--parchment-dim)] font-body">{t("legend.parentChild")}</span>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="w-4 border-t-2 border-dashed border-[var(--accent-emerald)] shrink-0" />
+                <span className="text-[11px] text-[var(--parchment-dim)] font-body">{t("legend.adopted")}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-4 border-t-2 border-dashed border-[var(--link)] shrink-0" />
+                <span className="text-[11px] text-[var(--parchment-dim)] font-body">{t("legend.step")}</span>
+              </div>
             </div>
           </div>
         </div>
