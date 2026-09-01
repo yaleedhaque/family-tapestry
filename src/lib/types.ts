@@ -88,6 +88,8 @@ export interface PresencePayload {
   viewing: string | null;
   editing: string | null;
   online_at: string;
+  email?: string;
+  camera?: { x: number; y: number; z: number };
 }
 
 export type TreeChange = {

@@ -43,7 +43,7 @@ export function useRealtimeTree(
 }
 
 export function useTreePresence(
-  user: { id: string; name: string } | null,
+  user: { id: string; name: string; email?: string } | null,
   onPresenceSync: (viewers: PresencePayload[]) => void
 ) {
   const onPresenceSyncRef = useRef(onPresenceSync);
@@ -67,6 +67,7 @@ export function useTreePresence(
           await channel.track({
             userId: user.id,
             userName: user.name,
+            email: user.email,
             viewing: null,
             editing: null,
             online_at: new Date().toISOString(),
@@ -77,7 +78,47 @@ export function useTreePresence(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.name]);
+  }, [user?.id, user?.name, user?.email]);
+}
+
+export function usePresenceFollow(
+  user: { id: string; name: string } | null,
+  onCamera: (fromUserId: string, camera: { x: number; y: number; z: number }) => void
+) {
+  const onCameraRef = useRef(onCamera);
+  onCameraRef.current = onCamera;
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    const channel = supabase.channel("tree-follow");
+    channelRef.current = channel;
+
+    channel
+      .on("broadcast", { event: "camera" }, ({ payload }) => {
+        if (payload.from !== user.id) {
+          onCameraRef.current(payload.from, payload.camera);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [user?.id]);
+
+  const shareCamera = useCallback((camera: { x: number; y: number; z: number }) => {
+    if (!user || !channelRef.current) return;
+    channelRef.current.send({
+      type: "broadcast",
+      event: "camera",
+      payload: { from: user.id, camera },
+    });
+  }, [user]);
+
+  return { shareCamera };
 }
 
 export function useMemberLock(

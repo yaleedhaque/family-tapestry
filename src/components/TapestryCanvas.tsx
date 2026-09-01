@@ -38,8 +38,9 @@ import { persons as staticPersons, unions as staticUnions, parentEdges as static
 import type { Source } from "@/data/family";
 import { fetchFamilyData } from "@/lib/data";
 import type { DbPerson, TreeChange } from "@/lib/types";
-import { useRealtimeTree, useTreePresence } from "@/lib/supabase/realtime";
+import { useRealtimeTree, useTreePresence, usePresenceFollow } from "@/lib/supabase/realtime";
 import type { PresencePayload } from "@/lib/types";
+import ViewerCard from "@/components/ViewerCard";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
 
@@ -200,7 +201,7 @@ function toDbSource(s: Source) {
 }
 
 export default function TapestryCanvas() {
-  const { fitView } = useReactFlow();
+  const { fitView, setViewport, getViewport } = useReactFlow();
   const { user, canEdit, loading: authLoading } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -224,6 +225,12 @@ export default function TapestryCanvas() {
   const [activeTreeId, setActiveTreeId] = useState("default");
   const [treeNames, setTreeNames] = useState<Record<string, string>>({ "default": "The Haque Tapestry" });
   const [onlineUsers, setOnlineUsers] = useState<PresencePayload[]>([]);
+  const [selectedViewer, setSelectedViewer] = useState<PresencePayload | null>(null);
+  const [followingId, setFollowingId] = useState<string | null>(null);
+  const followingIdRef = useRef<string | null>(null);
+  followingIdRef.current = followingId;
+  const followCamsRef = useRef<Record<string, { x: number; y: number; z: number }>>({});
+  const broadcastTimerRef = useRef<number | null>(null);
   const layoutVersionRef = useRef(0);
   const initialLoadDone = useRef(false);
   const isInitialLoad = useRef(true);
@@ -284,9 +291,52 @@ export default function TapestryCanvas() {
     if (!user) return null;
     const meta = user.user_metadata as Record<string, unknown> | undefined;
     const name = (meta?.full_name as string) ?? user.email?.split("@")[0] ?? "User";
-    return { id: user.id, name };
+    return { id: user.id, name, email: user.email ?? undefined };
   }, [user]);
   useTreePresence(presenceUser, setOnlineUsers);
+
+  const { shareCamera } = usePresenceFollow(presenceUser, (fromUserId, camera) => {
+    if (followingIdRef.current !== fromUserId) return;
+    followCamsRef.current[fromUserId] = camera;
+    const host = document.getElementById("tapestry-canvas");
+    if (host) {
+      // Convert remote flow coords to a viewport centered on the remote camera.
+      // The remote broadcasts absolute flow position; we use zoom from the payload.
+      setViewport({ x: -camera.x * camera.z, y: -camera.y * camera.z, zoom: camera.z }, { duration: 250 });
+    }
+  });
+
+  // Broadcast my own camera position (throttled) so others can follow me.
+  const shareMyCamera = useCallback((camera: { x: number; y: number; z: number }) => {
+    if (broadcastTimerRef.current) return;
+    broadcastTimerRef.current = window.setTimeout(() => {
+      broadcastTimerRef.current = null;
+      shareCamera(camera);
+    }, 200);
+  }, [shareCamera]);
+
+  const onCanvasMove = useCallback((_: unknown, viewport: { x: number; y: number; zoom: number }) => {
+    // User interacted with the canvas — leave any active follow so control returns to them.
+    if (followingIdRef.current) {
+      followingIdRef.current = null;
+      setFollowingId(null);
+    }
+    shareMyCamera({ x: -viewport.x / viewport.zoom, y: -viewport.y / viewport.zoom, z: viewport.zoom });
+  }, [shareMyCamera]);
+
+  const followUser = useCallback((viewer: PresencePayload) => {
+    if (followingIdRef.current === viewer.userId) {
+      followingIdRef.current = null;
+      setFollowingId(null);
+      return;
+    }
+    followingIdRef.current = viewer.userId;
+    setFollowingId(viewer.userId);
+    const cam = followCamsRef.current[viewer.userId];
+    if (cam) {
+      setViewport({ x: -cam.x * cam.z, y: -cam.y * cam.z, zoom: cam.z }, { duration: 250 });
+    }
+  }, [setViewport]);
 
   //  --  --  Build graph + run ELK  --  -- 
   const runLayout = useCallback(
@@ -924,6 +974,7 @@ export default function TapestryCanvas() {
             onNodeClick={onNodeClick}
             onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
             onNodeMouseLeave={() => setHoveredNodeId(null)}
+            onMove={onCanvasMove}
             nodeTypes={nodeTypes}
             proOptions={{ hideAttribution: true }}
             minZoom={0.1}
@@ -1146,21 +1197,41 @@ export default function TapestryCanvas() {
       <KeyboardHelp />
       <MobileNav hidden={!!selectedPerson} />
 
-      {/* Online presence indicators */}
+      {/* Online presence indicators + viewer cards */}
+      {selectedViewer && (
+        <div className="fixed bottom-32 left-6 z-40 hidden md:block">
+          <ViewerCard
+            viewer={selectedViewer}
+            isFollowing={followingId === selectedViewer.userId}
+            onFollow={() => followUser(selectedViewer)}
+            onClose={() => setSelectedViewer(null)}
+          />
+        </div>
+      )}
       {onlineUsers.length > 0 && (
-        <div className="fixed bottom-6 left-6 z-30 hidden md:flex flex-col items-center gap-1.5">
-          {onlineUsers.slice(0, 5).map((u) => (
-            <div
-              key={u.userId}
-              className="relative group"
-              title={`${u.userName}${u.editing ? " — editing" : u.viewing ? " — viewing" : " — online"}`}
-            >
-              <div className="w-7 h-7 rounded-full bg-[var(--tapestry-bg)]/90 backdrop-blur-sm border border-[var(--thread-gold-dim)]/40 flex items-center justify-center text-[9px] text-[var(--thread-gold)] font-body font-medium select-none shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+        <div className="fixed bottom-6 left-6 z-30 hidden md:flex flex-col-reverse items-start gap-1.5">
+          {onlineUsers.slice(0, 5).map((u) => {
+            const active = selectedViewer?.userId === u.userId;
+            const isF = followingId === u.userId;
+            return (
+              <button
+                key={u.userId}
+                type="button"
+                onClick={() => setSelectedViewer(active ? null : u)}
+                aria-label={`${u.userName} presence`}
+                aria-expanded={active}
+                title={`${u.userName}${u.editing ? " — editing" : u.viewing ? " — viewing" : " — online"}${isF ? " — being followed" : ""}`}
+                className={`relative group w-7 h-7 rounded-full backdrop-blur-sm border flex items-center justify-center text-[9px] font-body font-medium select-none shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-colors ${
+                  isF
+                    ? "bg-[var(--thread-gold)] text-[var(--tapestry-bg)] border-[var(--thread-gold)]"
+                    : "bg-[var(--tapestry-bg)]/90 border-[var(--thread-gold-dim)]/40 text-[var(--thread-gold)] hover:border-[var(--thread-gold)]"
+                }`}
+              >
                 {u.userName.slice(0, 2).toUpperCase()}
-              </div>
-              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[var(--living-glow)] border border-[var(--tapestry-bg)]" />
-            </div>
-          ))}
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[var(--living-glow)] border border-[var(--tapestry-bg)]" />
+              </button>
+            );
+          })}
           {onlineUsers.length > 5 && (
             <div className="w-7 h-7 rounded-full bg-[var(--tapestry-bg)]/90 backdrop-blur-sm border border-[var(--thread-gold-dim)]/40 flex items-center justify-center text-[9px] text-[var(--parchment-dim)] font-body">
               +{onlineUsers.length - 5}
