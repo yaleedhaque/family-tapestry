@@ -160,7 +160,7 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
   };
 }
 
-function makeChildEdge(source: string, target: string, relationshipType?: string): Edge {
+function makeChildEdge(source: string, target: string, relationshipType?: string, sourceHandle?: string): Edge {
   const isAdopted = relationshipType === "adopted";
   const isStep = relationshipType === "step";
   const color = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
@@ -168,6 +168,7 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
     id: `${source}-${target}-child`,
     source,
     target,
+    sourceHandle,
     type: "smoothstep",
     animated: isAdopted,
     style: {
@@ -390,17 +391,15 @@ export default function TapestryCanvas() {
       for (const union of unions) {
         if (!union.partnerB) continue;
         graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons }, position: { x: 0, y: 0 } });
-        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, "partner-a"));
-        if (union.partnerB) {
-          graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, "partner-b"));
-        }
+        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, undefined));
+        graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, undefined));
       }
       for (const edge of parentEdges) {
         const union = unions.find((u) => u.id === edge.unionId);
         if (union && !union.partnerB) {
           graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType));
         } else {
-          graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType));
+          graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType, "child"));
         }
       }
 
@@ -431,6 +430,25 @@ export default function TapestryCanvas() {
       const positions = new Map<string, { x: number; y: number }>();
       for (const c of layout.children ?? []) {
         if (c.x !== undefined && c.y !== undefined) positions.set(c.id, { x: c.x, y: c.y });
+      }
+
+      // Decide which diamond corner each partner connects to. Routes are kept
+      // shortest and crossing-free by assigning the partner on the LEFT of the
+      // union to the diamond's LEFT corner and the one on the RIGHT to the RIGHT
+      // corner — auto-swapped per union based on where ELK placed the two.
+      for (const union of unions) {
+        if (!union.partnerB) continue;
+        const pa = positions.get(union.partnerA);
+        const pb = positions.get(union.partnerB);
+        if (!pa || !pb) continue;
+        // union node dimensions: the reserved ELK width is centered on the union
+        const aLeftOfB = pa.x <= pb.x;
+        const aCorner = aLeftOfB ? "partner-left" : "partner-right";
+        const bCorner = aLeftOfB ? "partner-right" : "partner-left";
+        for (const e of graphEdges) {
+          if (e.id === `${union.partnerA}-${union.id}-marriage`) e.targetHandle = aCorner;
+          else if (e.id === `${union.partnerB}-${union.id}-marriage`) e.targetHandle = bCorner;
+        }
       }
 
       const positioned = graphNodes.map((n) => ({ ...n, position: positions.get(n.id) ?? { x: 0, y: 0 } }));

@@ -40,32 +40,39 @@ function UnionNode({ data }: NodeProps) {
         )}
       </div>
 
-      {/* Diamond glyph */}
-      <div
-        className={`relative w-8 h-8 rotate-45 border ${
-          isDivorced
-            ? "border-divorce-red"
-            : "border-thread-gold"
-        } bg-tapestry-bg-alt`}
-      >
+      {/* Diamond glyph + corner handles.
+          The diamond is a 32px square rotated 45°, so its four corners sit at the
+          N/E/S/W compass points of the element. Handles are absolutely positioned
+          right on those corners so partner lines land exactly on the corners
+          (never above them), and each corner is offered as its own target handle
+          so runLayout can pick left/right per partner to keep routes shortest. */}
+      <div className="relative w-8 h-8 mt-1">
         <div
-          className={`absolute inset-1 border ${
-            isDivorced ? "border-divorce-red/50" : "border-thread-gold-dim"
-          }`}
-        />
-        {isDivorced && (
-          <div className="absolute inset-0 flex items-center justify-center -rotate-45">
-            <span className="text-divorce-red text-[8px] font-bold">✕</span>
-          </div>
-        )}
+          className={`absolute inset-0 rotate-45 border ${
+            isDivorced
+              ? "border-divorce-red"
+              : "border-thread-gold"
+          } bg-tapestry-bg-alt`}
+        >
+          <div
+            className={`absolute inset-1 border ${
+              isDivorced ? "border-divorce-red/50" : "border-thread-gold-dim"
+            }`}
+          />
+          {isDivorced && (
+            <div className="absolute inset-0 flex items-center justify-center -rotate-45">
+              <span className="text-divorce-red text-[8px] font-bold">✕</span>
+            </div>
+          )}
+        </div>
+
+        {/* Left corner moonshot: target lands on the diamond's WEST corner */}
+        <Handle type="target" position={Position.Left} id="partner-left" className="!bg-thread-gold" style={{ left: -4, top: 12 }} />
+        {/* Right corner: diamond's EAST corner */}
+        <Handle type="target" position={Position.Right} id="partner-right" className="!bg-thread-gold" style={{ right: -4, top: 12 }} />
+        {/* Offspring: diamond's SOUTH corner */}
+        <Handle type="source" position={Position.Bottom} id="child" className="!bg-thread-gold" style={{ left: 12, bottom: -4 }} />
       </div>
-
-      {/* Partners connect at the left and right corners */}
-      <Handle type="target" position={Position.Left} id="partner-a" className="!bg-thread-gold !w-2 !h-2" />
-      <Handle type="target" position={Position.Right} id="partner-b" className="!bg-thread-gold !w-2 !h-2" />
-
-      {/* Offspring connect from the bottom corner */}
-      <Handle type="source" position={Position.Bottom} className="!bg-thread-gold !w-2 !h-2" />
     </div>
   );
 }
