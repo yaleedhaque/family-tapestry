@@ -18,6 +18,7 @@ interface ParsedPerson {
   bio: string;
   birthPlace: string;
   profession: string;
+  gender: string;
 }
 
 interface ParsedUnion {
@@ -40,7 +41,7 @@ function parseGedcom(text: string): { persons: ParsedPerson[]; unions: ParsedUni
   const unions: ParsedUnion[] = [];
   const edges: ParsedEdge[] = [];
   const familyMap = new Map<string, { husb?: string; wife?: string; children: string[]; marriageYear?: number | null }>();
-  const individualMap = new Map<string, { name: string; birthYear: number | null; deathYear: number | null; birthPlace: string; occupation: string; notes: string }>();
+  const individualMap = new Map<string, { name: string; birthYear: number | null; deathYear: number | null; birthPlace: string; occupation: string; notes: string; gender: string }>();
 
   let currentRecord: "INDI" | "FAM" | null = null;
   let currentId = "";
@@ -63,7 +64,7 @@ function parseGedcom(text: string): { persons: ParsedPerson[]; unions: ParsedUni
       if (tag === "INDI" && xref) {
         currentRecord = "INDI";
         currentId = xref;
-        individualMap.set(currentId, { name: "", birthYear: null, deathYear: null, birthPlace: "", occupation: "", notes: "" });
+        individualMap.set(currentId, { name: "", birthYear: null, deathYear: null, birthPlace: "", occupation: "", notes: "", gender: "" });
       } else if (tag === "FAM" && xref) {
         currentRecord = "FAM";
         currentId = xref;
@@ -84,6 +85,7 @@ function parseGedcom(text: string): { persons: ParsedPerson[]; unions: ParsedUni
         else if (tag === "DEAT") subTag = "DEAT";
         else if (tag === "OCCU") indi.occupation = value;
         else if (tag === "NOTE") indi.notes = value;
+        else if (tag === "SEX") indi.gender = value === "M" ? "male" : value === "F" ? "female" : value === "U" ? "other" : "";
       } else if (currentRecord === "FAM") {
         const fam = familyMap.get(currentId);
         if (!fam) continue;
@@ -129,6 +131,7 @@ function parseGedcom(text: string): { persons: ParsedPerson[]; unions: ParsedUni
       bio: data.notes,
       birthPlace: data.birthPlace,
       profession: data.occupation,
+      gender: data.gender,
     });
   }
 

@@ -101,12 +101,12 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
 
           <Group label={t("add.identity")}>
             <div>
-              <label className={labelCls}>Gender</label>
+              <label className={labelCls}>{t("gender.label")}</label>
               <select value={gender} onChange={(e) => setGender(e.target.value)} className={inputCls}>
-                <option value="">Not specified</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-                <option value="other">Other</option>
+                <option value="">{t("gender.notSpecified")}</option>
+                <option value="female">{t("gender.female")}</option>
+                <option value="male">{t("gender.male")}</option>
+                <option value="other">{t("gender.other")}</option>
               </select>
             </div>
           </Group>

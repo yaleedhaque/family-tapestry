@@ -136,10 +136,12 @@ export default function InfoPanel({
   // parent edge's relationship type and the person's gender.
   // --- -- -- -- -- --
   function parentRoleLabel(gender: string | undefined, relType: string | undefined): string {
-    const rel = relType === "step" ? "Step " : relType === "adopted" ? "Adopted " : "";
-    const role =
-      gender === "female" ? "Mother" : gender === "male" ? "Father" : "Parent";
-    return `${rel}${role}`;
+    const role = gender === "female" ? "mother" : gender === "male" ? "father" : "parent";
+    const prefix = relType === "step" ? "step" : relType === "adopted" ? "adopted" : "";
+    const key = prefix
+      ? `role.${prefix}${role[0].toUpperCase()}${role.slice(1)}`
+      : `role.${role}`;
+    return t(key as never);
   }
 
   const relatedData = useMemo(() => {
@@ -454,7 +456,7 @@ const np: PersonLike = {
               )}
 
               <div className="space-y-3">
-                {field("gender", "Gender", "select")}
+                {field("gender", t("gender.label"), "select")}
                 {field("fullName", "Full Name")}
                 {field("nameNative", "Name (your script)")}
                 {field("birthYear", "Birth Year", "number")}
@@ -532,11 +534,11 @@ const np: PersonLike = {
           {tab === "parents" && (
             <>
               <RelSection
-                items={relatedData.parents.map(({ person: p, role }) => ({
+                items={relatedData.parents.map(({ person: p, role, relType }) => ({
                   id: p.id,
                   label: p.fullName,
                   sub: `${role} · ${p.birthYear} – ${p.deathYear ?? "present"}`,
-                  badge: role.startsWith("Step") ? "step" : role.startsWith("Adopted") ? "adopted" : undefined,
+                  badge: relType === "step" ? "step" : relType === "adopted" ? "adopted" : undefined,
                 }))}
                 addMode={addMode} searchQuery={searchQuery} searchResults={searchResults} newPersonFields={newPersonFields}
                 onSearch={setSearchQuery}
@@ -657,17 +659,17 @@ const np: PersonLike = {
               onChange={(e) => setFields((f) => ({ ...f, gender: e.target.value }))}
               className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]"
             >
-              <option value="">Not specified</option>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
-              <option value="other">Other</option>
+              <option value="">{t("gender.notSpecified")}</option>
+              <option value="female">{t("gender.female")}</option>
+              <option value="male">{t("gender.male")}</option>
+              <option value="other">{t("gender.other")}</option>
             </select>
           ) : (
             <input type={type} value={fields[key] ?? ""} onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))} className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]" />
           )
         ) : (
           <p className="text-sm text-[var(--parchment)] font-body">
-            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : key === "gender" ? ((person as unknown as Record<string, unknown>)[key] as string || "Not specified") : ((person as unknown as Record<string, unknown>)[key] as string) || "—"}
+            {key === "deathYear" ? (person!.deathYear ?? "present") : key === "birthYear" ? (person!.birthYear ?? "—") : key === "gender" ? ((g) => g === "female" || g === "male" || g === "other" ? t(`gender.${g}` as "gender.female") : t("gender.notSpecified"))((person as unknown as Record<string, unknown>)[key] as string) : ((person as unknown as Record<string, unknown>)[key] as string) || "—"}
           </p>
         )}
       </div>
@@ -719,6 +721,7 @@ function RelSection({
   onSaveUnion?: () => void;
   onCancelEditUnion?: () => void;
 }) {
+  const { t } = useLang();
   return (
     <div className="space-y-3">
       {items.length > 0 ? (
@@ -798,18 +801,18 @@ function RelSection({
               <div className="flex gap-2">
                 <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Rel</label>
                 <select value={relType} onChange={(e) => onRelTypeChange?.(e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]">
-                  <option value="biological">Biological</option>
-                  <option value="adopted">Adopted</option>
-                  <option value="step">Step</option>
+                  <option value="biological">{t("rel.biological")}</option>
+                  <option value="adopted">{t("rel.adopted")}</option>
+                  <option value="step">{t("rel.step")}</option>
                 </select>
               </div>
               <div className="flex gap-2">
-                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">Gender</label>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] self-center min-w-[60px]">{t("gender.label")}</label>
                 <select value={newPersonFields.gender} onChange={(e) => onNewFieldChange("gender", e.target.value)} className="flex-1 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body focus:outline-none focus:border-[var(--thread-gold)]">
-                  <option value="">Not specified</option>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                  <option value="other">Other</option>
+                  <option value="">{t("gender.notSpecified")}</option>
+                  <option value="female">{t("gender.female")}</option>
+                  <option value="male">{t("gender.male")}</option>
+                  <option value="other">{t("gender.other")}</option>
                 </select>
               </div>
             </>
