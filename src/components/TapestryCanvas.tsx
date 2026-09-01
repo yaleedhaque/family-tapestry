@@ -201,7 +201,7 @@ function toDbSource(s: Source) {
 }
 
 export default function TapestryCanvas() {
-  const { fitView, setViewport, getViewport } = useReactFlow();
+  const { fitView, setViewport } = useReactFlow();
   const { user, canEdit, loading: authLoading } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
