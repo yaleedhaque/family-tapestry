@@ -29,8 +29,8 @@ export default function HelpModal({ open: controlledOpen, onClose: controlledClo
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-[70]" onClick={close} />
-      <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50 z-[90]" onClick={close} />
+      <div className="fixed inset-0 z-[95] flex items-center justify-center p-4">
         <div className="bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)]/30 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-[0_16px_64px_rgba(0,0,0,0.7)]">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--thread-gold-dim)]/20">

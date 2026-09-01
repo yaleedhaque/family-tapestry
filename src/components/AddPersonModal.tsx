@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PersonLike } from "./InfoPanel";
+import { useLang } from "@/lib/i18n";
 import { sanitizeField, validateEmail, validateUrl } from "@/lib/validation";
 
 interface AddPersonModalProps {
@@ -12,7 +13,9 @@ interface AddPersonModalProps {
 }
 
 export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddPersonModalProps) {
+  const { t } = useLang();
   const [fullName, setFullName] = useState("");
+  const [nameNative, setNameNative] = useState("");
   const [birthYear, setBirthYear] = useState("");
   const [deathYear, setDeathYear] = useState("");
   const [birthPlace, setBirthPlace] = useState("");
@@ -44,6 +47,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
     const person: PersonLike = {
       id: nextId(),
       fullName: name,
+      nameNative: sanitizeField("nameNative", nameNative) || undefined,
       birthYear: by,
       deathYear: dy,
       isAlive: !dy,
@@ -72,8 +76,8 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
       >
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="font-display text-xl text-[var(--thread-gold)] font-semibold tracking-wide">Add a Person</h2>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--parchment-dim)] mt-0.5">Record a life in the tapestry</p>
+            <h2 className="font-display text-xl text-[var(--thread-gold)] font-semibold tracking-wide">{t("add.title")}</h2>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--parchment-dim)] mt-0.5">{t("add.subtitle")}</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="w-8 h-8 flex items-center justify-center rounded-full border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors text-sm">✕</button>
         </div>
@@ -81,58 +85,62 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
         <div className="space-y-4">
           {error && <p className="text-xs text-[var(--ember-red)] bg-[var(--ember-red)]/10 px-3 py-2 rounded">{error}</p>}
 
-          <Group label="Identity">
+          <Group label={t("add.identity")}>
             <div>
-              <label className={labelCls}>Full Name *</label>
+              <label className={labelCls}>{t("add.fullName")} *</label>
               <input type="text" value={fullName} onChange={(e) => { setFullName(e.target.value); setError(""); }} placeholder="e.g. Jane Smith" autoFocus className={inputCls} />
               {duplicate && <p className="text-[10px] text-[var(--ember-red)] mt-1">Name already exists in tree.</p>}
             </div>
+            <div>
+              <label className={labelCls}>{t("add.nameNative")}</label>
+              <input type="text" value={nameNative} onChange={(e) => setNameNative(e.target.value)} placeholder="Name in Bengali, Hindi, Arabic… (optional)" dir="auto" className={inputCls} />
+            </div>
           </Group>
 
-          <Group label="Dates">
+          <Group label={t("add.dates")}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Birth Year</label>
+                <label className={labelCls}>{t("add.birthYear")}</label>
                 <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} placeholder="e.g. 1985" className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Death Year</label>
+                <label className={labelCls}>{t("add.deathYear")}</label>
                 <input type="number" value={deathYear} onChange={(e) => setDeathYear(e.target.value)} placeholder="Blank if alive" className={inputCls} />
               </div>
             </div>
           </Group>
 
-          <Group label="Life">
+          <Group label={t("add.life")}>
             <div>
-              <label className={labelCls}>Birth Place</label>
+              <label className={labelCls}>{t("add.birthPlace")}</label>
               <input type="text" value={birthPlace} onChange={(e) => setBirthPlace(e.target.value)} placeholder="e.g. London, England" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Profession</label>
+              <label className={labelCls}>{t("add.profession")}</label>
               <input type="text" value={profession} onChange={(e) => setProfession(e.target.value)} placeholder="e.g. Engineer" className={inputCls} />
             </div>
           </Group>
 
-          <Group label="Contact">
+          <Group label={t("add.contact")}>
             <div>
-              <label className={labelCls}>Email</label>
+              <label className={labelCls}>{t("add.email")}</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Phone</label>
+              <label className={labelCls}>{t("add.phone")}</label>
               <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+44 7700 900000" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Address</label>
+              <label className={labelCls}>{t("add.address")}</label>
               <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, City" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Website</label>
+              <label className={labelCls}>{t("add.website")}</label>
               <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://..." className={inputCls} />
             </div>
           </Group>
 
-          <Group label="Biography">
+          <Group label={t("add.biography")}>
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell their story..." rows={3} className={inputCls + " resize-none"} />
           </Group>
 
@@ -141,7 +149,7 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
             disabled={!fullName.trim()}
             className="w-full py-3 text-sm rounded-lg bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-display font-semibold tracking-wide shadow-[0_0_24px_rgba(201,165,68,0.25)] hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none"
           >
-            Add to Tree
+            {t("add.submit")}
           </button>
         </div>
       </div>

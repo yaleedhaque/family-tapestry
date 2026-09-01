@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { Source } from "@/data/family";
+import { useLang } from "@/lib/i18n";
 import { sanitizeField, validateEmail, validateUrl, validateYear } from "@/lib/validation";
 
 function getInitials(name: string): string {
@@ -12,6 +13,7 @@ function getInitials(name: string): string {
 export interface PersonLike {
   id: string;
   fullName: string;
+  nameNative?: string | null;
   birthYear: number | null;
   deathYear: number | null;
   isAlive: boolean;
@@ -107,6 +109,7 @@ export default function InfoPanel({
   const [isEditing, setIsEditing] = useState(false);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { t } = useLang();
 
   const [photoLoading, setPhotoLoading] = useState(false);
 
@@ -195,6 +198,7 @@ export default function InfoPanel({
       phone: sanitizeField("phone", fields.phone ?? person.phone),
       address: sanitizeField("address", fields.address ?? person.address),
       website,
+      nameNative: sanitizeField("nameNative", fields.nameNative ?? person.nameNative ?? ""),
     });
     setIsEditing(false);
     setFields({});
@@ -228,11 +232,11 @@ export default function InfoPanel({
   };
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "profile", label: "Profile", count: 0 },
-    { key: "parents", label: "Parents", count: relatedData.parents.length },
-    { key: "partners", label: "Partners", count: relatedData.partners.length },
-    { key: "children", label: "Children", count: relatedData.children.length },
-    { key: "sources", label: "Sources", count: sources.length },
+    { key: "profile", label: t("info.profile"), count: 0 },
+    { key: "parents", label: t("info.parents"), count: relatedData.parents.length },
+    { key: "partners", label: t("info.partners"), count: relatedData.partners.length },
+    { key: "children", label: t("info.children"), count: relatedData.children.length },
+    { key: "sources", label: t("info.sources"), count: sources.length },
   ];
 
   return (
@@ -288,6 +292,11 @@ export default function InfoPanel({
             <h2 className="font-display text-xl md:text-2xl font-semibold text-[var(--parchment)] leading-snug truncate">
               {person.fullName}
             </h2>
+            {person.nameNative ? (
+              <p className="font-display text-sm text-[var(--thread-gold)] mt-0.5 truncate" dir="auto">
+                {person.nameNative}
+              </p>
+            ) : null}
             <p className="text-xs text-[var(--parchment-dim)] italic mt-0.5">
               {person.birthYear ? `${person.birthYear} – ` : ""}{person.deathYear ?? "present"}
             </p>
@@ -403,6 +412,7 @@ export default function InfoPanel({
 
               <div className="space-y-3">
                 {field("fullName", "Full Name")}
+                {field("nameNative", "Name (your script)")}
                 {field("birthYear", "Birth Year", "number")}
                 {field("deathYear", "Death Year", "number")}
                 {field("birthPlace", "Birth Place")}
@@ -433,7 +443,7 @@ export default function InfoPanel({
                 ) : canEdit ? (
                   <button
                     onClick={() => {
-                      setFields({ fullName: person.fullName, birthYear: String(person.birthYear ?? ""), deathYear: person.deathYear != null ? String(person.deathYear) : "", birthPlace: person.birthPlace, profession: person.profession, bio: person.bio, email: person.email, phone: person.phone, address: person.address, website: person.website });
+                      setFields({ fullName: person.fullName, nameNative: person.nameNative ?? "", birthYear: String(person.birthYear ?? ""), deathYear: person.deathYear != null ? String(person.deathYear) : "", birthPlace: person.birthPlace, profession: person.profession, bio: person.bio, email: person.email, phone: person.phone, address: person.address, website: person.website });
                       setIsEditing(true);
                     }}
                     className="px-3 py-1.5 text-xs rounded border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] transition-colors"

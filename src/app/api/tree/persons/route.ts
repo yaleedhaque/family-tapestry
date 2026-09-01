@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (!can(role, "create-person")) return forbidden();
 
   const body = await request.json();
-  const { id, fullName, full_name, birthYear, birth_year, deathYear, death_year, isAlive, is_alive, bio, birthPlace, birth_place, profession, photoUrl, photo_url, email, phone, address, website, lat, lng } = body;
+  const { id, fullName, full_name, nameNative, name_native, birthYear, birth_year, deathYear, death_year, isAlive, is_alive, bio, birthPlace, birth_place, profession, photoUrl, photo_url, email, phone, address, website, lat, lng } = body;
 
   if (!id || !fullName && !full_name) {
     return NextResponse.json({ error: "id and fullName required" }, { status: 400 });
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
   const { error } = await db.from("persons").insert({
     id,
     full_name: fullName ?? full_name ?? "",
+    name_native: nameNative ?? name_native ?? null,
     birth_year: birthYear ?? birth_year ?? null,
     death_year: deathYear ?? death_year ?? null,
     is_alive: isAlive ?? is_alive ?? true,
@@ -145,6 +146,7 @@ export async function DELETE(request: NextRequest) {
 function mapFields(fields: Record<string, unknown>): Record<string, unknown> {
   const update: Record<string, unknown> = {};
   if (fields.fullName !== undefined || fields.full_name !== undefined) update.full_name = fields.fullName ?? fields.full_name;
+  if (fields.nameNative !== undefined || fields.name_native !== undefined) update.name_native = fields.nameNative ?? fields.name_native;
   if (fields.birthYear !== undefined || fields.birth_year !== undefined) update.birth_year = fields.birthYear ?? fields.birth_year;
   if (fields.deathYear !== undefined || fields.death_year !== undefined) update.death_year = fields.deathYear ?? fields.death_year;
   if (fields.isAlive !== undefined || fields.is_alive !== undefined) update.is_alive = fields.isAlive ?? fields.is_alive;

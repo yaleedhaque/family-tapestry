@@ -74,6 +74,9 @@
   /* Elevation shadow for floating panels/popovers (theme-aware) */
   --popover-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4);
   --popover-border: rgba(154,123,60,0.3);
+  /* Panel/app frame border — clearly visible against each background (used by
+     the top title banner & floating panels). */
+  --panel-border: rgba(201,162,75,0.4);
 }
 
 html.light {
@@ -119,6 +122,9 @@ html.light {
      from the bright background) */
   --popover-shadow: 0 8px 28px rgba(44,37,32,0.18), 0 2px 8px rgba(44,37,32,0.12);
   --popover-border: rgba(122,91,31,0.28);
+  /* Panel/app frame border (light) — medium brown, clearly visible on the
+     bright #F5F0E8 background. */
+  --panel-border: rgba(122,91,31,0.5);
 }
 @media (max-width: 767px) {
   :root, html.light {

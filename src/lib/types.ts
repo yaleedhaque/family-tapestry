@@ -13,6 +13,7 @@ export interface DbPerson {
   phone: string | null;
   address: string | null;
   website: string | null;
+  name_native: string | null;
   lat: number | null;
   lng: number | null;
   links: unknown[];

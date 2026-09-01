@@ -41,6 +41,7 @@ import type { DbPerson, TreeChange } from "@/lib/types";
 import { useRealtimeTree, useTreePresence, usePresenceFollow } from "@/lib/supabase/realtime";
 import type { PresencePayload } from "@/lib/types";
 import ViewerCard from "@/components/ViewerCard";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useUserCircle } from "@/lib/useUserCircle";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
@@ -63,6 +64,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   return {
     id: dp.id,
     fullName: dp.full_name,
+    nameNative: dp.name_native ?? null,
     birthYear: dp.birth_year,
     deathYear: dp.death_year,
     isAlive: dp.is_alive,
@@ -194,7 +196,7 @@ function apiCall(method: string, path: string, body?: unknown, onError?: () => v
 
 function toDbPerson(p: PersonLike) {
   return {
-    id: p.id, fullName: p.fullName, birthYear: p.birthYear, deathYear: p.deathYear,
+    id: p.id, fullName: p.fullName, nameNative: p.nameNative ?? null, birthYear: p.birthYear, deathYear: p.deathYear,
     isAlive: p.isAlive, bio: p.bio, birthPlace: p.birthPlace, profession: p.profession,
     email: p.email, phone: p.phone, address: p.address, website: p.website,
     lat: p.lat, lng: p.lng, photoUrl: p.photoUrl,
@@ -1066,7 +1068,7 @@ export default function TapestryCanvas() {
 
         <div aria-hidden="true" className="tapestry-edge-fade" />
 
-        <SearchBar persons={rawPersons} onSelect={handleSearchSelect} />
+        {!showHelp && <SearchBar persons={rawPersons} onSelect={handleSearchSelect} />}
 
         {dataLoading && (
           <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
@@ -1158,7 +1160,7 @@ export default function TapestryCanvas() {
       </div>
 
       {/* Tree selector */}
-      <div className="fixed top-4 left-4 z-30 flex items-center gap-2">
+      <div className="fixed top-4 left-4 z-30 flex items-center gap-2"><LanguageSwitcher />
         <select
           value={activeTreeId}
           onChange={(e) => switchTree(e.target.value)}
