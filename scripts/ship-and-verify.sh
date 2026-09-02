@@ -28,17 +28,15 @@ DEPLOY_URL=""
 echo "⏳ Waiting for Vercel Production deploy to reach Ready..."
 for i in $(seq 1 60); do
   sleep 5
-  # newest = first row; grab URL + Status for deployments newer than our push
-  read -r URL STATUS < <(vercel ls --limit 8 2>/dev/null | awk -v h=$(git rev-parse --short HEAD) 'NR>3 && /https:\/\/family-tapestry-/ && $0 !~ /^\s*$/ {print $2, $4; if (++c==1) exit}')
-  # simpler: pick the FIRST (newest) deployment row
-  read -r URL STATUS < <(vercel ls --limit 8 2>/dev/null | awk 'NR>3 && /Ready|Building|Error|Queued|Cancelled/ {print $2, $4; exit}')
+  # row format: Age Project DeploymentURL ● Status Env ... → URL is $3, STATUS is $5
+  read -r URL STATUS < <(vercel ls --limit 8 2>/dev/null | awk 'NR>3 && /https:\/\/family-tapestry-/ {print $3, $5; exit}')
   if [ -n "$URL" ]; then
     DEPLOY_URL="$URL"
     echo "   [$i] newest: $STATUS $URL"
     case "$STATUS" in
       Ready) echo "✅ Deploy Ready: $URL"; echo "→ aliased as https://family-tapestry-nine.vercel.app"; exit 0 ;;
       Error|Cancelled) echo "❌ Deploy $STATUS — check Vercel"; exit 1 ;;
-      Building|Queued) : ;;  # keep polling
+      Building|Queued|Initializing) : ;;  # keep polling
       *) : ;;
     esac
   else
