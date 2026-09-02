@@ -13,11 +13,12 @@ function UnionNode({ data }: NodeProps) {
   const isDivorced = union.type === "divorced";
 
   return (
-    // Fixed 150px tall (matches UNION_H in familyLayout) so the diamond's vertical
-    // centre lands exactly on the couple's row centre — partners on the same row have
-    // the same centre Y, so with the diamond centred here their marriage edges are
-    // perfectly straight horizontal runs (side handle → diamond corner), never
-    // diagonal, never crossing a child.
+    // Fixed 150px tall (matches UNION_H in familyLayout). In the layout the diamond
+    // node is placed BELOW the partner cards (DIAMOND_OFFSET in familyLayout.ts),
+    // centred horizontally between the partners. The diamond graphic is vertically
+    // centred here; its left/right corner handles receive the two partners' marriage
+    // edges (left partner -> left corner, right partner -> right corner, assigned by
+    // real position in TapestryCanvas), and its south corner drops to children.
     <div className="relative w-[110px] h-[150px]">
       {/* Labels sit above the diamond, near the top of the node. */}
       <div className="absolute top-0 inset-x-0 flex flex-col items-center gap-0.5">

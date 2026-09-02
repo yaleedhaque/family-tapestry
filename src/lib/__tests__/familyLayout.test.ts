@@ -118,8 +118,8 @@ describe("manualFamilyLayout (live tree)", () => {
     const { positions, cx } = layoutChecks();
     const p8top = positions.get("p8")!.y;
     const u2top = positions.get("u2")!.y;
-    // p8 is one full row below u2's row centre
-    expect(p8top - (u2top + UH / 2 + 231 / 2)).toBeGreaterThan(50);
+    // p8 sits below the union's bottom edge, a full generation row down
+    expect(p8top - (u2top + UH)).toBeGreaterThan(40);
     expect(Math.abs(cx("p8") - cx("u2"))).toBeLessThan(4);
   });
 

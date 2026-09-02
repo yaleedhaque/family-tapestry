@@ -177,6 +177,12 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 
 const ANIM_DURATION = 1200;
 
+// Node dimensions — MUST match src/lib/familyLayout.ts (PERSON_W/PERSON_H/UNION_W).
+// Used to derive node centre-x when assigning each partner to the nearest
+// diamond corner handle (left vs right).
+const PERSON_W = 210;
+const UNION_W = 110;
+
 function nextUnionId(unions: UnionLike[]) {
   const maxN = unions.reduce((max, u) => {
     const m = u.id.match(/u(\d+)/);
@@ -384,13 +390,26 @@ export default function TapestryCanvas() {
       if (version !== layoutVersionRef.current) return;
       const layoutPositions = new Map<string, { x: number; y: number }>(positions);
 
-      // Marriage edges: each partner connects to the union diamond. With only
-      // top/bottom handles on the person cards, a partner connects from its bottom
-      // handle to the diamond — a smoothstep curve that stays attached as you drag.
+      // Marriage edges: each partner connects to the union diamond. The diamond
+      // is centred BELOW/BETWEEN the partners, so we pick the diamond's left or
+      // right corner handle by which partner is actually nearer that side
+      // (left partner -> left corner, right partner -> right corner). Assigning
+      // by real layout position (not partnerA/partnerB identity) keeps every
+      // marriage line the shortest possible and crossing-free, incl. remarriage
+      // fans where a person can end up on either side of a given diamond.
+      const cxOf = (n: { x: number; y: number }, w: number) => n.x + w / 2;
       for (const union of unions) {
         if (!union.partnerB) continue;
-        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, "partner-left"));
-        graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, "partner-right"));
+        const uPos = layoutPositions.get(union.id);
+        if (!uPos) continue;
+        const dCx = cxOf(uPos, UNION_W);
+        const handleFor = (pid: string) => {
+          const pPos = layoutPositions.get(pid);
+          if (!pPos) return "partner-left";
+          return cxOf(pPos, PERSON_W) <= dCx ? "partner-left" : "partner-right";
+        };
+        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, handleFor(union.partnerA)));
+        graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, handleFor(union.partnerB)));
       }
 
       // Child edges: union diamond bottom -> child top (smoothstep, follows drags).

@@ -39,8 +39,13 @@ const PERSON_H = 231;
 const UNION_W = 110;
 const UNION_H = 150;
 const GAP = 48;
-const ROW = 300;
+const ROW = 480;
 const HALF = GAP + 26 + PERSON_W / 2; // GAP + UNION_W/2 + PERSON_W/2
+
+// The union diamond sits BELOW the partner cards (not on the same row), tucked
+// into the gap between the partner row and the next generation's card row.
+// PERSON_H/2 (card bottom) + GAP + UNION_H/2 keeps the whole diamond under the cards.
+const DIAMOND_OFFSET = PERSON_H / 2 + GAP + UNION_H / 2;
 
 export function manualFamilyLayout(
   persons: LayoutPerson[],
@@ -169,7 +174,7 @@ export function manualFamilyLayout(
       pY[u.partnerB] = genLevel * ROW;
     }
     dX[u.id] = centerX;
-    dY[u.id] = genLevel * ROW;
+    dY[u.id] = genLevel * ROW + DIAMOND_OFFSET;
     placeKidsOf(u, genLevel + 1, centerX);
   };
 
