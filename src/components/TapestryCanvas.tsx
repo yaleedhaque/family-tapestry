@@ -1059,9 +1059,13 @@ export default function TapestryCanvas() {
       setRawPersons((prev) => [...prev, newPerson]);
       setSelectedPerson(newPerson);
       setShowAddPerson(false);
+      // Relayout first (registers the node), then frame the new person so they are
+      // ALWAYS visible regardless of the user's current pan/zoom. Isolated people are
+      // placed on their own row, so without this they can land off-screen.
+      setTimeout(() => fitView({ nodes: [{ id: newPerson.id }], padding: 0.3, duration: 400 }), 60);
       if (user) apiCall("POST", "/tree/persons", toDbPerson(newPerson), () => toast("Failed to save new person", "error"));
     },
-    [user, toast]
+    [user, toast, fitView]
   );
 
   //  --  --  Navigate to person: select + fitView  --  -- 
