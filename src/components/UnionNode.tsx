@@ -18,11 +18,11 @@ function UnionNode({ data }: NodeProps) {
 
   return (
     // Fixed 150px tall (matches UNION_H in familyLayout). In the layout the diamond
-    // node shares the two partners' row top (y = t.y), centred horizontally between
-    // the partners. The diamond graphic is vertically centred here; its left/right
-    // corner handles sit at LAYOUT_MARRIAGE_Y (75) from the box top — the SAME world
-    // Y as the partners' card side-handles (all three share the row top), so every
-    // marriage line renders perfectly horizontal. The south corner drops to children.
+    // node is placed BELOW the partner cards (DIAMOND_OFFSET in familyLayout.ts),
+    // centred horizontally between the partners. The diamond graphic is vertically
+    // centred here; its left/right corner handles receive the two partners' marriage
+    // edges (left partner -> left corner, right partner -> right corner, assigned by
+    // real position in TapestryCanvas), and its south corner drops to children.
     <div className="relative w-[110px] h-[150px]">
       {/* Labels sit above the diamond, near the top of the node. */}
       <div className="absolute top-0 inset-x-0 flex flex-col items-center gap-0.5">

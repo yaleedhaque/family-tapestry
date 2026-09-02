@@ -66,11 +66,11 @@ export const LAYOUT_PERSON_W = 140; // real rendered card width  (PersonNode w-[
 export const LAYOUT_PERSON_H = 231; // real rendered card height (measured)
 export const LAYOUT_UNION_W = 110; // real rendered union diamond width
 export const LAYOUT_UNION_H = 150; // real rendered union diamond height
-// Distance from a couple's row top to where the marriage lines attach — on both the
-// partner cards and the diamond. Kept in layout px; both the persons' side handles
-// and the diamond's side handles use this offset from their own node top, so with all
-// three sharing the same row top (t.y) every marriage line renders perfectly horizontal.
-export const LAYOUT_MARRIAGE_Y = 75; // == LAYOUT_UNION_H / 2 (diamond box centre)
+// How far below the couple's row top the union diamond node starts. The default
+// (LAYOUT_PERSON_H - LAYOUT_UNION_H)/2 centers the diamond on the 231-layout-tall
+// card, but real cards render shorter (~140), so this is nudged a little lower so
+// the diamond hangs just below the card bodies (the requested look).
+const DIAMOND_Y_OFFSET = 58;
 const GAP = 48;
 
 // Width of a couple block when both partners are inside: [A | diamond | B]
@@ -240,15 +240,12 @@ export async function familyLayoutELK(
     const bMulti = u.partnerB ? multiCouple.has(u.partnerB) : false;
     if (!aMulti && u.partnerA) positions.set(u.partnerA, { x: t.x, y: t.y });
     if (!bMulti && u.partnerB) positions.set(u.partnerB, { x: t.x + w - LAYOUT_PERSON_W, y: t.y });
-    // Diamond centred between the two seated partner centres.
+    // Diamond centred between the two seated partner centres, started slightly below
+    // the partners' tops so it hangs just below the card bodies.
     const dCentre = aMulti ? t.x + LAYOUT_PERSON_W : bMulti ? t.x + w - LAYOUT_PERSON_W : t.x + w / 2;
-    // The diamond box shares the partners' row top (t.y) so its left/right corner
-    // handles (at the diamond's vertical centre = box local 75) sit at the SAME
-    // world Y as the partners' marriage side handles (also 75 from their tops).
-    // That alignment is what makes every marriage line perfectly horizontal.
     positions.set(u.id, {
       x: dCentre - LAYOUT_UNION_W / 2,
-      y: t.y,
+      y: t.y + DIAMOND_Y_OFFSET,
     });
   }
 

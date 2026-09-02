@@ -136,13 +136,12 @@ function isBio(rel?: string): boolean {
   return rel.trim().toLowerCase() === "biological";
 }
 
-function makeMarriageEdge(source: string, target: string, unionType: string, sourceHandle?: string, targetHandle?: string): Edge {
+function makeMarriageEdge(source: string, target: string, unionType: string, targetHandle?: string): Edge {
   const isDivorced = unionType === "divorced";
   return {
     id: `${source}-${target}-marriage`,
     source,
     target,
-    sourceHandle,
     targetHandle,
     type: "smoothstep",
     style: {
@@ -490,22 +489,13 @@ export default function TapestryCanvas() {
         const uPos = layoutPositions.get(union.id);
         if (!uPos) continue;
         const dCx = cxOf(uPos, UNION_W);
-        // A partner to the LEFT of the diamond faces it with its RIGHT edge (source
-        // partner-right) and meets the diamond's LEFT corner (target partner-left);
-        // mirrored for the right partner. Both the card side-handle and the diamond
-        // side-handle sit at LAYOUT_MARRIAGE_Y from their shared row top, so the Ys
-        // match and every marriage line renders perfectly horizontal.
         const handleFor = (pid: string) => {
           const pPos = layoutPositions.get(pid);
-          if (!pPos) return { source: "partner-left", target: "partner-left" };
-          return cxOf(pPos, PERSON_W) <= dCx
-            ? { source: "partner-right", target: "partner-left" }
-            : { source: "partner-left", target: "partner-right" };
+          if (!pPos) return "partner-left";
+          return cxOf(pPos, PERSON_W) <= dCx ? "partner-left" : "partner-right";
         };
-        const ha = handleFor(union.partnerA);
-        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, ha.source, ha.target));
-        const hb = handleFor(union.partnerB);
-        graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, hb.source, hb.target));
+        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, handleFor(union.partnerA)));
+        graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, handleFor(union.partnerB)));
       }
 
       // Child edges: union diamond bottom -> child top (smoothstep, follows drags).
