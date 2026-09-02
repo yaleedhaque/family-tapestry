@@ -258,6 +258,22 @@ export default function TapestryCanvas() {
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
   const [rawSources, setRawSources] = useState<Source[]>([]);
 
+  // Latest-committed mirrors of the raw data. Handlers save via PUT /api/tree
+  // inside setTimeout; reading the render-closure state there sends STALE data
+  // (the just-made edit is missing → "saves keep getting deleted"). Always read
+  // these refs inside the async/apiCall paths so the save reflects the LATEST
+  // state, not the previous render.
+  const rawPersonsRef = useRef<PersonLike[]>(rawPersons);
+  const rawUnionsRef = useRef<UnionLike[]>(rawUnions);
+  const rawEdgesRef = useRef<EdgeLike[]>(rawEdges);
+  const rawSourcesRef = useRef<Source[]>(rawSources);
+  useEffect(() => {
+    rawPersonsRef.current = rawPersons;
+    rawUnionsRef.current = rawUnions;
+    rawEdgesRef.current = rawEdges;
+    rawSourcesRef.current = rawSources;
+  }, [rawPersons, rawUnions, rawEdges, rawSources]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
@@ -771,73 +787,83 @@ export default function TapestryCanvas() {
   //  --  --  CRUD: Add partner (existing person)  --  -- 
   const handleAddPartner = useCallback(
     (personId: string, partnerId: string, unionType: string, startYear: number | null) => {
-      const newUnion = { id: nextUnionId(rawUnions), partnerA: personId, partnerB: partnerId, type: unionType, startYear, endYear: null };
-      setRawUnions((prev) => [...prev, newUnion]);
-      if (user) apiCall("PUT", "/tree", { unions: [...rawUnions, newUnion], persons: rawPersons, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
+      const currentUnions = rawUnionsRef.current;
+      const newUnion = { id: nextUnionId(currentUnions), partnerA: personId, partnerB: partnerId, type: unionType, startYear, endYear: null };
+      const nextUnions = [...currentUnions, newUnion];
+      setRawUnions(nextUnions);
+      if (user) apiCall("PUT", "/tree", { unions: nextUnions, persons: rawPersonsRef.current, edges: rawEdgesRef.current }, () => toast("Failed to save relationship", "error"));
     },
-    [rawUnions, rawPersons, rawEdges, user, toast]
+    [user, toast]
   );
 
   //  --  --  CRUD: Update union (change type/years of a relationship)  --  -- 
   const handleUpdateUnion = useCallback((updated: UnionLike) => {
-    setRawUnions((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    if (user) apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions.map((u) => (u.id === updated.id ? updated : u)), edges: rawEdges }, () => toast("Failed to save relationship", "error"));
-  }, [rawUnions, rawPersons, rawEdges, user, toast]);
+    const nextUnions = rawUnionsRef.current.map((u) => (u.id === updated.id ? updated : u));
+    setRawUnions(nextUnions);
+    if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: nextUnions, edges: rawEdgesRef.current }, () => toast("Failed to save relationship", "error"));
+  }, [user, toast]);
 
   //  --  --  CRUD: Update a parent→child relationship type (bio/adopted/step)  -- 
   const handleUpdateEdgeType = useCallback(
     (unionId: string, childId: string, relationshipType: string) => {
       const rel = (["biological", "adopted", "step"].includes(relationshipType) ? relationshipType : "biological") as "biological" | "adopted" | "step";
-      setRawEdges((prev) =>
-        prev.map((e) => (e.unionId === unionId && e.childId === childId ? { ...e, relationshipType: rel } : e))
+      const nextEdges = rawEdgesRef.current.map((e) =>
+        e.unionId === unionId && e.childId === childId ? { ...e, relationshipType: rel } : e
       );
-      if (user) setTimeout(() => {
-        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
-      }, 0);
+      setRawEdges(nextEdges);
+      if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: rawUnionsRef.current, edges: nextEdges }, () => toast("Failed to save relationship", "error"));
     },
-    [rawUnions, rawPersons, rawEdges, user, toast]
+    [user, toast]
   );
 
   //  --  --  CRUD: Add child (existing person)  --  -- 
   const handleAddChild = useCallback(
     (parentId: string, childId: string, relationshipType?: string) => {
+      const rel = relationshipType ?? "biological";
+      const currentUnions = rawUnionsRef.current;
+      const currentEdges = rawEdgesRef.current;
       const union = findParentUnion(parentId);
+      let nextEdges: EdgeLike[];
+      let nextUnions: UnionLike[];
       if (union) {
-        const newEdge = { unionId: union.id, childId, relationshipType: relationshipType ?? "biological" };
-        setRawEdges((prev) => {
-          if (prev.some((e) => e.unionId === union.id && e.childId === childId)) return prev;
-          return [...prev, newEdge];
-        });
+        const newEdge = { unionId: union.id, childId, relationshipType: rel };
+        nextEdges = currentEdges.some((e) => e.unionId === union.id && e.childId === childId)
+          ? currentEdges
+          : [...currentEdges, newEdge];
+        nextUnions = currentUnions;
       } else {
-        const newId = nextUnionId(rawUnions);
+        const newId = nextUnionId(currentUnions);
         const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
-        setRawUnions((prev) => [...prev, newUnion]);
-        setRawEdges((prev) => [...prev, { unionId: newId, childId, relationshipType: relationshipType ?? "biological" }]);
+        nextUnions = [...currentUnions, newUnion];
+        nextEdges = [...currentEdges, { unionId: newId, childId, relationshipType: rel }];
       }
-      if (user) setTimeout(() => {
-        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
-      }, 0);
+      setRawEdges(nextEdges);
+      setRawUnions(nextUnions);
+      if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: nextUnions, edges: nextEdges }, () => toast("Failed to save relationship", "error"));
     },
-    [findParentUnion, rawUnions, rawPersons, rawEdges, user, toast]
+    [findParentUnion, user, toast]
   );
 
   //  --  --  CRUD: Add parent (existing person)  --  -- 
   const handleAddParent = useCallback(
     (childId: string, parentId: string, relationshipType?: string) => {
       const rel = relationshipType ?? "biological";
+      const currentUnions = rawUnionsRef.current;
+      const currentEdges = rawEdgesRef.current;
+      const currentPersons = rawPersonsRef.current;
       // Prefer the child's EXISTING biological union as the target when adding a
       // biological parent, so a second bio parent merges into the same union
       // (one diamond, one child line) instead of spawning a duplicate line.
       const childUnionId =
         rel === "biological"
-          ? rawEdges.find((e) => e.childId === childId && isBio(e.relationshipType))?.unionId
+          ? currentEdges.find((e) => e.childId === childId && isBio(e.relationshipType))?.unionId
           : undefined;
       const childUnion = childUnionId
-        ? rawUnions.find((u) => u.id === childUnionId)
+        ? currentUnions.find((u) => u.id === childUnionId)
         : undefined;
       // A union the new parent is already a partner of (only used when the child
       // has no biological relationship yet, to avoid reusing an orphan).
-      const parentUnion = rawUnions.find(
+      const parentUnion = currentUnions.find(
         (u) => (u.partnerA === parentId || u.partnerB === parentId) && !childUnion
       );
 
@@ -863,54 +889,47 @@ export default function TapestryCanvas() {
               partnerA: childUnion.partnerA,
               partnerB: otherParentId,
             };
-            const updatedUnions = rawUnions.map((u) => (u.id === merged.id ? merged : u));
-            setRawUnions(updatedUnions);
-            setRawEdges((prev) =>
-              prev.map((e) =>
-                e.childId === childId && e.unionId === childUnion.id
-                  ? { ...e, relationshipType: rel }
-                  : e
-              )
+            const updatedUnions = currentUnions.map((u) => (u.id === merged.id ? merged : u));
+            const updatedEdges = currentEdges.map((e) =>
+              e.childId === childId && e.unionId === childUnion.id
+                ? { ...e, relationshipType: rel }
+                : e
             );
+            setRawUnions(updatedUnions);
+            setRawEdges(updatedEdges);
             if (user)
-              setTimeout(() => {
-                apiCall("PUT", "/tree", { persons: rawPersons, unions: updatedUnions, edges: rawEdges }, () =>
-                  toast("Failed to save relationship", "error")
-                );
-              }, 0);
+              apiCall("PUT", "/tree", { persons: currentPersons, unions: updatedUnions, edges: updatedEdges }, () =>
+                toast("Failed to save relationship", "error")
+              );
             return;
           }
         }
         const newEdge = { unionId: targetUnion.id, childId, relationshipType: rel };
-        const updatedEdges = rawEdges.some(
+        const updatedEdges = currentEdges.some(
           (e) => e.unionId === targetUnion.id && e.childId === childId
         )
-          ? rawEdges
-          : [...rawEdges, newEdge];
+          ? currentEdges
+          : [...currentEdges, newEdge];
         setRawEdges(updatedEdges);
         if (user)
-          setTimeout(() => {
-            apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: updatedEdges }, () =>
-              toast("Failed to save relationship", "error")
-            );
-          }, 0);
+          apiCall("PUT", "/tree", { persons: currentPersons, unions: currentUnions, edges: updatedEdges }, () =>
+            toast("Failed to save relationship", "error")
+          );
         return;
       }
       // 3) No existing relationship for this child — create a fresh single-parent union.
-      const newId = nextUnionId(rawUnions);
+      const newId = nextUnionId(currentUnions);
       const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
-      const updatedUnions = [...rawUnions, newUnion];
-      const updatedEdges = [...rawEdges, { unionId: newId, childId, relationshipType: rel }];
+      const updatedUnions = [...currentUnions, newUnion];
+      const updatedEdges = [...currentEdges, { unionId: newId, childId, relationshipType: rel }];
       setRawUnions(updatedUnions);
       setRawEdges(updatedEdges);
       if (user)
-        setTimeout(() => {
-          apiCall("PUT", "/tree", { persons: rawPersons, unions: updatedUnions, edges: updatedEdges }, () =>
-            toast("Failed to save relationship", "error")
-          );
-        }, 0);
+        apiCall("PUT", "/tree", { persons: currentPersons, unions: updatedUnions, edges: updatedEdges }, () =>
+          toast("Failed to save relationship", "error")
+        );
     },
-    [wouldConflict, rawUnions, rawPersons, rawEdges, user, toast]
+    [wouldConflict, user, toast]
   );
 
   //  --  --  CRUD: Create new person + link  --  -- 
@@ -926,42 +945,47 @@ export default function TapestryCanvas() {
       if (!newPerson.fullName.trim()) return;
       if (newPerson.id === relatedToId) return;
 
-      setRawPersons((prev) => [...prev, newPerson]);
+      const currentPersons = rawPersonsRef.current;
+      const currentUnions = rawUnionsRef.current;
+      const currentEdges = rawEdgesRef.current;
+
+      const nextPersons = [...currentPersons, newPerson];
+      let nextUnions = currentUnions;
+      let nextEdges = currentEdges;
 
       if (linkType === "partner") {
-        setRawUnions((prev) => [
-          ...prev,
-          { id: nextUnionId(prev), partnerA: relatedToId, partnerB: newPerson.id, type: unionType ?? "marriage", startYear: startYear ?? null, endYear: null },
-        ]);
+        nextUnions = [
+          ...currentUnions,
+          { id: nextUnionId(currentUnions), partnerA: relatedToId, partnerB: newPerson.id, type: unionType ?? "marriage", startYear: startYear ?? null, endYear: null },
+        ];
       } else if (linkType === "child") {
         const union = findParentUnion(relatedToId);
         if (union) {
-          setRawEdges((prev) => [...prev, { unionId: union.id, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }]);
+          nextEdges = [...currentEdges, { unionId: union.id, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }];
         } else {
-          const newId = nextUnionId(rawUnions);
-          setRawUnions((prev) => [...prev, { id: newId, partnerA: relatedToId, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
-          setRawEdges((prev) => [...prev, { unionId: newId, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }]);
+          const newId = nextUnionId(currentUnions);
+          nextUnions = [...currentUnions, { id: newId, partnerA: relatedToId, partnerB: "", type: "marriage", startYear: null, endYear: null }];
+          nextEdges = [...currentEdges, { unionId: newId, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }];
         }
       } else {
         const rel = relationshipType ?? "biological";
         // The new parent gets a fresh single-parent union. Guard the parent-role
         // rule (e.g. adding a second biological mother to a child that already
         // has one).
-        const newU: UnionLike = { id: nextUnionId(rawUnions), partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null };
-        const prospective = [...rawUnions, { ...newU, id: newU.id }];
-        const finalEdges = [
-          ...rawEdges,
+        const newU: UnionLike = { id: nextUnionId(currentUnions), partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null };
+        const prospective = [...currentUnions, { ...newU, id: newU.id }];
+        const prospectiveEdges = [
+          ...currentEdges,
           { unionId: newU.id, childId: relatedToId, relationshipType: rel },
         ];
         const mergedGenders = new Map<string, Gender>(genderById);
         mergedGenders.set(newPerson.id, (newPerson.gender as Gender) ?? "");
         const conflict = findDualParentConflicts(
           prospective,
-          finalEdges,
+          prospectiveEdges,
           mergedGenders
         ).some((c) => c.childId === relatedToId);
         if (conflict) {
-          setRawPersons((prev) => prev.filter((p) => p.id !== newPerson.id));
           toast(
             rel === "biological"
               ? "This child already has a biological parent of that gender. Add the new parent as Step or Adopted instead."
@@ -970,41 +994,46 @@ export default function TapestryCanvas() {
           );
           return;
         }
-        const newId = newU.id;
-        setRawUnions((prev) => [...prev, { id: newId, partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null }]);
-        setRawEdges((prev) => [...prev, { unionId: newId, childId: relatedToId, relationshipType: rel }]);
+        nextUnions = prospective;
+        nextEdges = prospectiveEdges;
       }
+
+      setRawPersons(nextPersons);
+      setRawUnions(nextUnions);
+      setRawEdges(nextEdges);
       if (user) {
         apiCall("POST", "/tree/persons", toDbPerson(newPerson), () => toast("Failed to save new person", "error"));
-        setTimeout(() => {
-          apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save relationship", "error"));
-        }, 0);
+        apiCall("PUT", "/tree", { persons: nextPersons, unions: nextUnions, edges: nextEdges }, () => toast("Failed to save relationship", "error"));
       }
     },
-    [findParentUnion, genderById, rawUnions, rawPersons, rawEdges, user, toast]
+    [findParentUnion, genderById, user, toast]
   );
 
   //  --  --  CRUD: Remove link  --  -- 
   const handleRemoveLink = useCallback(
     (linkType: "partner" | "child", fromId: string, toId: string) => {
+      const currentUnions = rawUnionsRef.current;
+      const currentEdges = rawEdgesRef.current;
+      let nextUnions = currentUnions;
+      let nextEdges = currentEdges;
       if (linkType === "partner") {
-        setRawUnions((prev) =>
-          prev.filter((u) => !((u.partnerA === fromId && u.partnerB === toId) || (u.partnerA === toId && u.partnerB === fromId)))
+        nextUnions = currentUnions.filter(
+          (u) => !((u.partnerA === fromId && u.partnerB === toId) || (u.partnerA === toId && u.partnerB === fromId))
         );
       } else {
-        const edge = rawEdges.find((e) => e.childId === toId);
+        const edge = currentEdges.find((e) => e.childId === toId);
         if (edge) {
-          const union = rawUnions.find((u) => u.id === edge.unionId);
+          const union = currentUnions.find((u) => u.id === edge.unionId);
           if (union && (union.partnerA === fromId || union.partnerB === fromId)) {
-            setRawEdges((prev) => prev.filter((e) => !(e.unionId === edge.unionId && e.childId === toId)));
+            nextEdges = currentEdges.filter((e) => !(e.unionId === edge.unionId && e.childId === toId));
           }
         }
       }
-      if (user) setTimeout(() => {
-        apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions, edges: rawEdges }, () => toast("Failed to save changes", "error"));
-      }, 0);
+      setRawUnions(nextUnions);
+      setRawEdges(nextEdges);
+      if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: nextUnions, edges: nextEdges }, () => toast("Failed to save changes", "error"));
     },
-    [rawEdges, rawUnions, rawPersons, user, toast]
+    [user, toast]
   );
 
   //  --  --  CRUD: Sources  --  -- 
