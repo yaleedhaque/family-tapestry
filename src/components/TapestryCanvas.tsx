@@ -465,12 +465,14 @@ export default function TapestryCanvas() {
         });
       }
 
-      //  --  --  Lay out the (visible) tree (deterministic, generation-layered)  --  -- 
+      //  --  --  Lay out the (visible) tree via ELK (Sugiyama layered, couple-node)  --  -- 
       // Spouses + their union diamond sit side by side in one row; children hang
-      // below. Deterministic placement keeps it tree-like and avoids node-box
-      // overlap on load. Edges remain real React Flow edges (smoothstep, connected
-      // to node handles) so they stay attached and follow the nodes when dragged.
-      const { positions } = manualFamilyLayout(layoutPersons, visibleUnions, layoutEdges);
+      // below. ELK's layered algorithm enforces non-overlapping blocks, so no two
+      // cards can collide no matter how large the tree grows (this replaced the old
+      // hand-rolled width-reservation layout that overlapped at scale). Edges remain
+      // real React Flow edges (smoothstep, connected to node handles) so they stay
+      // attached and follow the nodes when dragged.
+      const { positions } = await manualFamilyLayout(layoutPersons, visibleUnions, layoutEdges, surrogates);
       if (version !== layoutVersionRef.current) return;
       const layoutPositions = new Map<string, { x: number; y: number }>(positions);
 
