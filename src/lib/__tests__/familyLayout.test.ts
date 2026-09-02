@@ -297,4 +297,55 @@ describe("manualFamilyLayout (live tree)", () => {
     const gMid = (cx("p6") + cx("p5")) / 2;
     expect(Math.abs(positions.get("u6")!.x + 55 - gMid)).toBeLessThan(3);
   });
+
+  it("keeps an in-married spouse from overlapping her bio siblings in the natal fan", () => {
+    // Ambia(p2) is BOTH a child of union u9 (Amir x Alea) AND the in-married spouse
+    // in union u3 (Shahidul x Ambia). u3 is laid out through Shahidul's lineage, so
+    // Ambia renders at that location; her natal fan (u9) must NOT reserve her separate
+    // subtree width again — that pushed sibling Alomgir(p10) onto her. Regression for
+    // the live Ambia x Alomgir overlap.
+    const fam = {
+      persons: [
+        { id: "p1" }, { id: "p2" }, { id: "p3" }, { id: "p4" }, { id: "p5" },
+        { id: "p6" }, { id: "p7" }, { id: "p8" }, { id: "p9" }, { id: "p10" },
+        { id: "p11" }, { id: "p12" }, { id: "p13" },
+      ],
+      unions: [
+        { id: "u3", partnerA: "p3", partnerB: "p2" },
+        { id: "u6", partnerA: "p6", partnerB: "p5" },
+        { id: "u9", partnerA: "p8", partnerB: "p7" },
+      ],
+      edges: [
+        { unionId: "u3", childId: "p1" },
+        { unionId: "u3", childId: "p4" },
+        { unionId: "u6", childId: "p3" },
+        { unionId: "u9", childId: "p2" },
+        { unionId: "u9", childId: "p9" },
+        { unionId: "u9", childId: "p10" },
+        { unionId: "u9", childId: "p11" },
+        { unionId: "u9", childId: "p12" },
+        { unionId: "u9", childId: "p13" },
+      ],
+    };
+    const { positions } = manualFamilyLayout(fam.persons, fam.unions, fam.edges);
+    // all nodes present
+    for (const p of fam.persons) expect(positions.has(p.id), `person ${p.id}`).toBe(true);
+    for (const u of fam.unions) expect(positions.has(u.id), `union ${u.id}`).toBe(true);
+    // Amba renders once, at her marital union's generation
+    expect(Math.round((positions.get("p2")!.y + PH / 2) / 410)).toBe(1);
+    // no overlapping person boxes within the same generation row
+    const rows: Record<number, { id: string; l: number; r: number }[]> = {};
+    for (const p of fam.persons) {
+      const pos = positions.get(p.id)!;
+      const row = Math.round(pos.y / 410);
+      (rows[row] = rows[row] || []).push({ id: p.id, l: pos.x, r: pos.x + PW });
+    }
+    for (const row of Object.values(rows)) {
+      row.sort((a, b) => a.l - b.l);
+      for (let i = 0; i < row.length - 1; i++) {
+        const gap = row[i + 1].l - row[i].r;
+        expect(gap, `row ${row.map((x) => x.id).join(",")} gap ${row[i].id}->${row[i + 1].id}`).toBeGreaterThanOrEqual(-1);
+      }
+    }
+  });
 });

@@ -138,7 +138,12 @@ export function manualFamilyLayout(
     let total = 0;
     const kw: Record<string, number> = {};
     for (const k of ks) {
-      const w = kidSpan(k, u.id);
+      // A child already placed elsewhere (e.g. an in-married spouse whose marital
+      // union was laid out through their partner's lineage) must NOT reserve its
+      // separate subtree width in this natal fan — that subtree already rendered at
+      // its own location. Reserving it again here double-counts width and pushes the
+      // following siblings into the already-placed child (Alomgir overlapping Ambia).
+      const w = placedP[k] ? PERSON_W : kidSpan(k, u.id);
       kw[k] = w;
       total += w + GAP;
     }
