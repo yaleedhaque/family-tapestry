@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { manualFamilyLayout, findOverlaps } from "../familyLayout";
-import { LAYOUT_PERSON_H } from "../layoutEngine";
+import { LAYOUT_PERSON_H, LAYOUT_UNION_W } from "../layoutEngine";
 
 // Real live-tree dataset: 13 persons, 5 unions, 5 parent edges, incl. remarriage
 // (p1 in u1+u2), an in-married wife (p7), a married child (p6 head of u4), and a
@@ -41,6 +41,10 @@ const PH = 231; // real rendered PersonNode height (matches layoutEngine.LAYOUT_
 function cxOf(positions: Map<string, { x: number; y: number }>, id: string) {
   return positions.get(id)!.x + PW / 2;
 }
+// Diamond nodes are LAYOUT_UNION_W wide, so their centre uses its own half-width.
+function dCxOf(positions: Map<string, { x: number; y: number }>, id: string) {
+  return positions.get(id)!.x + LAYOUT_UNION_W / 2;
+}
 
 describe("ELK family layout (couple-node model)", () => {
   it("places every person and every couple-union", async () => {
@@ -62,7 +66,7 @@ describe("ELK family layout (couple-node model)", () => {
     const { positions } = await manualFamilyLayout(persons, unions, edges);
     for (const u of ["u1", "u2", "u4"] as const) {
       const child = edges.find((e) => e.unionId === u)!.childId;
-      const dx = cxOf(positions, child) - cxOf(positions, u);
+      const dx = cxOf(positions, child) - dCxOf(positions, u);
       expect(Math.abs(dx), `${u}->${child}`).toBeLessThan(140);
     }
   });
@@ -87,6 +91,101 @@ describe("ELK family layout (couple-node model)", () => {
     // no overlapping nodes at all
     const hits = findOverlaps(positions, persons, unions);
     expect(hits).toEqual([]);
+  });
+
+  it("lays out clean 3-couple tree: spouses side-by-side, diamond centred, straight single drop", async () => {
+    // Classic genogram look the user asked for: married pairs sit adjacent in one
+    // row (gap exactly the diamond corridor), the union diamond sits EXACTLY
+    // between them, and a lone FREE child drops straight down (|dx| ~ 0) from the
+    // diamond. Two independent couples with unmarried children exercise this.
+    const fam = {
+      persons: [
+        { id: "p1" }, { id: "p2" }, { id: "p3" },
+        { id: "p4" }, { id: "p5" }, { id: "p6" },
+      ],
+      unions: [
+        { id: "u1", partnerA: "p1", partnerB: "p2" },
+        { id: "u2", partnerA: "p4", partnerB: "p5" },
+      ],
+      edges: [
+        { unionId: "u1", childId: "p3" },
+        { unionId: "u2", childId: "p6" },
+      ],
+    };
+    const { positions } = await manualFamilyLayout(fam.persons, fam.unions, fam.edges);
+    expect(findOverlaps(positions, fam.persons, fam.unions)).toEqual([]);
+
+    for (const u of fam.unions) {
+      const a = positions.get(u.partnerA)!;
+      const b = positions.get(u.partnerB)!;
+      // spouses on the same row
+      expect(a.y, `${u.id} same row`).toBeCloseTo(b.y, 5);
+      // diamond centred exactly between the two partner centres
+      const midX = (cxOf(positions, u.partnerA) + cxOf(positions, u.partnerB)) / 2;
+      expect(dCxOf(positions, u.id), `${u.id} centred`).toBeCloseTo(midX, 4);
+      // spouses adjacent: the gap between them is exactly the diamond corridor
+      // (GAP + LAYOUT_UNION_W + GAP = 206) — no other card between them
+      const gap = b.x - (a.x + PW);
+      expect(gap, `${u.id} adjacent gap`).toBeCloseTo(206, 4);
+    }
+
+    // lone FREE children drop straight under their parent diamond
+    expect(cxOf(positions, "p3") - dCxOf(positions, "u1")).toBeCloseTo(0, 4);
+    expect(cxOf(positions, "p6") - dCxOf(positions, "u2")).toBeCloseTo(0, 4);
+  });
+
+  it("keeps the LIVE Haque topology (26-person) overlap-free with centred real couples", async () => {
+    // Real live DB topology: 6 couples (u3,u6,u9,u14,u15,u16), 3 single parents
+    // (u10,u12,u13), incl. the in-married spouses the user flagged (Ambia p2 into
+    // u3, Shahidul p3 as child of u6, Akash p23/Afzal p10 descendants).
+    const fam = {
+      persons: [
+        "p2", "p3", "p4", "p7", "p14", "p17", "p18", "p21", "p5", "p8",
+        "p12", "p19", "p25", "p27", "p23", "p24", "p26", "p1", "p6", "p9",
+        "p10", "p11", "p13", "p16", "p20", "p22",
+      ].map((id) => ({ id })),
+      unions: [
+        { id: "u3", partnerA: "p3", partnerB: "p2" },
+        { id: "u6", partnerA: "p6", partnerB: "p5" },
+        { id: "u9", partnerA: "p8", partnerB: "p7" },
+        { id: "u10", partnerA: "p10", partnerB: "" },
+        { id: "u12", partnerA: "p12", partnerB: "" },
+        { id: "u13", partnerA: "p9", partnerB: "" },
+        { id: "u14", partnerA: "p16", partnerB: "p25" },
+        { id: "u15", partnerA: "p23", partnerB: "p26" },
+        { id: "u16", partnerA: "p11", partnerB: "p27" },
+      ],
+      edges: [
+        { unionId: "u9", childId: "p10" },
+        { unionId: "u10", childId: "p14" },
+        { unionId: "u12", childId: "p18" },
+        { unionId: "u12", childId: "p19" },
+        { unionId: "u12", childId: "p20" },
+        { unionId: "u12", childId: "p21" },
+        { unionId: "u12", childId: "p22" },
+        { unionId: "u13", childId: "p23" },
+        { unionId: "u13", childId: "p24" },
+        { unionId: "u16", childId: "p17" },
+        { unionId: "u16", childId: "p16" },
+        { unionId: "u3", childId: "p1" },
+        { unionId: "u3", childId: "p4" },
+        { unionId: "u6", childId: "p3" },
+        { unionId: "u9", childId: "p2" },
+        { unionId: "u9", childId: "p9" },
+        { unionId: "u9", childId: "p13" },
+        { unionId: "u9", childId: "p12" },
+        { unionId: "u9", childId: "p11" },
+      ],
+    };
+    const { positions } = await manualFamilyLayout(fam.persons, fam.unions, fam.edges);
+    expect(findOverlaps(positions, fam.persons, fam.unions)).toEqual([]);
+    // every couple's diamond centred between its partners (no remarriage in the
+    // live tree, so every couple is a real compound -> delta must be ~0)
+    for (const u of fam.unions) {
+      if (!u.partnerB) continue;
+      const midX = (cxOf(positions, u.partnerA) + cxOf(positions, u.partnerB)) / 2;
+      expect(dCxOf(positions, u.id), `${u.id} centred`).toBeCloseTo(midX, 4);
+    }
   });
 
   it("keeps an in-married spouse (Ambia x Alomgir pathology) overlap-free", async () => {
@@ -176,7 +275,7 @@ describe("ELK family layout (couple-node model)", () => {
 
     for (const p of grown.persons) expect(a.positions.has(p.id), `person ${p.id}`).toBe(true);
     for (const u of grown.unions) {
-      expect(a.positions.has(u.id), `union ${u.id}`).toBe(u.partnerB ? true : false);
+      expect(a.positions.has(u.id), `union ${u.id}`).toBe(u.partnerA && u.partnerB ? true : false);
     }
     expect(findOverlaps(a.positions, grown.persons, grown.unions)).toEqual([]);
   });
