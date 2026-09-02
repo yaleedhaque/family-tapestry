@@ -75,25 +75,25 @@ function UnionNode({ data }: NodeProps) {
             position={Position.Left}
             id="partner-left"
             className="!bg-thread-gold"
-            // Diamond tips sit at ±16√2 ≈ ±22.63px from the box centre (the 32px
-            // square is rotate-45, so its corners point N/E/S/W beyond the box).
-            // Box centre = (16,16); left tip = (16-22.63, 16) = (-6.63, 16).
-            // A 6px handle centred on that tip -> left = -9.63, top = 13.
-            style={{ left: -9.6, top: 13 }}
+            // Diamond tip sits at box-local x=16-16*sqrt(2) ~= -6.6 (box centre
+            // is (16,16); the 32px square is rotate-45 so its left corner lands
+            // 16*sqrt(2) ~= 22.6px from centre). React Flow centres the handle on
+            // the given left/top value, so left/top == the corner's coordinates.
+            style={{ left: -6.6, top: 16 }}
           />
           <Handle
             type="target"
             position={Position.Right}
             id="partner-right"
             className="!bg-thread-gold"
-            style={{ right: -9.6, top: 13 }}
+            style={{ right: -6.6, top: 16 }}
           />
           <Handle
             type="source"
             position={Position.Bottom}
             id="child"
             className="!bg-thread-gold"
-            style={{ left: 13, bottom: -9.6 }}
+            style={{ left: 16, bottom: -6.6 }}
           />
         </div>
       </div>
