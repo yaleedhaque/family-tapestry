@@ -47,10 +47,6 @@ function PersonNode({ data }: NodeProps) {
       `}
     >
       <Handle type="target" id="top" position={Position.Top} className="!bg-thread-gold !w-2 !h-2" />
-      {/* Side handles: a partner connects sideways to its marriage diamond so the
-          line stays a short, straight horizontal run (never a bent diagonal). */}
-      <Handle type="source" id="partner-l" position={Position.Left} className="!bg-thread-gold !w-2 !h-2" />
-      <Handle type="source" id="partner-r" position={Position.Right} className="!bg-thread-gold !w-2 !h-2" />
 
       <div
         className={`

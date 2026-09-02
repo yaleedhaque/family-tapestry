@@ -8,6 +8,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  MarkerType,
   type Node,
   type Edge,
 } from "@xyflow/react";
@@ -16,7 +17,6 @@ import { manualFamilyLayout } from "@/lib/familyLayout";
 
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
-import FamilyEdge, { type FamilyEdgeData } from "@/components/FamilyEdge";
 import InfoPanel from "@/components/InfoPanel";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import BrickBackground from "@/components/BrickBackground";
@@ -46,10 +46,6 @@ import { useUserCircle } from "@/lib/useUserCircle";
 import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
-const edgeTypes = { family: FamilyEdge };
-
-const P_W = 210; // person card width (matches familyLayout STANDARD)
-const P_H = 231; // person card height (matches familyLayout STANDARD)
 
 function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   if ("fullName" in p && "birthPlace" in p && "bio" in p) return p as PersonLike;
@@ -117,6 +113,65 @@ function toEdgeLike(e: {
     childId: e.childId ?? e.child_id ?? "",
     relationshipType: e.relationshipType ?? e.relationship_type ?? "biological",
     createdBy: e.createdBy ?? e.created_by ?? null,
+  };
+}
+
+function makeMarriageEdge(source: string, target: string, unionType: string, targetHandle?: string): Edge {
+  const isDivorced = unionType === "divorced";
+  return {
+    id: `${source}-${target}-marriage`,
+    source,
+    target,
+    targetHandle,
+    type: "smoothstep",
+    style: {
+      stroke: isDivorced ? "var(--divorce-red)" : "var(--thread-gold)",
+      strokeWidth: 2,
+      opacity: isDivorced ? 0.7 : 0.85,
+      strokeDasharray: isDivorced ? "6 4" : undefined,
+    },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: isDivorced ? "var(--divorce-red)" : "var(--thread-gold-dim)",
+      width: 12,
+      height: 12,
+    },
+    label: isDivorced ? "divorced" : undefined,
+    labelStyle: isDivorced
+      ? { fill: "var(--ember-red)", fontSize: 10, fontFamily: "var(--font-body)" }
+      : undefined,
+    labelBgStyle: isDivorced ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
+    labelBgPadding: isDivorced ? ([6, 3] as [number, number]) : undefined,
+  };
+}
+
+function makeChildEdge(source: string, target: string, relationshipType?: string, sourceHandle?: string, targetHandle = "top"): Edge {
+  const isAdopted = relationshipType === "adopted";
+  const isStep = relationshipType === "step";
+  const color = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
+  return {
+    id: `${source}-${target}-child`,
+    source,
+    target,
+    sourceHandle,
+    targetHandle,
+    type: "smoothstep",
+    animated: isAdopted,
+    style: {
+      stroke: color,
+      strokeWidth: isAdopted ? 2 : 1.2,
+      opacity: 0.85,
+      strokeDasharray: isAdopted ? "6 4" : undefined,
+    },
+    markerEnd: { type: MarkerType.ArrowClosed, color, width: 9, height: 9 },
+    label: isAdopted ? "adopted" : isStep ? "step" : undefined,
+    labelStyle: isAdopted
+      ? { fill: "var(--accent-emerald)", fontSize: 9, fontFamily: "var(--font-body)" }
+      : isStep
+      ? { fill: "var(--link)", fontSize: 9, fontFamily: "var(--font-body)" }
+      : undefined,
+    labelBgStyle: isAdopted || isStep ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
+    labelBgPadding: isAdopted || isStep ? ([5, 2] as [number, number]) : undefined,
   };
 }
 
@@ -320,112 +375,32 @@ export default function TapestryCanvas() {
         graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons }, position: { x: 0, y: 0 } });
       }
 
-      //  --  --  Lay out the tree (deterministic, non-overlapping)  --  -- 
-      // Generation-layered: spouses + their union diamond sit side by side in one
-      // row and every child hangs straight down under its couple. Verified to place
-      // every node so NO edge passes through another node's card.
+      //  --  --  Lay out the tree (deterministic, generation-layered)  --  -- 
+      // Spouses + their union diamond sit side by side in one row; children hang
+      // below. Deterministic placement keeps it tree-like and avoids node-box
+      // overlap on load. Edges remain real React Flow edges (smoothstep, connected
+      // to node handles) so they stay attached and follow the nodes when dragged.
       const { positions } = manualFamilyLayout(persons, unions, parentEdges);
       if (version !== layoutVersionRef.current) return;
       const layoutPositions = new Map<string, { x: number; y: number }>(positions);
-      const posOf = (id: string) => layoutPositions.get(id) ?? { x: 0, y: 0 };
-      const cx0 = (id: string) => posOf(id).x + P_W / 2; // person centre X
-      const cy0 = (id: string) => posOf(id).y + P_H / 2; // person centre Y
 
-      //  --  --  Family edges as explicit SVG paths  --  -- 
-      // Marriage reads as a short horizontal bar between the partners (onto which
-      // the small union diamond sits). Children hang below via a classic genogram
-      // connection (stem → fan → drop) that never crosses another card, no matter
-      // how wide the family fans. Every segment is drawn from the laid-out node
-      // positions, so nothing relies on React Flow's auto-routing or handle heights.
-
-      const kidsOf: Record<string, EdgeLike[]> = {};
-      for (const e of parentEdges) (kidsOf[e.unionId] = kidsOf[e.unionId] ?? []).push(e);
-
+      // Marriage edges: each partner connects to the union diamond. With only
+      // top/bottom handles on the person cards, a partner connects from its bottom
+      // handle to the diamond — a smoothstep curve that stays attached as you drag.
       for (const union of unions) {
         if (!union.partnerB) continue;
-        const pa = posOf(union.partnerA);
-        const pb = posOf(union.partnerB);
-        const aLeft = pa.x <= pb.x;
-        const left = aLeft ? union.partnerA : union.partnerB;
-        const right = aLeft ? union.partnerB : union.partnerA;
-        const cy = cy0(left); // partners share the row centre
-        const xL = cx0(left) + P_W / 2;
-        const xR = cx0(right) - P_W / 2;
-        const isDiv = union.type === "divorced";
-        const kids = kidsOf[union.id] || [];
-
-        // Marriage bar: a perfectly horizontal line across to the partner cards.
-        graphEdges.push({
-          id: `u-${union.id}-bar`,
-          source: left,
-          target: right,
-          type: "family",
-          data: {
-            path: `M ${xL} ${cy} L ${xR} ${cy}`,
-            stroke: isDiv ? "var(--divorce-red)" : "var(--thread-gold)",
-            strokeWidth: 2,
-            dash: isDiv ? "6 4" : undefined,
-            label: isDiv ? "divorced" : undefined,
-            labelColor: "var(--ember-red)",
-          } as FamilyEdgeData,
-        });
-
-        // Children: stem from the bar to below the parents, fan along the
-        // inter-generation gap, then drop straight to each child's card.
-        if (kids.length) {
-          const midX = (cx0(left) + cx0(right)) / 2;
-          const rowBottom = cy + P_H / 2 + 6;
-          for (const c of kids) {
-            const kid = posOf(c.childId);
-            const dropX = cx0(c.childId);
-            const isAdopted = c.relationshipType === "adopted";
-            const isStep = c.relationshipType === "step";
-            const stroke = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
-            graphEdges.push({
-              id: `e-${union.id}-${c.childId}`,
-              source: union.partnerA,
-              target: c.childId,
-              type: "family",
-              data: {
-                path: `M ${midX} ${cy} L ${midX} ${rowBottom} L ${dropX} ${rowBottom} L ${dropX} ${kid.y}`,
-                stroke,
-                strokeWidth: isAdopted ? 2 : 1.3,
-                dash: isAdopted ? "6 4" : undefined,
-                label: isAdopted ? "adopted" : isStep ? "step" : undefined,
-                labelColor: isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : undefined,
-                animated: isAdopted,
-              } as FamilyEdgeData,
-            });
-          }
-        }
+        graphEdges.push(makeMarriageEdge(union.partnerA, union.id, union.type, "partner-left"));
+        graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, "partner-right"));
       }
 
-      // Single-parent unions: children hang straight under the lone parent.
-      for (const u of unions) {
-        if (u.partnerB || !u.partnerA) continue;
-        const p = posOf(u.partnerA);
-        const parentBottom = p.y + P_H;
-        for (const c of kidsOf[u.id] || []) {
-          const kid = posOf(c.childId);
-          const dropX = cx0(c.childId);
-          const isAdopted = c.relationshipType === "adopted";
-          const isStep = c.relationshipType === "step";
-          const stroke = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
-          graphEdges.push({
-            id: `e-${u.id}-${c.childId}`,
-            source: u.partnerA,
-            target: c.childId,
-            type: "family",
-            data: {
-              path: `M ${dropX} ${parentBottom} L ${dropX} ${kid.y}`,
-              stroke,
-              strokeWidth: isAdopted ? 2 : 1.3,
-              dash: isAdopted ? "6 4" : undefined,
-              label: isAdopted ? "adopted" : isStep ? "step" : undefined,
-              labelColor: isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : undefined,
-              animated: isAdopted,
-            } as FamilyEdgeData,
-          });
+      // Child edges: union diamond bottom -> child top (smoothstep, follows drags).
+      for (const edge of parentEdges) {
+        const union = unions.find((u) => u.id === edge.unionId);
+        if (union && !union.partnerB) {
+          // Single parent (no diamond): child drops straight from the parent's bottom.
+          graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType, "bottom"));
+        } else {
+          graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType, "child"));
         }
       }
 
@@ -1147,7 +1122,6 @@ export default function TapestryCanvas() {
             onNodeMouseLeave={() => setHoveredNodeId(null)}
             onMove={onCanvasMove}
             nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
             proOptions={{ hideAttribution: true }}
             minZoom={0.1}
             maxZoom={isMobile ? 2 : 3}
