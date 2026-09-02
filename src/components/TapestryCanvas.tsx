@@ -1439,7 +1439,7 @@ export default function TapestryCanvas() {
       </div>
 
       {/* Tree selector */}
-      <div className="fixed top-4 left-4 z-30 flex items-center gap-2"><LanguageSwitcher />
+      <div className="fixed top-4 left-4 z-30 flex items-center gap-2 flex-wrap max-md:max-w-[calc(100vw-1.25rem)]"><LanguageSwitcher />
         <select
           value={activeTreeId}
           onChange={(e) => switchTree(e.target.value)}

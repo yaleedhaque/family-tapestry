@@ -123,7 +123,7 @@ function UnionNode({ data }: NodeProps) {
           className={`
             absolute bottom-0 left-1/2 -translate-x-1/2 z-10
             flex items-center gap-1 cursor-pointer select-none
-            rounded-full border px-2 py-0.5
+            rounded-full border px-2.5 py-1.5 min-h-[30px]
             transition-colors
             ${
               isCollapsed
@@ -137,7 +137,7 @@ function UnionNode({ data }: NodeProps) {
             fill="none"
             stroke="currentColor"
             strokeWidth="2.4"
-            className="w-3 h-3"
+            className="w-4 h-4"
           >
             {isCollapsed ? (
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -145,7 +145,7 @@ function UnionNode({ data }: NodeProps) {
               <path d="M5 12h14" strokeLinecap="round" />
             )}
           </svg>
-          <span className="font-body text-[9px] leading-none">
+          <span className="font-body text-[10px] leading-none">
             {isCollapsed ? descendantCount : ""}
           </span>
         </button>
