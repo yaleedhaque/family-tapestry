@@ -1045,6 +1045,47 @@ export default function TapestryCanvas() {
     switchTree(id);
   }, [switchTree]);
 
+  //  --  --  Delete the ACTIVE tree (admin only). Never resurrected: unlike
+  //  switchTree, this does NOT re-save the deleted tree back to storage.  --  -- 
+  const deleteTree = useCallback(() => {
+    const STORAGE_KEY = "family-tapestry-trees";
+    const saved = localStorage.getItem(STORAGE_KEY);
+    let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[]; sources?: Source[] }> = {};
+    let names: Record<string, string> = { ...treeNames };
+    if (saved) {
+      try { const p = JSON.parse(saved); trees = p.trees ?? {}; names = { ...names, ...p.names }; } catch { /* ok */ }
+    }
+
+    // Save the current tree's latest edits before removal (so pending work isn't
+    // silently lost — though it's about to be deleted anyway), then delete it.
+    trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges, sources: rawSources };
+    delete trees[activeTreeId];
+    delete names[activeTreeId];
+
+    const remaining = Object.keys(trees);
+    const nextActive = remaining.length ? remaining[0] : "default";
+    const nextNames = remaining.length ? names : { default: "The Haque Tapestry" };
+
+    const t = trees[nextActive];
+    if (t) {
+      setRawPersons(t.persons);
+      setRawUnions(t.unions);
+      setRawEdges(t.edges);
+      setRawSources(t.sources ?? []);
+    } else {
+      setRawPersons(staticPersons);
+      setRawUnions(staticUnions.map(toUnionLike));
+      setRawEdges(staticEdges);
+      setRawSources([]);
+    }
+    setTreeNames(nextNames);
+    setActiveTreeId(nextActive);
+    setSelectedPerson(null);
+    initialLoadDone.current = false;
+    layoutVersionRef.current++;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees: remaining.length ? trees : {}, names: nextNames, activeTree: nextActive }));
+  }, [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames]);
+
   //  --  --  Hover highlighting: find connected nodes  --  -- 
   const connectedNodeIds = useMemo(() => {
     if (!hoveredNodeId) return null;
@@ -1395,6 +1436,20 @@ export default function TapestryCanvas() {
             title="Create new tree"
           >
             + Tree
+          </button>
+        )}
+        {!authLoading && user && user.role === "admin" && (
+          <button
+            onClick={() => {
+              if (window.confirm("Delete this tree forever? All its people, couples and notes will be removed. This cannot be undone.")) {
+                deleteTree();
+              }
+            }}
+            className="px-2.5 py-2 text-xs rounded-lg bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--ember-red)]/40 text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 hover:border-[var(--ember-red)] transition-colors font-body"
+            title="Delete this tree (admin only)"
+            aria-label="Delete this tree"
+          >
+            🗑
           </button>
         )}
       </div>
