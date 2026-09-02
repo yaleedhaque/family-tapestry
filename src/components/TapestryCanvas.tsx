@@ -1086,6 +1086,28 @@ export default function TapestryCanvas() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees: remaining.length ? trees : {}, names: nextNames, activeTree: nextActive }));
   }, [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames]);
 
+  //  --  --  Rename the ACTIVE tree's title (editor/admin, same gate as + Tree).  --  -- 
+  const renameTree = useCallback(() => {
+    const current = treeNames[activeTreeId] ?? "";
+    const name = window.prompt("Tree name:", current);
+    if (!name || !name.trim() || name.trim() === current) return;
+    const trimmed = name.trim();
+    setTreeNames((prev) => {
+      const next = { ...prev, [activeTreeId]: trimmed };
+      // persist to the same localStorage tree blob
+      const STORAGE_KEY = "family-tapestry-trees";
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const p = JSON.parse(saved);
+          const names = { ...p.names, [activeTreeId]: trimmed };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...p, names }));
+        } catch { /* ok */ }
+      }
+      return next;
+    });
+  }, [activeTreeId, treeNames]);
+
   //  --  --  Hover highlighting: find connected nodes  --  -- 
   const connectedNodeIds = useMemo(() => {
     if (!hoveredNodeId) return null;
@@ -1436,6 +1458,16 @@ export default function TapestryCanvas() {
             title="Create new tree"
           >
             + Tree
+          </button>
+        )}
+        {canEdit && (
+          <button
+            onClick={renameTree}
+            className="px-2.5 py-2 text-xs rounded-lg bg-[var(--tapestry-bg)]/85 backdrop-blur-sm border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold-dim)] hover:text-[var(--thread-gold)] hover:border-[var(--thread-gold)] transition-colors font-body"
+            title="Rename this tree"
+            aria-label="Rename this tree"
+          >
+            ✏️
           </button>
         )}
         {!authLoading && user && user.role === "admin" && (
