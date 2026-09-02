@@ -13,7 +13,7 @@ import {
   MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import ELK from "elkjs/lib/elk.bundled.js";
+import { manualFamilyLayout } from "@/lib/familyLayout";
 
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
@@ -46,25 +46,6 @@ import { useUserCircle } from "@/lib/useUserCircle";
 import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
-
-const elk = new ELK();
-const PERSON_NODE_W = 210;
-const PERSON_NODE_H = 231;
-const UNION_NODE_W = 110;
-const UNION_NODE_H = 150;
-const ELK_OPTIONS = {
-  "elk.algorithm": "layered",
-  "elk.direction": "DOWN",
-  "elk.layered.layering.strategy": "NETWORK_SIMPLEX",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "150",
-  "elk.layered.spacing.nodeNode": "90",
-  "elk.layered.spacing.edgeNode": "30",
-  "elk.spacing.nodeNode": "90",
-  "elk.spacing.edgeNode": "30",
-  "elk.spacing.componentComponent": "90",
-  "elk.padding": "[top=60,left=60,bottom=60,right=60]",
-  "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
-};
 
 function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   if ("fullName" in p && "birthPlace" in p && "bio" in p) return p as PersonLike;
@@ -406,53 +387,43 @@ export default function TapestryCanvas() {
         }
       }
 
-      //  --  --  Lay out the tree with ELK (generation-layered)  --  -- 
-      // Explicit per-node generation layers put all spouses + their union in the
-      // SAME layer, so marriage edges stay short and horizontal within that layer
-      // and child edges always go straight one layer down — tidy, crossing-free.
-      const elkGraph = {
-        id: "root",
-        children: graphNodes.map((n) => {
-          const layer =
-            n.type === "unionNode"
-              ? generationMap[unions.find((u) => u.id === n.id)?.partnerA ?? ""] ?? 0
-              : generationMap[n.id] ?? 0;
-          return {
-            id: n.id,
-            width: n.type === "unionNode" ? UNION_NODE_W : PERSON_NODE_W,
-            height: n.type === "unionNode" ? UNION_NODE_H : PERSON_NODE_H,
-            properties: { "elk.layered.node.layer": String(layer) },
-          };
-        }),
-        edges: graphEdges.map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
-      };
-
-      const layout = await elk.layout(elkGraph, { layoutOptions: ELK_OPTIONS });
+      //  --  --  Lay out the tree (deterministic, non-overlapping)  --  -- 
+      // Generation-layered: spouses + their union diamond sit side by side in one
+      // row and every child hangs straight down under its couple. Verified to place
+      // every node so NO edge passes through another node's card. (No ELK — its
+      // plain layered layout routes long diagonal edges straight through cards.)
+      const { positions } = manualFamilyLayout(persons, unions, parentEdges);
       if (version !== layoutVersionRef.current) return;
+      const layoutPositions = new Map<string, { x: number; y: number }>(positions);
 
-      const positions = new Map<string, { x: number; y: number }>();
-      for (const c of layout.children ?? []) {
-        if (c.x !== undefined && c.y !== undefined) positions.set(c.id, { x: c.x, y: c.y });
-      }
-
-      // Decide which diamond corner each partner connects to. Routes are kept
-      // shortest and crossing-free: the partner LEFT of the union goes to the
-      // diamond's LEFT corner, the one on the RIGHT to the RIGHT corner.
+      // Route to the diamond corner each partner connects to, using the shortest /
+      // non-crossing path: the partner LEFT of the diamond goes to the LEFT corner
+      // and the RIGHT partner to the RIGHT corner. Each partner's line starts from
+      // the person's side handle facing the diamond so it leaves horizontally — it
+      // never slices through/under the avatar or another card.
       for (const union of unions) {
         if (!union.partnerB) continue;
-        const pa = positions.get(union.partnerA);
-        const pb = positions.get(union.partnerB);
+        const pa = layoutPositions.get(union.partnerA);
+        const pb = layoutPositions.get(union.partnerB);
         if (!pa || !pb) continue;
         const aLeftOfB = pa.x <= pb.x;
         const aCorner = aLeftOfB ? "partner-left" : "partner-right";
         const bCorner = aLeftOfB ? "partner-right" : "partner-left";
+        // Left partner leaves from its RIGHT side handle; right partner from LEFT.
+        const aSide = aLeftOfB ? "partner-r" : "partner-l";
+        const bSide = aLeftOfB ? "partner-l" : "partner-r";
         for (const e of graphEdges) {
-          if (e.id === `${union.partnerA}-${union.id}-marriage`) e.targetHandle = aCorner;
-          else if (e.id === `${union.partnerB}-${union.id}-marriage`) e.targetHandle = bCorner;
+          if (e.id === `${union.partnerA}-${union.id}-marriage`) {
+            e.sourceHandle = aSide;
+            e.targetHandle = aCorner;
+          } else if (e.id === `${union.partnerB}-${union.id}-marriage`) {
+            e.sourceHandle = bSide;
+            e.targetHandle = bCorner;
+          }
         }
       }
 
-      const positioned = graphNodes.map((n) => ({ ...n, position: positions.get(n.id) ?? { x: 0, y: 0 } }));
+      const positioned = graphNodes.map((n) => ({ ...n, position: layoutPositions.get(n.id) ?? { x: 0, y: 0 } }));
 
       if (animate && !initialLoadDone.current) {
         initialLoadDone.current = true;
