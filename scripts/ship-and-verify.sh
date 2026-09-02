@@ -28,8 +28,9 @@ DEPLOY_URL=""
 echo "⏳ Waiting for Vercel Production deploy to reach Ready..."
 for i in $(seq 1 60); do
   sleep 5
-  # row format: Age Project DeploymentURL ● Status Env ... → URL is $3, STATUS is $5
-  read -r URL STATUS < <(vercel ls --limit 8 2>/dev/null | awk 'NR>3 && /https:\/\/family-tapestry-/ {print $3, $5; exit}')
+  # verbatim: vercel ls writes the STATUS TABLE to STDERR; merge it (2>&1).
+  # row format: Age Project DeploymentURL ● Status Env → URL=$3, STATUS=$5
+  read -r URL STATUS < <(vercel ls --limit 8 2>&1 | awk 'NR>3 && /https:\/\/family-tapestry-/ {print $3, $5; exit}')
   if [ -n "$URL" ]; then
     DEPLOY_URL="$URL"
     echo "   [$i] newest: $STATUS $URL"
