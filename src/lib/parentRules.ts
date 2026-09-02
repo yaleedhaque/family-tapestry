@@ -176,112 +176,134 @@ export interface Consolidation {
 }
 
 /**
- * Auto-consolidates "two-line" bugs: when a child is attached to exactly two
- * DISTINCT single-parent biological unions (each with ONE partner and no
- * partner_b), merge them into ONE couple union so the child draws a single
- * line from the diamond's bottom node.
+ * Auto-consolidates "two-line" bugs. Enforces the invariant: **a child has
+ * exactly ONE biological parent-union**, drawn as a single line.
  *
- * This is the permanent, server-side defence for the bug where adding two
- * biological parents produced two single-parent unions (two lines from the
- * parent cards). It runs on EVERY save (all paths funnel through PUT /api/tree),
- * so it also repairs already-corrupted trees on their next save.
+ * Two distinct corruptions are repaired:
+ *  A. A child with exactly two DISTINCT single-parent biological unions (each
+ *     ONE partner, no partner_b) is merged into ONE couple union.
+ *  B. A child whose biological parents are already fully represented by a
+ *     COUPLE union but ALSO has a redundant attachment to a single-parent union
+ *     (the "couple + lone-parent" duplicate) — the child's line is moved to the
+ *     couple and the redundant single-parent attachment dropped.
+ * Then any single-parent union left with NO child edges AND whose lone parent is
+ * already in a couple union is removed (orphan cleanup), so it can't drift back
+ * into client state on the next save.
  *
- * Pure + deterministic: only touches bio edges of a child that resolve to two
- * distinct single-parent unions; leaves step/adopted and already-couple unions
- * alone. Returns the (maybe) reduced union/edge sets plus a report of merges.
+ * This is the permanent, server-side defence for the recurring bug where adding
+ * a second biological parent produced a duplicate parent line. It runs on EVERY
+ * save (all paths funnel through PUT /api/tree) and on client load, so it also
+ * repairs already-corrupted trees on their next save.
+ *
+ * Pure + deterministic. Only merges legal mother+father (or unknown-gender)
+ * couples — same-known-gender parents are left alone (still caught by the
+ * dual-parent validation). returns the (maybe) reduced union/edge sets plus a
+ * report of merges.
  */
 export function consolidateSingleParentBiologicalUnions(
   unions: UnionRow[],
   edges: EdgeRow[],
   genderById?: Map<string, Gender>
 ): Consolidation {
-  const unionById = new Map(unions.map((u) => [u.id, u]));
-
-  // Group single-parent unions (no partner_b) by their lone parent.
-  const singleByParent = new Map<string, UnionRow[]>();
-  for (const u of unions) {
-    const parents = unionParentIds(u);
-    if (parents.length !== 1) continue; // couple or empty — not a merge candidate
-    const pid = parents[0];
-    if (!singleByParent.has(pid)) singleByParent.set(pid, []);
-    singleByParent.get(pid)!.push(u);
-  }
-
   const outUnions = unions.map((u) => ({ ...u }));
   const outUnionsById = new Map(outUnions.map((u) => [u.id, u]));
   const outEdges = edges.map((e) => ({ ...e }));
   const merged: Consolidation["merged"] = [];
 
-  // Collect children needing consolidation: those with bio edges to >=2 distinct
-  // single-parent unions where the unions carry >=2 distinct parents total.
-  const children = new Set(edges.filter((e) => isBiological(e.relationshipType)).map((e) => e.childId));
+  const childIds = new Set(
+    outEdges.filter((e) => isBiological(e.relationshipType)).map((e) => e.childId)
+  );
 
-  for (const childId of Array.from(children)) {
-    const singleUnions = new Map<string, UnionRow>(); // unionId -> union (single-parent only)
-    const parents = new Set<string>();
-    for (const e of edges) {
-      if (e.childId !== childId || !isBiological(e.relationshipType)) continue;
-      const u = unionById.get(e.unionId);
-      if (!u) continue;
-      const pu = unionParentIds(u);
-      if (pu.length === 1) {
-        singleUnions.set(u.id, u);
-        parents.add(pu[0]);
-      } else {
-        // Already has a proper couple union among its bio parents — don't touch.
-        singleUnions.clear();
-        break;
+  for (const childId of Array.from(childIds)) {
+    // Gather this child's biological parent unions.
+    const bioUnionIds: string[] = [];
+    for (const e of outEdges) {
+      if (e.childId !== childId) continue;
+      if (isBiological(e.relationshipType) && outUnionsById.has(e.unionId)) {
+        bioUnionIds.push(e.unionId);
       }
     }
-    // Require exactly two single-parent unions and two distinct parents.
-    if (singleUnions.size !== 2 || parents.size !== 2) continue;
-    const [uA, uB] = Array.from(singleUnions.values());
-    const [pA, pB] = Array.from(parents);
-    // Safety: if both parents are the 'same gender' this would be a dual-parent
-    // conflict, not something to silently auto-merge — skip (validation rejects it).
+    if (bioUnionIds.length < 2) continue; // single relationship already correct
+
+    const couples = bioUnionIds.filter((id) => unionParentIds(outUnionsById.get(id)!).length === 2);
+    const singleIds = bioUnionIds.filter((id) => unionParentIds(outUnionsById.get(id)!).length === 1);
+
+    if (couples.length > 0) {
+      // --- Case B: a couple union already represents this child's parents.
+      // Re-point every bio attachment at the (first) couple.
+      const intoId = couples[0];
+      for (let i = outEdges.length - 1; i >= 0; i--) {
+        const e = outEdges[i];
+        if (e.childId !== childId || !isBiological(e.relationshipType)) continue;
+        e.unionId = intoId;
+      }
+      // Then keep exactly ONE edge for this child.
+      let seen = false;
+      for (let i = outEdges.length - 1; i >= 0; i--) {
+        const e = outEdges[i];
+        if (e.childId !== childId || !isBiological(e.relationshipType)) continue;
+        if (seen) outEdges.splice(i, 1);
+        else seen = true;
+      }
+      merged.push({ childId, fromUnionIds: bioUnionIds.slice(), intoUnionId: intoId });
+      continue;
+    }
+
+    // --- Case A: multiple single-parent biological unions.
+    const parentSet = new Set<string>();
+    for (const id of singleIds) {
+      for (const p of unionParentIds(outUnionsById.get(id)!)) parentSet.add(p);
+    }
+    // Exactly two distinct parents across the single-parent unions.
+    if (singleIds.length !== 2 || parentSet.size !== 2) continue;
+    const [pA, pB] = Array.from(parentSet);
     if (genderById) {
       const gA = genderById.get(pA) ?? "other";
       const gB = genderById.get(pB) ?? "other";
       if ((gA === "female" && gB === "female") || (gA === "male" && gB === "male")) continue;
     }
-    // Reuse one of the single-parent unions as the couple (the lower id, stable).
-    const aId = uA.id;
-    const bId = uB.id;
-    const intoId = aId < bId ? aId : bId;
-    const otherId = aId < bId ? bId : aId;
-    const into = outUnionsById.get(intoId)!;
-    into.partnerA = pA;
-    into.partnerB = pB;
-    // Collapse the child's bio edges onto the merged union, keeping ONE.
-    const keptEdge: EdgeRow | null = outEdges.find(
-      (e) => e.childId === childId && isBiological(e.relationshipType) && e.unionId === intoId
-    ) ?? null;
+    const sorted = singleIds.slice().sort();
+    const intoId = sorted[0];
+    const otherId = sorted[1];
+    outUnionsById.get(intoId)!.partnerA = pA;
+    outUnionsById.get(intoId)!.partnerB = pB;
+    // Re-point every bio edge at the merged union.
     for (let i = outEdges.length - 1; i >= 0; i--) {
       const e = outEdges[i];
       if (e.childId !== childId || !isBiological(e.relationshipType)) continue;
-      if (e.unionId === intoId && keptEdge) {
-        if (outEdges[i] !== keptEdge) {
-          outEdges.splice(i, 1);
-        }
-        continue;
-      }
-      e.unionId = intoId; // point the other single-parent edge at the merged union
+      e.unionId = intoId;
     }
-    // Now ensure only one edge remains for this child.
+    // Then keep exactly ONE edge for this child.
     let seen = false;
     for (let i = outEdges.length - 1; i >= 0; i--) {
       const e = outEdges[i];
       if (e.childId !== childId || !isBiological(e.relationshipType)) continue;
-      if (seen) {
-        outEdges.splice(i, 1);
-      } else {
-        seen = true;
-      }
+      if (seen) outEdges.splice(i, 1);
+      else seen = true;
     }
     const otherIdx = outUnions.findIndex((u) => u.id === otherId);
     if (otherIdx !== -1) outUnions.splice(otherIdx, 1);
     outUnionsById.delete(otherId);
-    merged.push({ childId, fromUnionIds: [aId, bId], intoUnionId: intoId });
+    merged.push({ childId, fromUnionIds: [intoId, otherId], intoUnionId: intoId });
+  }
+
+  // Orphan cleanup: remove single-parent unions that (after consolidation) have
+  // NO child edges and whose lone parent is already inside a couple union.
+  const edgeCountByUnion = new Map<string, number>();
+  for (const e of outEdges) edgeCountByUnion.set(e.unionId, (edgeCountByUnion.get(e.unionId) ?? 0) + 1);
+  const parentInCouple = new Set<string>();
+  for (const u of outUnions) {
+    if (unionParentIds(u).length !== 2) continue;
+    for (const p of unionParentIds(u)) parentInCouple.add(p);
+  }
+  for (let i = outUnions.length - 1; i >= 0; i--) {
+    const u = outUnions[i];
+    const parents = unionParentIds(u);
+    if (parents.length !== 1) continue;
+    if ((edgeCountByUnion.get(u.id) ?? 0) !== 0) continue; // still parents a child
+    if (!parentInCouple.has(parents[0])) continue;          // genuine lone parent elsewhere
+    outUnions.splice(i, 1);
+    outUnionsById.delete(u.id);
   }
 
   return { unions: outUnions, edges: outEdges, merged };

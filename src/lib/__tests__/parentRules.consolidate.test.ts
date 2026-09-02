@@ -114,4 +114,50 @@ describe("consolidateSingleParentBiologicalUnions", () => {
     expect(twice.unions).toHaveLength(1);
     expect(twice.edges).toHaveLength(1);
   });
+
+  it("Case B: child on a couple union + redundant single-parent union → one line at the couple, orphan removed", () => {
+    // Mirrors the real bug: u3 = Shahidul×Ambia couple with child yaleed, plus an
+    // orphan single-parent union u1 (Ambia only). Adding Ambia as bio parent
+    // grabs u1, giving yaleed TWO biological parent unions.
+    const unions: UnionRow[] = [
+      { id: "u3", partnerA: "father", partnerB: "mother" }, // the real couple
+      { id: "u1", partnerA: "mother", partnerB: "" },        // redundant orphan
+      { id: "u2", partnerA: "father", partnerB: "" },        // Shahidul's own single union (child p4)
+    ];
+    const edges: EdgeRow[] = [
+      { unionId: "u3", childId: "yaleed", relationshipType: "biological" }, // correct
+      { unionId: "u1", childId: "yaleed", relationshipType: "biological" }, // the bug's duplicate
+      { unionId: "u2", childId: "p4", relationshipType: "biological" },     // u2 legitimately parents p4
+    ];
+
+    const res = consolidateSingleParentBiologicalUnions(unions, edges, genders);
+
+    // yaleed must have exactly ONE edge, pointing at the couple u3.
+    const yaleedEdges = res.edges.filter((e) => e.childId === "yaleed");
+    expect(yaleedEdges).toHaveLength(1);
+    expect(yaleedEdges[0].unionId).toBe("u3");
+    // The orphan u1 (Ambia, no children) is removed.
+    expect(res.unions.some((u) => u.id === "u1")).toBe(false);
+    // u2 is kept because it genuinely parents p4.
+    expect(res.unions.some((u) => u.id === "u2")).toBe(true);
+    // u2's edge to p4 preserved.
+    expect(res.edges.some((e) => e.unionId === "u2" && e.childId === "p4")).toBe(true);
+    // u3 couple preserved.
+    expect(res.unions.some((u) => u.id === "u3" && u.partnerA === "father" && u.partnerB === "mother")).toBe(true);
+  });
+
+  it("Case B does not remove a genuinely single parent's union when it parents a child alone", () => {
+    const unions: UnionRow[] = [
+      { id: "u3", partnerA: "father", partnerB: "mother" },
+      { id: "u1", partnerA: "mother", partnerB: "" },
+    ];
+    const edges: EdgeRow[] = [
+      { unionId: "u3", childId: "yaleed", relationshipType: "biological" },
+      // u1 has its OWN child (not a duplicate of u3's child) → must be kept.
+      { unionId: "u1", childId: "mary", relationshipType: "biological" },
+    ];
+    const res = consolidateSingleParentBiologicalUnions(unions, edges, genders);
+    expect(res.unions.some((u) => u.id === "u1")).toBe(true);
+    expect(res.edges.some((e) => e.unionId === "u1" && e.childId === "mary")).toBe(true);
+  });
 });
