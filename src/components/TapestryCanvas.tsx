@@ -180,7 +180,7 @@ const ANIM_DURATION = 1200;
 // Node dimensions — MUST match src/lib/familyLayout.ts (PERSON_W/PERSON_H/UNION_W).
 // Used to derive node centre-x when assigning each partner to the nearest
 // diamond corner handle (left vs right).
-const PERSON_W = 210;
+const PERSON_W = 140;
 const UNION_W = 110;
 
 function nextUnionId(unions: UnionLike[]) {

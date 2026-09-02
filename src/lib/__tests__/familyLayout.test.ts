@@ -34,7 +34,8 @@ const edges = [
   { unionId: "u4", childId: "p11" },
 ];
 
-const PW = 210;
+const PW = 140;
+const PH = 160;
 const UH = 150;
 
 function layoutChecks() {
@@ -48,7 +49,7 @@ function layoutChecks() {
   const cy = (id: string) => {
     const p = positions.get(id);
     if (!p) return NaN;
-    const h = persons.some((x) => x.id === id) ? 231 : UH;
+    const h = persons.some((x) => x.id === id) ? PH : UH;
     return p.y + h / 2;
   };
   return { positions, cx, cy };
@@ -102,7 +103,7 @@ describe("manualFamilyLayout (live tree)", () => {
     for (const p of persons) {
       const pos = positions.get(p.id)!;
       const y = pos.y;
-      const row = Math.round(y / 300);
+      const row = Math.round(y / 410);
       (rows[row] = rows[row] || []).push({ id: p.id, l: pos.x, r: pos.x + PW });
     }
     for (const row of Object.values(rows)) {
@@ -185,12 +186,12 @@ describe("manualFamilyLayout (live tree)", () => {
       else expect(a.positions.has(u.id), `single-parent union ${u.id} has no node`).toBe(false);
     }
 
-    // no overlapping person boxes within a generation row (rows are 300px apart,
+    // no overlapping person boxes within a generation row (rows are 410px apart,
     // so a same-rounded-row index implies true colliders)
     const rows: Record<number, { id: string; l: number; r: number }[]> = {};
     for (const p of grown.persons) {
       const pos = a.positions.get(p.id)!;
-      const row = Math.round(pos.y / 300);
+      const row = Math.round(pos.y / 410);
       (rows[row] = rows[row] || []).push({ id: p.id, l: pos.x, r: pos.x + PW });
     }
     for (const row of Object.values(rows)) {
@@ -240,7 +241,7 @@ describe("manualFamilyLayout (live tree)", () => {
     const rows: Record<number, { id: string; l: number; r: number }[]> = {};
     for (const p of persons) {
       const pos = positions.get(p.id)!;
-      const row = Math.round(pos.y / 300);
+      const row = Math.round(pos.y / 410);
       (rows[row] = rows[row] || []).push({ id: p.id, l: pos.x, r: pos.x + PW });
     }
     for (const row of Object.values(rows)) {
