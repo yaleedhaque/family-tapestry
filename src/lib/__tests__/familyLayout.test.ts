@@ -252,4 +252,49 @@ describe("manualFamilyLayout (live tree)", () => {
       }
     }
   });
+
+  it("places descendants above an in-married spouse's union (ancestor-first)", () => {
+    // Haque family: Subash(p6) x Jhorna(p5) are the grandparents; their child
+    // Shahidul(p3) marries Ambia(p2); their children are Yaleed(p1) and Waleed(p4).
+    // The in-married spouse Ambia has no parent edge, but her union u3 must NOT be
+    // dragged up to the root row beside the grandparents — it belongs at Shahidul's
+    // generation so the tree reads top-down: grandparents -> parents -> children.
+    const fam = {
+      persons: [
+        { id: "p1", name: "Yaleed" },
+        { id: "p2", name: "Ambia" },
+        { id: "p3", name: "Shahidul" },
+        { id: "p4", name: "Waleed" },
+        { id: "p5", name: "Jhorna" },
+        { id: "p6", name: "Subash" },
+      ],
+      unions: [
+        { id: "u3", partnerA: "p3", partnerB: "p2" },
+        { id: "u6", partnerA: "p6", partnerB: "p5" },
+      ],
+      edges: [
+        { unionId: "u3", childId: "p1" },
+        { unionId: "u3", childId: "p4" },
+        { unionId: "u6", childId: "p3" },
+      ],
+    };
+    const { positions } = manualFamilyLayout(fam.persons, fam.unions, fam.edges);
+    const row = (id: string) => Math.round((positions.get(id)!.y + PH / 2) / 410);
+    const cx = (id: string) => positions.get(id)!.x + PW / 2;
+    // grandparents (Subash, Jhorna) on the top row
+    expect(row("p6")).toBe(0);
+    expect(row("p5")).toBe(0);
+    // parents (Shahidul, Ambia) one generation down
+    expect(row("p3")).toBe(1);
+    expect(row("p2")).toBe(1);
+    // children (Yaleed, Waleed) two generations down
+    expect(row("p1")).toBe(2);
+    expect(row("p4")).toBe(2);
+    // union diamonds on their couple's rows
+    expect(Math.round((positions.get("u6")!.y + 75) / 410)).toBe(0);
+    expect(Math.round((positions.get("u3")!.y + 75) / 410)).toBe(1);
+    // grandparents are horizontally centred as a couple (diamond between them)
+    const gMid = (cx("p6") + cx("p5")) / 2;
+    expect(Math.abs(positions.get("u6")!.x + 55 - gMid)).toBeLessThan(3);
+  });
 });

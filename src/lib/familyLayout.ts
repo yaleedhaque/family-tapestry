@@ -185,14 +185,27 @@ export function manualFamilyLayout(
   let cursor = 30;
   for (const r of roots) {
     if (placedP[r.id]) continue;
-    const us = (unionsOf[r.id] || []).filter((uid) => !placedU[uid]);
-    if (!us.length) {
+    const allUs = (unionsOf[r.id] || []).filter((uid) => !placedU[uid]);
+    if (!allUs.length) {
       placedP[r.id] = true;
       pX[r.id] = cursor + PERSON_W / 2;
       pY[r.id] = 0;
       cursor += PERSON_W + GAP;
       continue;
     }
+    // A union is "descendant-owned" when the other partner is descended from the
+    // tree (has a parent edge). Such a union must layout at that partner's own
+    // generation (via placeChild) — NOT at the root row — so in-married spouses
+    // (e.g. Ambia married into Shahidul's union) don't drag their spouse's whole
+    // family up beside the true top ancestors. Only unions whose other partner is
+    // also root-ancestry (no parent edge) are placed here.
+    const us = allUs.filter((uid) => {
+      const u = unions.find((x) => x.id === uid);
+      if (!u) return false;
+      const other = u.partnerA === r.id ? u.partnerB : u.partnerA;
+      return !other || !childOf[other];
+    });
+    if (!us.length) continue; // all descendant-owned — wait for the descendant's placeChild
     if (us.length === 1) {
       const sp = unionSpanOf(us[0]);
       placeUnionRec(unions.find((u) => u.id === us[0]), 0, cursor + sp / 2, false);
