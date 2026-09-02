@@ -285,6 +285,10 @@ input[type="range"].tapestry-range:focus-visible::-webkit-slider-thumb {
   100% { box-shadow: 0 0 0 0 rgba(201,162,75,0); }
 }
 
+@keyframes dashflow {
+  to { stroke-dashoffset: -24; }
+}
+
 .react-flow__minimap {
   background: var(--mipmap-bg, rgba(20,17,14,0.85)) !important;
   border: 1px solid var(--thread-gold-dim) !important;
