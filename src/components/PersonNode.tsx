@@ -3,6 +3,7 @@
 import { memo, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Person } from "@/data/family";
+import { LAYOUT_MARRIAGE_Y } from "@/lib/layoutEngine";
 import { STATUS_RING_COLORS, type PersonRingStatus } from "@/lib/generation";
 import { cachedPhotoUrl } from "@/lib/validation";
 
@@ -49,6 +50,25 @@ function PersonNode({ data }: NodeProps) {
       `}
     >
       <Handle type="target" id="top" position={Position.Top} className="!bg-thread-gold !w-2 !h-2" />
+
+      {/* Marriage side source handles. Placed the SAME distance from the card top as
+          the diamond's side handles are from the diamond's top (LAYOUT_MARRIAGE_Y).
+          Partners and their diamond all share the row top, so both sides sit at the
+          same world Y -> marriage lines are perfectly straight. */}
+      <Handle
+        type="source"
+        id="partner-left"
+        position={Position.Left}
+        className="!bg-thread-gold !w-2 !h-2"
+        style={{ top: LAYOUT_MARRIAGE_Y, left: -10 }}
+      />
+      <Handle
+        type="source"
+        id="partner-right"
+        position={Position.Right}
+        className="!bg-thread-gold !w-2 !h-2"
+        style={{ top: LAYOUT_MARRIAGE_Y, right: -10 }}
+      />
 
       <div
         className={`
