@@ -47,3 +47,18 @@ export function validateYear(year: string | number | undefined | null): boolean 
   const n = Number(year);
   return Number.isInteger(n) && n >= 1 && n <= 9999;
 }
+
+// Appends a cache-buster (the person's updatedAt) to a Supabase Storage URL so that
+// re-uploading a portrait forces the browser to fetch the new image instead of
+// serving the stale cached one (the object URL is identical across uploads).
+export function cachedPhotoUrl(photoUrl: string, updatedAt?: string | null): string {
+  if (!photoUrl) return "";
+  if (!updatedAt) return photoUrl;
+  try {
+    const u = new URL(photoUrl);
+    u.searchParams.set("v", updatedAt.replace(/\D/g, ""));
+    return u.toString();
+  } catch {
+    return photoUrl;
+  }
+}

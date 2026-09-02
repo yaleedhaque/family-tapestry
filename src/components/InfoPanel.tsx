@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { Source } from "@/data/family";
 import { useLang } from "@/lib/i18n";
-import { sanitizeField, validateEmail, validateUrl, validateYear } from "@/lib/validation";
+import { sanitizeField, validateEmail, validateUrl, validateYear, cachedPhotoUrl } from "@/lib/validation";
 import { findDualParentConflicts, isBiological, type Gender } from "@/lib/parentRules";
 
 function getInitials(name: string): string {
@@ -29,6 +29,7 @@ export interface PersonLike {
   lat: number | null;
   lng: number | null;
   photoUrl: string;
+  updatedAt?: string | null;
   createdBy?: string | null;
 }
 
@@ -324,7 +325,7 @@ const np: PersonLike = {
             }`}
           >
             {person.photoUrl ? (
-              <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
+              <img src={cachedPhotoUrl(person.photoUrl, person.updatedAt)} alt={person.fullName} className="w-full h-full object-cover" />
             ) : (
               <span
                 className="font-display text-xl md:text-2xl font-bold select-none"
@@ -438,7 +439,7 @@ const np: PersonLike = {
                           const res = await fetch("/api/upload", { method: "POST", body: form });
                           const data = await res.json();
                           if (!res.ok) throw new Error(data.error || "Upload failed");
-                          onUpdatePerson({ ...person, photoUrl: data.url });
+                          onUpdatePerson({ ...person, photoUrl: data.url, updatedAt: new Date().toISOString() });
                         } catch (err) {
                           alert(err instanceof Error ? err.message : "Upload failed");
                         } finally {

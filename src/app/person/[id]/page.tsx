@@ -10,6 +10,7 @@ import { useLiveTree } from "@/lib/useLiveTree";
 import { useUserCircle } from "@/lib/useUserCircle";
 import { useAuth } from "@/components/AuthProvider";
 import { useLang } from "@/lib/i18n";
+import { cachedPhotoUrl } from "@/lib/validation";
 import type { DbUnion, DbParentEdge, DbPerson } from "@/lib/types";
 
 const EVENT_COLORS: Record<string, string> = {
@@ -40,7 +41,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     profession: dp.profession ?? "", email: dp.email ?? "", phone: dp.phone ?? "",
     address: dp.address ?? "", website: dp.website ?? "",
     lat: dp.lat, lng: dp.lng, photoUrl: dp.photo_url ?? "",
-    nameNative: dp.name_native, createdBy: dp.created_by,
+    nameNative: dp.name_native, createdBy: dp.created_by, updatedAt: dp.updated_at,
   };
 }
 
@@ -246,7 +247,7 @@ export default function PersonDetailPage() {
             style={{ borderWidth: 3, borderColor: isDeceased ? "var(--deceased-frame)" : avatarColor }}
           >
             {person.photoUrl ? (
-              <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
+              <img src={cachedPhotoUrl(person.photoUrl, person.updatedAt)} alt={person.fullName} className="w-full h-full object-cover" />
             ) : (
               <span
                 className="font-display text-2xl md:text-3xl font-bold select-none"
@@ -395,7 +396,7 @@ export default function PersonDetailPage() {
             <h2 className="font-display text-base md:text-lg text-[var(--thread-gold)] mb-3">Photo</h2>
             <div className="rounded-xl overflow-hidden border border-[var(--thread-gold-dim)]/20">
               <img
-                src={person.photoUrl}
+                src={cachedPhotoUrl(person.photoUrl, person.updatedAt)}
                 alt={person.fullName}
                 className="w-full max-h-[400px] object-cover"
               />

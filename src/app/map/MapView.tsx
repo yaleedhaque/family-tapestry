@@ -177,6 +177,7 @@ function toPersonLikeFromDb(p: DbPerson): PersonLike {
     photoUrl: p.photo_url ?? "",
     nameNative: p.name_native,
     createdBy: p.created_by,
+    updatedAt: p.updated_at,
   };
 }
 

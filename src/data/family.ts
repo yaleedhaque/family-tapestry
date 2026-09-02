@@ -16,6 +16,7 @@ export interface Person {
   lat: number | null;
   lng: number | null;
   photoUrl: string;
+  updatedAt?: string | null;
 }
 
 export interface Union {

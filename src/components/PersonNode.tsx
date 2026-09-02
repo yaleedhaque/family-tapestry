@@ -4,6 +4,7 @@ import { memo, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Person } from "@/data/family";
 import { STATUS_RING_COLORS, type PersonRingStatus } from "@/lib/generation";
+import { cachedPhotoUrl } from "@/lib/validation";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -13,6 +14,7 @@ function getInitials(name: string): string {
 
 function PersonNode({ data }: NodeProps) {
   const person = data.person as Person;
+  const updatedAt = (data.person as Person & { updatedAt?: string | null }).updatedAt ?? null;
   const isDeceased = !person.isAlive || person.deathYear != null;
   const isHighlighted = data.highlighted === true;
   const isDimmed = data.dimmed === true;
@@ -56,7 +58,7 @@ function PersonNode({ data }: NodeProps) {
         style={{ borderColor: isDeceased ? "var(--deceased-frame)" : avatarColor }}
       >
         {person.photoUrl ? (
-          <img src={person.photoUrl} alt={person.fullName} className="w-full h-full object-cover" />
+          <img src={cachedPhotoUrl(person.photoUrl, updatedAt)} alt={person.fullName} className="w-full h-full object-cover" />
         ) : (
           <span
             className="font-display text-lg font-bold select-none"

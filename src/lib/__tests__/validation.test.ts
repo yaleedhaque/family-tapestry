@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitize, sanitizeField, validateEmail, validateUrl, validateYear } from "../validation";
+import { sanitize, sanitizeField, validateEmail, validateUrl, validateYear, cachedPhotoUrl } from "../validation";
 
 describe("sanitize", () => {
   it("strips HTML tags", () => {
@@ -96,5 +96,32 @@ describe("validateYear", () => {
 
   it("rejects non-integer", () => {
     expect(validateYear(1990.5)).toBe(false);
+  });
+});
+
+describe("cachedPhotoUrl", () => {
+  const url = "https://x.supabase.co/storage/v1/object/public/portraits/p3.jpg";
+
+  it("returns empty for empty url", () => {
+    expect(cachedPhotoUrl("", "2026-01-01")).toBe("");
+  });
+
+  it("returns url unchanged when no updatedAt", () => {
+    expect(cachedPhotoUrl(url, null)).toBe(url);
+    expect(cachedPhotoUrl(url)).toBe(url);
+  });
+
+  it("appends version query param from updatedAt", () => {
+    const out = cachedPhotoUrl(url, "2026-09-02T11:15:36.105+00:00");
+    expect(out).toContain("?v=20260902111536105");
+  });
+
+  it("keeps an existing query string intact", () => {
+    const out = cachedPhotoUrl(url + "?a=1", "2026-01-01T00:00:00Z");
+    expect(out).toContain("?a=1&v=");
+  });
+
+  it("falls back to raw url on invalid url", () => {
+    expect(cachedPhotoUrl("not-a-url", "2026-01-01")).toBe("not-a-url");
   });
 });

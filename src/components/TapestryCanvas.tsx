@@ -74,6 +74,7 @@ function toPersonLike(p: PersonLike | DbPerson): PersonLike {
     lat: dp.lat ?? null,
     lng: dp.lng ?? null,
     photoUrl: dp.photo_url ?? "",
+    updatedAt: dp.updated_at ?? null,
     createdBy: dp.created_by ?? null,
   };
 }
@@ -795,8 +796,9 @@ export default function TapestryCanvas() {
   //  --  --  CRUD: Add parent (existing person)  --  -- 
   const handleAddParent = useCallback(
     (childId: string, parentId: string, relationshipType?: string) => {
-      const union = findParentUnion(parentId);
       const rel = relationshipType ?? "biological";
+      // 1) If the new parent is already in some union, attach the child there.
+      const union = findParentUnion(parentId);
       if (union && wouldConflict(union.id, childId, rel)) {
         toast(
           rel === "biological"
@@ -813,6 +815,36 @@ export default function TapestryCanvas() {
           return [...prev, newEdge];
         });
       } else {
+        // 2) A second BIOLOGICAL parent for a child that already has one parent
+        //    should share that parent's union (one diamond, one child line), not
+        //    spawn its own single-parent union (which would draw a duplicate line
+        //    straight from the new parent's card — the two-line bug).
+        const existing = rawEdges.find((e) => e.childId === childId);
+        const existingUnion = existing ? rawUnions.find((u) => u.id === existing.unionId) : undefined;
+        if (rel === "biological" && existing && existingUnion && !existingUnion.partnerB) {
+          const otherParentId =
+            existingUnion.partnerA === parentId ? null : existingUnion.partnerA;
+          if (otherParentId && otherParentId !== parentId) {
+            const merged: UnionLike = {
+              ...existingUnion,
+              partnerA: existingUnion.partnerA,
+              partnerB: otherParentId,
+            };
+            setRawUnions((prev) => prev.map((u) => (u.id === merged.id ? merged : u)));
+            setRawEdges((prev) =>
+              prev.map((e) =>
+                e.childId === childId && e.unionId === existing.unionId
+                  ? { ...e, relationshipType: rel }
+                  : e
+              )
+            );
+            if (user) setTimeout(() => {
+              apiCall("PUT", "/tree", { persons: rawPersons, unions: rawUnions.map((u) => (u.id === merged.id ? merged : u)), edges: rawEdges.map((e) => (e.childId === childId && e.unionId === existing.unionId ? { ...e, relationshipType: rel } : e)) }, () => toast("Failed to save relationship", "error"));
+            }, 0);
+            return;
+          }
+        }
+        // 3) Otherwise create a fresh single-parent union for this parent.
         const newId = nextUnionId(rawUnions);
         const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
         setRawUnions((prev) => [...prev, newUnion]);
