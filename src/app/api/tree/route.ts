@@ -6,6 +6,7 @@ import { canEditField, type Role } from "@/lib/permissions";
 import {
   findDualParentConflicts,
   normalizeGender,
+  consolidateSingleParentBiologicalUnions,
   type Gender,
 } from "@/lib/parentRules";
 
@@ -46,6 +47,42 @@ async function loadGenders(
     map.set(String(r.id), normalizeGender((r as { gender?: string }).gender));
   }
   return map;
+}
+
+/** Consolidate a payload's unions/edges (Record[] with camel or snake keys). */function consolidatePayloadUnions(
+  unions: Record<string, unknown>[],
+  edges: Record<string, unknown>[],
+  genders: Map<string, Gender>
+): { unions: Record<string, unknown>[]; edges: Record<string, unknown>[] } {
+  const ur = unions.map((u) => ({
+    id: String(u.id),
+    partnerA: String(u.partnerA ?? u.partner_a ?? ""),
+    partnerB: String(u.partnerB ?? u.partner_b ?? ""),
+  }));
+  const er = edges.map((e) => ({
+    unionId: String(e.unionId ?? e.union_id ?? ""),
+    childId: String(e.childId ?? e.child_id ?? ""),
+    relationshipType: String(e.relationshipType ?? e.relationship_type ?? "biological"),
+  }));
+  const res = consolidateSingleParentBiologicalUnions(ur, er, genders);
+  const unionById = new Map(unions.map((u) => [String(u.id), u]));
+  const finalUnions = res.unions
+    .map((u) => unionById.get(u.id) ?? { id: u.id, partnerA: u.partnerA, partnerB: u.partnerB, type: "marriage" })
+    .map((u) => {
+      const rec = { ...u };
+      if (rec.partnerB != null) rec.partnerB = String(rec.partnerB);
+      return rec;
+    });
+  const finalEdges = res.edges.map((e) => {
+    const raw = edges.find((x) => String(x.unionId ?? x.union_id ?? "") === e.unionId && String(x.childId ?? x.child_id ?? "") === e.childId);
+    return {
+      id: (raw && (raw.id != null ? String(raw.id) : "")) || `pe-${e.unionId}-${e.childId}`,
+      unionId: e.unionId,
+      childId: e.childId,
+      relationshipType: e.relationshipType ?? "biological",
+    };
+  });
+  return { unions: finalUnions, edges: finalEdges };
 }
 
 /** 400 reply when any child would gain two known biological mothers/fathers. */
@@ -147,8 +184,17 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
   const violation = dualParentError({ unions, edges, genders });
   if (violation) return NextResponse.json(violation, { status: 400 });
 
+  // Auto-consolidate the "two-line" bug: if a child ended up attached to two
+  // distinct single-parent biological unions, merge them into one couple union
+  // (single diamond → single child line). Runs on every full save. If the two
+  // parents are the same known gender the dual-parent check above already
+  // rejected it, so this only merges valid mother+father (or unknown) couples.
+  const consolidated = consolidatePayloadUnions(unions, edges, genders);
+  const finalUnions = consolidated.unions;
+  const finalEdges = consolidated.edges;
+
   // unions
-  const unionRows = unions.map((u: Record<string, unknown>) => ({
+  const unionRows = finalUnions.map((u: Record<string, unknown>) => ({
     id: String(u.id),
     partner_a: u.partnerA ?? u.partner_a ?? "",
     partner_b: u.partnerB ?? u.partner_b ?? "",
@@ -162,12 +208,12 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
   }
   {
     const existing = await currentIds("unions");
-    const err = await deleteMissing("unions", unions, (r) => String(r.id), existing);
+    const err = await deleteMissing("unions", finalUnions, (r) => String(r.id), existing);
     if (err) return NextResponse.json({ error: `Unions delete failed: ${err.message}` }, { status: 500 });
   }
 
   // parent edges (stable id derived from the (union_id, child_id) natural key)
-  const edgeRows = edges.map((e: Record<string, unknown>) => {
+  const edgeRows = finalEdges.map((e: Record<string, unknown>) => {
     const rawId = e.id != null && String(e.id).trim() !== "" ? String(e.id) : "";
     const derived = `pe-${String(e.unionId ?? e.union_id)}-${String(e.childId ?? e.child_id)}`;
     return {
@@ -183,7 +229,7 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
   }
   {
     const existing = await currentIds("parent_edges");
-    const err = await deleteMissing("parent_edges", edgeRows, (r) => String((r as { id: string }).id), existing);
+    const err = await deleteMissing("parent_edges", finalEdges, (r) => String((r as { id: string }).id), existing);
     if (err) return NextResponse.json({ error: `Edges delete failed: ${err.message}` }, { status: 500 });
   }
 
@@ -214,7 +260,8 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
 /* User role: circle-guarded sync.                                     */
 /* ------------------------------------------------------------------ */
 async function syncUserTree(db: ReturnType<typeof createServiceClient>, body: TreePutBody, userId: string) {
-  const { persons = [], unions = [], edges = [], sources = [] } = body;
+  const { persons = [], sources = [] } = body;
+  let { unions = [], edges = [] } = body;
 
   // Sources are Editor/Admin only (matrix: edit any ... source). A User's PUT
   // may not include source rows at all.
@@ -287,6 +334,14 @@ async function syncUserTree(db: ReturnType<typeof createServiceClient>, body: Tr
     const genders = await loadGenders(db, Array.from(allPersonIds));
     const violation = dualParentError({ unions, edges, genders });
     if (violation) return NextResponse.json(violation, { status: 400 });
+
+    // Auto-consolidate the "two-line" bug: merge a child's two single-parent
+    // biological unions into one couple union. Same parents, so the circle
+    // guards below still hold. Persist the merged set so the client's next
+    // fetch reflects it.
+    const consolidated = consolidatePayloadUnions(unions, edges, genders);
+    unions = consolidated.unions;
+    edges = consolidated.edges;
   }
 
   // ---- Unions & edges (structural changes) ---------------------------
