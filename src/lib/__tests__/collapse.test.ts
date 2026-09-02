@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   visibleSubset,
   countHidden,
+  descendantCounts,
   collapsibleUnionIds,
   sampleDescendantNames,
   surrogateIdFor,
@@ -129,6 +130,20 @@ describe("countHidden", () => {
   });
   it("u5 (lone root) hides 0", () => {
     expect(countHidden(persons, unions, edges, "u5")).toBe(0);
+  });
+});
+
+describe("descendantCounts (one-pass, for the toggle badge)", () => {
+  it("matches countHidden for every union", () => {
+    const counts = descendantCounts(persons, unions, edges);
+    expect(counts.get("u1")).toBe(7);
+    expect(counts.get("u2")).toBe(1);
+    expect(counts.get("u3")).toBe(2);
+    expect(counts.get("u4")).toBe(1);
+    expect(counts.get("u5")).toBeUndefined(); // no children
+    // spot-check parity with countHidden
+    expect(counts.get("u1")).toBe(countHidden(persons, unions, edges, "u1"));
+    expect(counts.get("u3")).toBe(countHidden(persons, unions, edges, "u3"));
   });
 });
 

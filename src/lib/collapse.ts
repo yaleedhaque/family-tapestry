@@ -70,7 +70,17 @@ function descendantsFromKids(
   roots: string[],
   skipUnionId: string
 ): string[] {
-  const { kidsOf, unionsOf, personById } = buildMaps(persons, unions, edges);
+  return descendantsFromKidsWithMaps(buildMaps(persons, unions, edges), unions, roots, skipUnionId);
+}
+
+// Shared-maps variant so we only pay for buildMaps once when counting many unions.
+function descendantsFromKidsWithMaps(
+  maps: ReturnType<typeof buildMaps>,
+  unions: CollapseUnion[],
+  roots: string[],
+  skipUnionId: string
+): string[] {
+  const { kidsOf, unionsOf, personById } = maps;
   const visitedP = new Set<string>();
   const visitedU = new Set<string>();
   const stack: string[] = [...roots];
@@ -104,6 +114,22 @@ export function countHidden(
   const { kidsOf } = buildMaps(persons, unions, edges);
   if (!(kidsOf[unionId] || []).length) return 0;
   return descendantsFromKids(persons, unions, edges, kidsOf[unionId], unionId).length;
+}
+
+// Number of real persons hidden behind EVERY union, computed in one pass (shared
+// maps), so runLayout can badge every collapsible union's toggle without O(unions²).
+export function descendantCounts(
+  persons: CollapsePerson[],
+  unions: CollapseUnion[],
+  edges: CollapseEdge[]
+): Map<string, number> {
+  const maps = buildMaps(persons, unions, edges);
+  const counts = new Map<string, number>();
+  for (const uid in maps.kidsOf) {
+    const sub = descendantsFromKidsWithMaps(maps, unions, maps.kidsOf[uid], uid);
+    counts.set(uid, sub.length);
+  }
+  return counts;
 }
 
 // Up to `limit` descendant full-names for the cluster card preview.

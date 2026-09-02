@@ -17,6 +17,7 @@ import { manualFamilyLayout } from "@/lib/familyLayout";
 import {
   visibleSubset,
   sampleDescendantNames,
+  descendantCounts,
 } from "@/lib/collapse";
 
 import PersonNode from "@/components/PersonNode";
@@ -403,6 +404,9 @@ export default function TapestryCanvas() {
         const names = sampleDescendantNames(persons, unions, parentEdges, ce.unionId, 5);
         surrogates.push({ id: ce.childId, unionId: ce.unionId, count: ids.length, names });
       }
+      // Hidden-descendant count for EVERY visible union (powers the collapse toggle
+      // badge). Computed in one pass so this stays O(n), not O(unions × n).
+      const hiddenCounts = descendantCounts(persons, unions, parentEdges);
       const layoutPersons = [
         ...visiblePersons.map((p) => ({ id: p.id, fullName: p.fullName })),
         ...surrogates.map((s) => ({ id: s.id, fullName: `${s.count}` })),
@@ -420,7 +424,7 @@ export default function TapestryCanvas() {
       }
       for (const union of visibleUnions) {
         if (!union.partnerB) continue;
-        graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons: visiblePersons, isCollapsed: collapsedRef.current.has(union.id), descendantCount: sub.collapseSubtree.get(union.id)?.length ?? 0, onToggleCollapse: (id: string) => toggleCollapseRef.current(id) }, position: { x: 0, y: 0 } });
+        graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons: visiblePersons, isCollapsed: collapsedRef.current.has(union.id), descendantCount: hiddenCounts.get(union.id) ?? 0, onToggleCollapse: (id: string) => toggleCollapseRef.current(id) }, position: { x: 0, y: 0 } });
       }
       for (const s of surrogates) {
         graphNodes.push({
