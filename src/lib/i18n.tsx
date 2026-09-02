@@ -242,6 +242,11 @@ const en: Dict = {
   "keyhelp.pan": "Pan the canvas",
   "keyhelp.zoomTrackpad": "Zoom (trackpad)",
   "keyhelp.close": "Press ? or Esc to close",
+  "collapse.person": "person",
+  "collapse.people": "people",
+  "collapse.hidden": "in this branch — click to expand",
+  "collapse.expandLabel": "Expand",
+  "collapse.collapseTip": "Collapse N descendants",
 };
 
 const bn: Dict = {
@@ -397,6 +402,11 @@ const bn: Dict = {
   "keyhelp.pan": "ক্যানভাস টানুন",
   "keyhelp.zoomTrackpad": "জুম (ট্র্যাকপ্যাড)",
   "keyhelp.close": "বন্ধ করতে ? বা Esc চাপুন",
+  "collapse.person": "জন",
+  "collapse.people": "জন",
+  "collapse.hidden": "এই শাখায় — বিস্তার দেখতে ক্লিক করুন",
+  "collapse.expandLabel": "বিস্তারিত",
+  "collapse.collapseTip": "N জন বংশধর লুকান",
 };
 
 const hi: Dict = {
@@ -552,6 +562,11 @@ const hi: Dict = {
   "keyhelp.pan": "कैनवास खींचें",
   "keyhelp.zoomTrackpad": "ज़ूम (ट्रैकपैड)",
   "keyhelp.close": "बंद करने के लिए ? या Esc दबाएँ",
+  "collapse.person": "व्यक्ति",
+  "collapse.people": "लोग",
+  "collapse.hidden": "इस शाखा में — विस्तार के लिए क्लिक करें",
+  "collapse.expandLabel": "विस्तार",
+  "collapse.collapseTip": "N वंशज छिपाएँ",
 };
 
 const ar: Dict = {
@@ -707,6 +722,11 @@ const ar: Dict = {
   "keyhelp.pan": "تحريك اللوحة",
   "keyhelp.zoomTrackpad": "تكبير (لوحة اللمس)",
   "keyhelp.close": "اضغط ? أو Esc للإغلاق",
+  "collapse.person": "شخص",
+  "collapse.people": "أشخاص",
+  "collapse.hidden": "في هذا الفرع — انقر للتوسيع",
+  "collapse.expandLabel": "توسيع",
+  "collapse.collapseTip": "إخفاء N من الأحفاد",
 };
 
 const DICTS: Record<Lang, Dict> = { en, bn, hi, ar };

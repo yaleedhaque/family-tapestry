@@ -11,6 +11,10 @@ function UnionNode({ data }: NodeProps) {
   const partnerA = persons.find((p) => p.id === union.partnerA);
   const partnerB = persons.find((p) => p.id === union.partnerB);
   const isDivorced = union.type === "divorced";
+  const isCollapsed = (data.isCollapsed as boolean | undefined) ?? false;
+  const descendantCount = (data.descendantCount as number | undefined) ?? 0;
+  const onToggleCollapse = (data.onToggleCollapse as ((id: string) => void) | undefined) ?? (() => {});
+  const collapsible = descendantCount > 0;
 
   return (
     // Fixed 150px tall (matches UNION_H in familyLayout). In the layout the diamond
@@ -55,7 +59,9 @@ function UnionNode({ data }: NodeProps) {
             className={`absolute inset-0 rotate-45 border ${
               isDivorced
                 ? "border-divorce-red"
-                : "border-thread-gold"
+                : isCollapsed
+                  ? "border-[var(--accent-emerald)]"
+                  : "border-thread-gold"
             } bg-tapestry-bg-alt`}
           >
             <div
@@ -97,6 +103,53 @@ function UnionNode({ data }: NodeProps) {
           />
         </div>
       </div>
+
+      {/* Collapse toggle — appears when this union has descendants. Badge shows the
+          hidden count when collapsed. */}
+      {collapsible && (
+        <button
+          type="button"
+          aria-label={
+            isCollapsed
+              ? `Expand ${descendantCount} people`
+              : `Collapse ${descendantCount} people`
+          }
+          title={isCollapsed ? "Expand branch" : "Collapse branch"}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCollapse(union.id);
+          }}
+          className={`
+            absolute bottom-0 left-1/2 -translate-x-1/2 z-10
+            flex items-center gap-1 cursor-pointer select-none
+            rounded-full border px-2 py-0.5
+            transition-colors
+            ${
+              isCollapsed
+                ? "border-[var(--accent-emerald)] bg-[var(--accent-emerald)]/15 text-[var(--accent-emerald)] hover:bg-[var(--accent-emerald)]/25"
+                : "border-[var(--thread-gold)]/60 bg-[var(--tapestry-bg-alt)] text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/15"
+            }
+          `}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            className="w-3 h-3"
+          >
+            {isCollapsed ? (
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            ) : (
+              <path d="M5 12h14" strokeLinecap="round" />
+            )}
+          </svg>
+          <span className="font-body text-[9px] leading-none">
+            {isCollapsed ? descendantCount : ""}
+          </span>
+        </button>
+      )}
     </div>
   );
 }

@@ -14,9 +14,14 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { manualFamilyLayout } from "@/lib/familyLayout";
+import {
+  visibleSubset,
+  sampleDescendantNames,
+} from "@/lib/collapse";
 
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
+import CollapsedNode from "@/components/CollapsedNode";
 import InfoPanel from "@/components/InfoPanel";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import BrickBackground from "@/components/BrickBackground";
@@ -45,7 +50,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useUserCircle } from "@/lib/useUserCircle";
 import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 
-const nodeTypes = { personNode: PersonNode, unionNode: UnionNode };
+const nodeTypes = { personNode: PersonNode, unionNode: UnionNode, collapsedNode: CollapsedNode };
 
 function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   if ("fullName" in p && "birthPlace" in p && "bio" in p) return p as PersonLike;
@@ -263,6 +268,13 @@ export default function TapestryCanvas() {
   const [dataLoading, setDataLoading] = useState(true);
   const [showFitHint, setShowFitHint] = useState(false);
 
+  // §collapse — collapsed unions: which couples have their whole descendant
+  // subtree folded behind a single "cluster" card. Persisted per active tree.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const collapsedRef = useRef<Set<string>>(collapsed);
+  collapsedRef.current = collapsed;
+  const toggleCollapseRef = useRef<(unionId: string) => void>(() => {});
+
   // §9.4 — Per-role, per-person edit gating. Server routes stay authoritative;
   // this only decides which controls are shown.
   const gate = useUserCircle(user, rawPersons, rawUnions, rawEdges);
@@ -370,23 +382,61 @@ export default function TapestryCanvas() {
 
       const generationMap = genMap ?? computeGenerationMap(persons, unions, parentEdges);
 
+      // §collapse — fold collapsed unions' subtrees behind single cluster cards so
+      // the visible tree (and therefore the layout width) stays small even at
+      // thousands of nodes.
+      const sub = visibleSubset(persons, unions, parentEdges, collapsedRef.current);
+
+      const visiblePids = new Set(sub.persons);
+      const visibleUids = new Set(sub.unions);
+      const visiblePersons = persons.filter((p) => visiblePids.has(p.id));
+      const visibleUnions = unions.filter((u) => visibleUids.has(u.id));
+      const subEdgeKeys = new Set(sub.edges.map((e) => `${e.unionId}\u0000${e.childId}`));
+      const visibleEdges = parentEdges.filter((e) =>
+        subEdgeKeys.has(`${e.unionId}\u0000${e.childId}`)
+      );
+
+      // Surrogate "cluster" nodes standing in for collapsed subtrees.
+      const surrogates: { id: string; unionId: string; count: number; names: string[] }[] = [];
+      for (const ce of sub.collapsedEdges) {
+        const ids = sub.collapseSubtree.get(ce.unionId) ?? [];
+        const names = sampleDescendantNames(persons, unions, parentEdges, ce.unionId, 5);
+        surrogates.push({ id: ce.childId, unionId: ce.unionId, count: ids.length, names });
+      }
+      const layoutPersons = [
+        ...visiblePersons.map((p) => ({ id: p.id, fullName: p.fullName })),
+        ...surrogates.map((s) => ({ id: s.id, fullName: `${s.count}` })),
+      ];
+      const layoutEdges = [
+        ...visibleEdges.map((e) => ({ unionId: e.unionId, childId: e.childId })),
+        ...sub.collapsedEdges.map((ce) => ({ unionId: ce.unionId, childId: ce.childId })),
+      ];
+
       const graphNodes: Node[] = [];
       const graphEdges: Edge[] = [];
 
-      for (const person of persons) {
+      for (const person of visiblePersons) {
         graphNodes.push({ id: person.id, type: "personNode", data: { person, generation: generationMap[person.id] ?? 0, ringStatus: personRingStatus(person, unions) }, position: { x: 0, y: 0 } });
       }
-      for (const union of unions) {
+      for (const union of visibleUnions) {
         if (!union.partnerB) continue;
-        graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons }, position: { x: 0, y: 0 } });
+        graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons: visiblePersons, isCollapsed: collapsedRef.current.has(union.id), descendantCount: sub.collapseSubtree.get(union.id)?.length ?? 0, onToggleCollapse: (id: string) => toggleCollapseRef.current(id) }, position: { x: 0, y: 0 } });
+      }
+      for (const s of surrogates) {
+        graphNodes.push({
+          id: s.id,
+          type: "collapsedNode",
+          data: { unionId: s.unionId, count: s.count, names: s.names, label: `${s.count} ${s.count === 1 ? "person" : "people"} in hidden branch — expand`, onExpand: (id: string) => toggleCollapseRef.current(id) },
+          position: { x: 0, y: 0 },
+        });
       }
 
-      //  --  --  Lay out the tree (deterministic, generation-layered)  --  -- 
+      //  --  --  Lay out the (visible) tree (deterministic, generation-layered)  --  -- 
       // Spouses + their union diamond sit side by side in one row; children hang
       // below. Deterministic placement keeps it tree-like and avoids node-box
       // overlap on load. Edges remain real React Flow edges (smoothstep, connected
       // to node handles) so they stay attached and follow the nodes when dragged.
-      const { positions } = manualFamilyLayout(persons, unions, parentEdges);
+      const { positions } = manualFamilyLayout(layoutPersons, visibleUnions, layoutEdges);
       if (version !== layoutVersionRef.current) return;
       const layoutPositions = new Map<string, { x: number; y: number }>(positions);
 
@@ -398,7 +448,7 @@ export default function TapestryCanvas() {
       // marriage line the shortest possible and crossing-free, incl. remarriage
       // fans where a person can end up on either side of a given diamond.
       const cxOf = (n: { x: number; y: number }, w: number) => n.x + w / 2;
-      for (const union of unions) {
+      for (const union of visibleUnions) {
         if (!union.partnerB) continue;
         const uPos = layoutPositions.get(union.id);
         if (!uPos) continue;
@@ -413,14 +463,29 @@ export default function TapestryCanvas() {
       }
 
       // Child edges: union diamond bottom -> child top (smoothstep, follows drags).
-      for (const edge of parentEdges) {
-        const union = unions.find((u) => u.id === edge.unionId);
+      for (const edge of visibleEdges) {
+        const union = visibleUnions.find((u) => u.id === edge.unionId);
         if (union && !union.partnerB) {
           // Single parent (no diamond): child drops straight from the parent's bottom.
           graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType, "bottom"));
         } else {
           graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType, "child"));
         }
+      }
+
+      // Collapse boundary edges: a single dashed straight drop from the collapsed
+      // union's diamond down to its cluster card.
+      for (const s of surrogates) {
+        graphEdges.push({
+          id: `${s.unionId}-${s.id}-collapse`,
+          source: s.unionId,
+          target: s.id,
+          type: "smoothstep",
+          sourceHandle: "child",
+          targetHandle: "top",
+          style: { stroke: "var(--thread-gold)", strokeWidth: 1.5, strokeDasharray: "5 5", opacity: 0.8 },
+          animated: true,
+        });
       }
 
       const positioned = graphNodes.map((n) => ({ ...n, position: layoutPositions.get(n.id) ?? { x: 0, y: 0 } }));
@@ -568,13 +633,53 @@ export default function TapestryCanvas() {
     runLayout(rawPersons, rawUnions, rawEdges, false, generationMap);
   }, [rawPersons, rawUnions, rawEdges, runLayout, generationMap]);
 
+  //  --  --  §collapse: toggle a union's subtree fold + re-layout on change  --  -- 
+  // Persisted per active tree in a dedicated localStorage key.
+  const collapseKey = `family-tapestry-collapsed-${activeTreeId}`;
+  const loadCollapsed = useCallback((): Set<string> => {
+    try {
+      const raw = localStorage.getItem(collapseKey);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr);
+    } catch { /* ignore corrupt */ }
+    return new Set();
+  }, [collapseKey]);
+
+  // Import persisted collapse set once when the active tree changes.
+  useEffect(() => {
+    setCollapsed(loadCollapsed());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTreeId]);
+
+  const toggleCollapse = useCallback((unionId: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(unionId)) next.delete(unionId);
+      else next.add(unionId);
+      try {
+        localStorage.setItem(collapseKey, JSON.stringify(Array.from(next)));
+      } catch { /* non-fatal */ }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collapseKey]);
+  toggleCollapseRef.current = toggleCollapse;
+
+  // Relayout whenever the collapse set changes (after first load).
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    runLayout(rawPersons, rawUnions, rawEdges, false, generationMap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collapsed, runLayout]);
+
   //  --  --  Keep selectedPerson live  --  -- 
   useEffect(() => {
     if (selectedPerson) {
       const live = rawPersons.find((p) => p.id === selectedPerson.id);
       if (live && live !== selectedPerson) setSelectedPerson(live);
     }
-  }, [rawPersons, selectedPerson]);
+  }, [selectedPerson, rawPersons]);
 
   //  --  --  Node click  --  -- 
   const onNodeClick = useCallback(
