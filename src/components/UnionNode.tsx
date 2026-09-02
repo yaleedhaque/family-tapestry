@@ -70,9 +70,31 @@ function UnionNode({ data }: NodeProps) {
             )}
           </div>
 
-          <Handle type="target" position={Position.Left} id="partner-left" className="!bg-thread-gold" style={{ left: -4, top: 13 }} />
-          <Handle type="target" position={Position.Right} id="partner-right" className="!bg-thread-gold" style={{ right: -4, top: 13 }} />
-          <Handle type="source" position={Position.Bottom} id="child" className="!bg-thread-gold" style={{ left: 13, bottom: -4 }} />
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="partner-left"
+            className="!bg-thread-gold"
+            // Diamond tips sit at ±16√2 ≈ ±22.63px from the box centre (the 32px
+            // square is rotate-45, so its corners point N/E/S/W beyond the box).
+            // Box centre = (16,16); left tip = (16-22.63, 16) = (-6.63, 16).
+            // A 6px handle centred on that tip -> left = -9.63, top = 13.
+            style={{ left: -9.6, top: 13 }}
+          />
+          <Handle
+            type="target"
+            position={Position.Right}
+            id="partner-right"
+            className="!bg-thread-gold"
+            style={{ right: -9.6, top: 13 }}
+          />
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="child"
+            className="!bg-thread-gold"
+            style={{ left: 13, bottom: -9.6 }}
+          />
         </div>
       </div>
     </div>
