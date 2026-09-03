@@ -2,6 +2,7 @@
 
 import { BaseEdge } from "@xyflow/react";
 import type { EdgeProps } from "@xyflow/react";
+import { pathWithHops, type HopPoint } from "@/lib/edgeGeometry";
 
 // Genogram-style child connector. Replaces the default smoothstep child edge with a
 // clean orthogonal path that reads as a STRAIGHT drop into the child's card:
@@ -27,6 +28,11 @@ interface ChildData {
   adopted?: boolean;
   step?: boolean;
   color?: string;
+  // Optional line-hop points (world coords) computed over ALL child edges after layout
+  // settles. Each hop splices a small semicircular arc so two unavoidable crossing
+  // child lines read as independent bridges rather than intersecting. Empty/absent =
+  // this edge does not yield (drawn straight), which is also the zero-change default.
+  hops?: HopPoint[];
 }
 
 function FamilyChildEdge({
@@ -43,8 +49,9 @@ function FamilyChildEdge({
   const color = isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : (data?.color ?? "var(--edge-child)");
   // Short vertical trunk straight down from the source (diamond), then a horizontal
   // jog to the child's X, then a LONG straight vertical drop into the child's top.
-  const midY = sourceY + TRUNK;
-  const path = `M ${sourceX},${sourceY} L ${sourceX},${midY} L ${targetX},${midY} L ${targetX},${targetY}`;
+  const path = data?.hops?.length
+    ? pathWithHops(sourceX, sourceY, targetX, targetY, data.hops)
+    : `M ${sourceX},${sourceY} L ${sourceX},${sourceY + TRUNK} L ${targetX},${sourceY + TRUNK} L ${targetX},${targetY}`;
   return (
     <BaseEdge
       id={id}

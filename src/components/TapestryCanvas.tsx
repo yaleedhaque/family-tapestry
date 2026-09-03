@@ -8,6 +8,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useStoreApi,
   MarkerType,
   type Node,
   type Edge,
@@ -59,6 +60,7 @@ import ViewerCard from "@/components/ViewerCard";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useUserCircle } from "@/lib/useUserCircle";
 import { consolidateSingleParentBiologicalUnions, type Gender } from "@/lib/parentRules";
+import { computeHops, buildChildPath, type ChildEdgeMeta, type HopPoint } from "@/lib/edgeGeometry";
 import { useTreeCrud, nextPersonId } from "@/hooks/useTreeCrud";
 import { useTreeManagement } from "@/hooks/useTreeManagement";
 import { downloadGedcom } from "@/lib/gedcom";
@@ -133,6 +135,7 @@ const PERSON_W = 210;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
+  const storeApi = useStoreApi();
   const { user, canEdit, loading: authLoading } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -576,6 +579,55 @@ export default function TapestryCanvas() {
       };
     }));
   }, [animPhase, getNodes, setNodes]);
+
+  // ─── Line-hop pass (Group D) ───
+  // AFTER layout settles and edges have rendered (diamond-anchor effect above has
+  // moved union boxes), read React Flow's authoritative per-edge endpoints and compute
+  // line hops for genuinely-unavoidable child-line crossings. Each hop is a small
+  // semicircular bridge (via FamilyChildEdge.pathWithHops) so crossing lines read as
+  // independent rather than intersecting. Scheduled on requestAnimationFrame so it runs
+  // AFTER the diamond-anchor setNodes has committed and the store reflects the final
+  // node positions; runs once per layout.
+  const hopVersionRef = useRef(-1);
+  useEffect(() => {
+    if (animPhase !== "done") return;
+    const version = ++hopVersionRef.current;
+    const raf = requestAnimationFrame(() => {
+      if (version !== hopVersionRef.current) return;
+      const edges = storeApi.getState().edgeLookup;
+      if (!edges) return;
+      // Build the metadata for every child edge from its RENDERED endpoints. The
+      // store's edgeLookup carries the computed handle coords (sourceX/…/targetY) that
+      // only exist at render time, so we read them off the internal objects.
+      const metas: ChildEdgeMeta[] = [];
+      for (const e of Array.from(edges.values())) {
+        if (e.type !== "familychild") continue;
+        const rt = e as Edge & { sourceX?: number; sourceY?: number; targetX?: number; targetY?: number };
+        const d = (e.data ?? {}) as { adopted?: boolean; step?: boolean; color?: string };
+        const sx = rt.sourceX, sy = rt.sourceY, tx = rt.targetX, ty = rt.targetY;
+        if (sx == null || sy == null || tx == null || ty == null) continue;
+        metas.push({
+          id: e.id,
+          generation: 0,
+          isAdopted: d.adopted,
+          isStep: d.step,
+          path: buildChildPath(sx, sy, tx, ty),
+        });
+      }
+      if (metas.length < 2) return; // nothing can cross
+      const hops = computeHops(metas);
+      if (hops.size === 0) return;
+      // Attach hops to the matching edges (in case the store edges changed since read).
+      setFlowEdges((prev) =>
+        prev.map((f) => {
+          const pts: HopPoint[] | undefined = hops.get(f.id);
+          if (!pts || !pts.length) return f;
+          return { ...f, data: { ...(f.data ?? {}), hops: pts } };
+        })
+      );
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [animPhase, setFlowEdges, storeApi]);
 
   // ─── Initial load ───
   useEffect(() => {

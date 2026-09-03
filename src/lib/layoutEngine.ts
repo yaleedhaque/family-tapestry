@@ -91,7 +91,19 @@ const LAYER_OPTIONS: LayoutOptions = {
   "elk.layered.layering.strategy": "NETWORK_SIMPLEX",
   "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
   "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+  // `true` = preserve node/edge order as a tie-breaker BEFORE crossing
+  // minimization. Measured here that ELK's documented `PREFER_EDGES` enum and a
+  // wider edgeEdge/edgeNodeBetweenLayers spacing both regress free straight child
+  // drops (a free child can no longer centre under its parent), so we KEEP the
+  // original boolean form + spacing, which already gives crossing-minimal straight
+  // drops. The crossing improvement we DO want is the greedy-switch post-sweep.
   "elk.layered.considerModelOrder": "true",
+  // Cheap post-sweep local-search passes that swap adjacent in-layer nodes
+  // whenever the swap provably reduces crossings (only ever improves the
+  // crossing count; hierarchical form enabled paren-consistently even though
+  // our compound model uses top-level nodes).
+  "elk.layered.crossingMinimization.greedySwitch.type": "TWO_SIDED",
+  "elk.layered.crossingMinimization.greedySwitchHierarchical.type": "TWO_SIDED",
   "elk.spacing.nodeNode": String(GAP),
   "elk.layered.spacing.nodeNodeBetweenLayers": "110",
   "elk.layered.spacing.edgeNodeBetweenLayers": "40",
