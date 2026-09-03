@@ -481,6 +481,19 @@ export default function TapestryCanvas() {
       const rowTop = Math.min(at.position.y, bt.position.y);
       const aBottom = at.position.y + ah;
       const bBottom = bt.position.y + bh;
+      // A couple whose two partners sit on different rows (remarriage / multi-couple
+      // person) has partner bottoms far apart; a single diamond cannot meet both with
+      // straight lines without landing on the unrelated cards between them. Fall back
+      // to the legacy layout anchor (centered corners) for those.
+      if (Math.abs(aBottom - bBottom) > 120) {
+        adjustments.push({
+          id: n.id,
+          y: n.position.y,
+          cornerA: 75,
+          cornerB: 75,
+        });
+        continue;
+      }
       const ux = n.position.x;
       // The diamond graphic is always drawn such that its two partner corners sit at
       // each partner's card-bottom height, so both marriage lines enter horizontally.
