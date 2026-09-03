@@ -70,7 +70,7 @@ export const LAYOUT_UNION_H = 150; // real rendered union diamond height
 // (LAYOUT_PERSON_H - LAYOUT_UNION_H)/2 centers the diamond on the 231-layout-tall
 // card, but real cards render shorter (~140), so this is pushed lower so the
 // diamond hangs clearly below the card bodies (the requested look).
-const DIAMOND_Y_OFFSET = 80;
+const DIAMOND_Y_OFFSET = 86;
 const GAP = 48;
 
 // Width of a couple block when both partners are inside: [A | diamond | B]
