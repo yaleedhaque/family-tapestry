@@ -12,6 +12,16 @@ function UnionNode({ data }: NodeProps) {
   const partnerB = persons.find((p) => p.id === union.partnerB);
   const isDivorced = union.type === "divorced";
   const isCollapsed = (data.isCollapsed as boolean | undefined) ?? false;
+  // Per-partner marriage-corner local Y offsets (relative to this 150px node's top),
+  // set by the diamond-anchor effect so each marriage line enters horizontally at its
+  // own partner's card bottom even when the two cards differ in height. Falls back to
+  // 75 (vertically centred) before the anchor pass runs.
+  const corners = (data.partnerCorners as { a?: number; b?: number } | undefined) ?? {};
+  const cornerA = typeof corners.a === "number" ? corners.a : 75;
+  const cornerB = typeof corners.b === "number" ? corners.b : 75;
+  // Centre the diamond vertically between the two marriage-corner heights so the two
+  // horizontal lines converge into it naturally.
+  const diamondCentre = (cornerA + cornerB) / 2;
   const descendantCount = (data.descendantCount as number | undefined) ?? 0;
   const onToggleCollapse = (data.onToggleCollapse as ((id: string) => void) | undefined) ?? (() => {});
   const onAddChildDiamond = data.onAddChildDiamond as ((unionId: string) => void) | undefined;
@@ -51,11 +61,14 @@ function UnionNode({ data }: NodeProps) {
         )}
       </div>
 
-      {/* Diamond centred so its centre = the couple's row centre. Its four corners
-          sit at the N/E/S/W compass points; side corners are the partner targets,
-          the south corner is the child source. */}
+      {/* Diamond. Its vertical position is set so that the two partner corner handles
+          (which receive each partner's marriage line at that partner's card-bottom
+          height) sit near the diamond's left/right corners, and the child handle at
+          its south corner. Left/right handles are per-partner offsets so both
+          marriage lines stay perfectly horizontal regardless of the cards' heights. */}
       <div
-        className="absolute inset-0 flex items-center justify-center cursor-pointer"
+        className="absolute inset-x-0 flex items-center justify-center cursor-pointer"
+        style={{ top: diamondCentre - 16, height: 32 }}
         onClick={(e) => {
           e.stopPropagation();
           if (onAddChildDiamond) onAddChildDiamond(union.id);
@@ -88,25 +101,23 @@ function UnionNode({ data }: NodeProps) {
             position={Position.Left}
             id="partner-left"
             className="!bg-thread-gold"
-            // Diamond tip sits at box-local x=16-16*sqrt(2) ~= -6.6 (box centre
-            // is (16,16); the 32px square is rotate-45 so its left corner lands
-            // 16*sqrt(2) ~= 22.6px from centre). React Flow centres the handle on
-            // the given left/top value, so left/top == the corner's coordinates.
-            style={{ left: -6.6, top: 16 }}
+            // Positioned at this partner's card-bottom height so its marriage line
+            // enters perfectly horizontal, independent of the partner cards' heights.
+            style={{ left: -6.6, top: cornerA - diamondCentre + 16 }}
           />
           <Handle
             type="target"
             position={Position.Right}
             id="partner-right"
             className="!bg-thread-gold"
-            style={{ right: -6.6, top: 16 }}
+            style={{ right: -6.6, top: cornerB - diamondCentre + 16 }}
           />
           <Handle
             type="source"
             position={Position.Bottom}
             id="child"
             className="!bg-thread-gold"
-            style={{ left: 16, bottom: -6.6 }}
+            style={{ left: 16, top: 32 + 6.6 }}
           />
         </div>
       </div>

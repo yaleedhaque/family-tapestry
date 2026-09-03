@@ -495,7 +495,7 @@ export default function TapestryCanvas() {
       return union.position.y;
     };
 
-    const adjustments: { id: string; y: number }[] = [];
+    const adjustments: { id: string; y: number; cornerA: number; cornerB: number }[] = [];
     for (const n of all) {
       if (n.type !== "unionNode") continue;
       const union = (n.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
@@ -510,14 +510,29 @@ export default function TapestryCanvas() {
       const partnerHeight = Math.max(ah, bh);
       const rowTop = Math.min(at.position.y, bt.position.y);
       const target = computeBoundary(n, rowTop, partnerHeight);
+      // Each partner's card-bottom Y (taller card = its bottom; shorter card = its own
+      // bottom). Setting the two marriage-corner handles to these exact heights makes
+      // both marriage lines enter the diamond perfectly horizontally regardless of the
+      // two cards differing in height (name wrap / deceased extra line).
+      const aBottom = at.position.y + ah;
+      const bBottom = bt.position.y + bh;
       if (target >= 0 && Math.abs(target - n.position.y) > 1.5) {
-        adjustments.push({ id: n.id, y: target });
+        adjustments.push({ id: n.id, y: target, cornerA: aBottom - target, cornerB: bBottom - target });
+      } else {
+        // Keep the diamond where it is, but still align both corners to the partner
+        // bottoms (the current delta is within tolerance, yet heights may still differ).
+        adjustments.push({ id: n.id, y: n.position.y, cornerA: aBottom - n.position.y, cornerB: bBottom - n.position.y });
       }
     }
     if (adjustments.length === 0) return;
     setNodes((nds) => nds.map((nd) => {
       const adj = adjustments.find((x) => x.id === nd.id);
-      return adj ? { ...nd, position: { ...nd.position, y: adj.y } } : nd;
+      if (!adj) return nd;
+      return {
+        ...nd,
+        position: { ...nd.position, y: adj.y },
+        data: { ...nd.data, partnerCorners: { a: adj.cornerA, b: adj.cornerB } },
+      };
     }));
   }, [animPhase, getNodes, setNodes]);
 
