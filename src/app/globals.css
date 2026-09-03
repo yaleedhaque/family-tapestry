@@ -5,7 +5,7 @@
 :root {
   /* The Tapestry — Design Tokens (§3.1 retained) */
   --tapestry-bg: #16130F;
-  --tapestry-bg-alt: #403624;
+  --tapestry-bg-alt: #2D2519;
   --thread-gold: #C9A544;
   --thread-gold-dim: #9A7B3C;
   --ember-red: #C96B52;
@@ -13,7 +13,7 @@
   --parchment: #EFE6D8;
   --parchment-dim: #B8AC98;
   --living-glow: #D98B3E;
-  --deceased-frame: #8A8078;
+  --deceased-frame: #6E6553;
   --accent-emerald: #3E6B5C;
 
   /* Bright, high-contrast edge/line colours (dark theme) */
@@ -89,7 +89,7 @@
 
 html.light {
   --tapestry-bg: #F5F0E8;
-  --tapestry-bg-alt: #D6C8AD;
+  --tapestry-bg-alt: #DDD3C1;
   --thread-gold: #7A5B1F;
   --thread-gold-dim: #6E511A;
   --ember-red: #8C2E2E;
@@ -97,7 +97,7 @@ html.light {
   --parchment: #2C2520;
   --parchment-dim: #6B6058;
   --living-glow: #A65B1F;
-  --deceased-frame: #7A6F63;
+  --deceased-frame: #8A8078;
   --accent-emerald: #3E7B5C;
 
   /* Bright, high-contrast edge/line colours (light theme) */
