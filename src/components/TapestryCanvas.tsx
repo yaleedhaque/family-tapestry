@@ -968,8 +968,6 @@ export default function TapestryCanvas() {
           </ReactFlow>
         </div>
 
-        <div aria-hidden="true" className="tapestry-edge-fade" />
-
         {!showHelp && <SearchBar persons={rawPersons} onSelect={handleSearchSelect} />}
 
         {dataLoading && (

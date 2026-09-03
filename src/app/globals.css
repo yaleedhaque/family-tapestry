@@ -5,7 +5,7 @@
 :root {
   /* The Tapestry — Design Tokens (§3.1 retained) */
   --tapestry-bg: #16130F;
-  --tapestry-bg-alt: #2D2519;
+  --tapestry-bg-alt: #352B1C;
   --thread-gold: #C9A544;
   --thread-gold-dim: #9A7B3C;
   --ember-red: #C96B52;
@@ -260,18 +260,6 @@ input[type="range"].tapestry-range::-moz-range-thumb {
 
 input[type="range"].tapestry-range:focus-visible::-webkit-slider-thumb {
   box-shadow: var(--glow-focus);
-}
-
-/* §6 right-edge overflow guard: soft fade so nodes crossing the right edge fade rather than hard-clip */
-.tapestry-edge-fade {
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: var(--chrome-top);
-  bottom: var(--chrome-bottom);
-  width: 48px;
-  background: linear-gradient(90deg, transparent, var(--tapestry-bg));
-  z-index: 6;
 }
 
 /* React Flow overrides */
