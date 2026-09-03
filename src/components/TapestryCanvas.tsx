@@ -23,6 +23,7 @@ import {
 import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
 import CollapsedNode from "@/components/CollapsedNode";
+import FamilyChildEdge from "@/components/FamilyChildEdge";
 import InfoPanel from "@/components/InfoPanel";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import BrickBackground from "@/components/BrickBackground";
@@ -52,6 +53,7 @@ import { useUserCircle } from "@/lib/useUserCircle";
 import { findDualParentConflicts, consolidateSingleParentBiologicalUnions, type Gender } from "@/lib/parentRules";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode, collapsedNode: CollapsedNode };
+const edgeTypes = { familychild: FamilyChildEdge };
 
 function toPersonLike(p: PersonLike | DbPerson): PersonLike {
   if ("fullName" in p && "birthPlace" in p && "bio" in p) return p as PersonLike;
@@ -175,8 +177,9 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
     target,
     sourceHandle,
     targetHandle,
-    type: "smoothstep",
+    type: "familychild",
     animated: isAdopted,
+    data: { adopted: isAdopted, step: isStep },
     style: {
       stroke: color,
       strokeWidth: isAdopted ? 2 : 1.2,
@@ -202,13 +205,13 @@ const ANIM_DURATION = 1200;
 // diamond corner handle (left vs right).
 const PERSON_W = 140;
 const UNION_W = 110;
-// Diamond vertical placement. The layout engine (src/lib/layoutEngine.ts) offsets
-// every union diamond DIAMOND_Y_OFFSET=86 below its couple's row TOP. That yields the
-// confirmed "perfect" look for a ~134px card. Because actual card height varies with
-// name wrapping, the "diamond anchor fix" effect re-anchors each diamond DIAMOND_DROP
-// above the bottom of its taller partner card, which for a standard 134.5px card is
-// identical to the fixed 86px offset (no visual change) but keeps taller cards consistent.
-const DIAMOND_DROP = 48.5; // gap from diamond top to the couple's card bottom (~134.5 - 86)
+// Diamond vertical placement. The "diamond anchor fix" effect positions each
+// union diamond so its top sits a constant gap (DIAMOND_DROP) above the bottom of
+// its taller partner card. This keeps every diamond at the same visual drop below
+// its couple's card bodies regardless of name-wrap height. DIAMOND_DROP = the gap
+// from diamond top to the couple's card bottom. Lower value = the diamond hangs
+// further down (closer to / besides the card bottoms).
+const DIAMOND_DROP = 30; // gap from diamond top to the couple's card bottom (~134.5 - 86 normally)
 
 function nextUnionId(unions: UnionLike[]) {
   const maxN = unions.reduce((max, u) => {
@@ -1488,6 +1491,7 @@ export default function TapestryCanvas() {
             onNodeMouseLeave={() => setHoveredNodeId(null)}
             onMove={onCanvasMove}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             proOptions={{ hideAttribution: true }}
             minZoom={0.1}
             maxZoom={isMobile ? 2 : 3}
