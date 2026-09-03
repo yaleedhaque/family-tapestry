@@ -697,7 +697,9 @@ export function useTreeCrud({
             )
         );
       } else {
-        // linkType === "child": fromId = the person (child), toId = the parent to disconnect
+        // linkType === "child": fromId = the person (child), toId = the parent to disconnect.
+        // Removing a parent should detach ONLY that parent from THIS child while keeping
+        // the child on the other parent (if the child hangs on a couple union).
         const edge = currentEdges.find(
           (e) =>
             e.childId === fromId &&
@@ -708,9 +710,66 @@ export function useTreeCrud({
             )
         );
         if (edge) {
-          nextEdges = currentEdges.filter(
-            (e) => !(e.unionId === edge.unionId && e.childId === fromId)
-          );
+          const union = currentUnions.find((u) => u.id === edge.unionId);
+          const other = union
+            ? union.partnerA === toId
+              ? union.partnerB
+              : union.partnerA
+            : "";
+          if (union && other) {
+            // Couple union: keep this child attached to the OTHER parent by reparenting
+            // it to a single-parent union of that parent. The couple union stays intact
+            // for any siblings.
+            nextEdges = currentEdges.filter(
+              (e) =>
+                !(e.unionId === edge.unionId && e.childId === fromId)
+            );
+            const existingSingle = currentUnions.find(
+              (u) =>
+                u.id !== edge.unionId &&
+                u.partnerA === other &&
+                !u.partnerB
+            );
+            if (existingSingle) {
+              nextEdges = [
+                ...nextEdges,
+                {
+                  unionId: existingSingle.id,
+                  childId: fromId,
+                  relationshipType:
+                    edge.relationshipType ?? "biological",
+                },
+              ];
+            } else {
+              const newId = nextUnionId(currentUnions);
+              nextUnions = [
+                ...currentUnions,
+                {
+                  id: newId,
+                  partnerA: other,
+                  partnerB: "",
+                  type: "marriage",
+                  startYear: null,
+                  endYear: null,
+                },
+              ];
+              nextEdges = [
+                ...nextEdges,
+                {
+                  unionId: newId,
+                  childId: fromId,
+                  relationshipType:
+                    edge.relationshipType ?? "biological",
+                },
+              ];
+            }
+          } else {
+            // Single-parent union (other is ""): just disconnect this child.
+            nextEdges = currentEdges.filter(
+              (e) =>
+                !(e.unionId === edge.unionId && e.childId === fromId)
+            );
+          }
         }
       }
       setRawUnions(nextUnions);
