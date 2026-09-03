@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# fast-check.sh — pre-push sanity check that SKIPS the full production build.
-# For typical UI/TSX edits, `tsc --noEmit` + `vitest` + eslint(errors-only)
-# catches everything Vercel's build would, in ~12s instead of ~45s.
-# Vercel does the authoritative `next build` server-side on push anyway.
+# fast-check.sh — pre-push sanity check for family-tapestry.
 #
-# Usage:   scripts/fast-check.sh [--strict]
-#   --strict  also run eslint with no warnings tolerated (slower)
+# family-tapestry runs Next.js 16 + Turbopack, and `next build` picks up the
+# deepest static errors (type-check + page generation that would fail on
+# Vercel). We run the full triple here because the build is now only ~11s with
+# Turbopack (vs 45-77s on webpack) — the "skip the build" optimisation from the
+# older webpack days is no longer needed.
+#
+# NOTE: Next 16 does NOT run ESLint during build (confirmed), so ESLint is NOT
+# part of this check. `npm run build` is the authoritative local gate.
+#
+# Usage:   scripts/fast-check.sh
 set -uo pipefail
 cd "$(dirname "$0")/.."   # project root
 
@@ -19,16 +24,12 @@ echo "🔍 [2/3] vitest run ..."
 if ! npx vitest run; then
   echo "❌ Test failures — fix before pushing."; exit 1
 fi
+echo "   ✓ tests green"
 
-echo "🔍 [3/3] eslint (errors only) ..."
-if [ "${1:-}" = "--strict" ]; then
-  npx eslint src --ext .ts,.tsx
-else
-  # Vercel build fails only on ESLint ERRORS, not warnings. Match error LINE matches.
-  if npx eslint src --ext .ts,.tsx 2>/dev/null | grep -E "^[^ ]+ +[0-9]+:[0-9]+ +error " >/dev/null; then
-    echo "❌ ESLint errors found."; exit 1
-  fi
+echo "🔍 [3/3] npm run build ..."
+if ! npm run build; then
+  echo "❌ Production build failed — fix before pushing."; exit 1
 fi
-echo "   ✓ eslint clean (errors-free)"
+echo "   ✓ build clean"
 
 echo "✅ fast-check PASSED ($(date +%H:%M:%S)) — safe to push."
