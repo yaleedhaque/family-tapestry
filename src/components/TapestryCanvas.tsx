@@ -41,6 +41,7 @@ import GedcomImport from "@/components/GedcomImport";
 import KeyboardHelp from "@/components/KeyboardHelp";
 import HelpModal from "@/components/HelpModal";
 import AddPersonModal from "@/components/AddPersonModal";
+import AddChildModal from "@/components/AddChildModal";
 import MobileNav from "@/components/MobileNav";
 import Legend from "@/components/Legend";
 import { useAuth } from "@/components/AuthProvider";
@@ -160,6 +161,7 @@ export default function TapestryCanvas() {
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
   const [showGedcomImport, setShowGedcomImport] = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
+  const [addChildUnion, setAddChildUnion] = useState<{ unionId: string; parentAName: string; parentBName: string } | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [activeTreeId, setActiveTreeId] = useState("default");
   const [treeNames, setTreeNames] = useState<Record<string, string>>({ "default": "The Haque Tapestry" });
@@ -316,36 +318,17 @@ export default function TapestryCanvas() {
   // ─── Diamond: add child ───
   const handleAddChildDiamond = useCallback(
     (unionId: string) => {
-      const name = window.prompt("Child's full name:");
-      if (!name?.trim()) return;
-      const adopted = window.confirm("Is this an adopted child?\n\nOK = Adopted\nCancel = Biological");
-      const rel = adopted ? "adopted" : "biological";
       const union = rawUnionsRef.current.find((u) => u.id === unionId);
       if (!union) return;
-      const parentId = union.partnerA || union.partnerB;
-      if (!parentId) return;
-      const np: PersonLike = {
-        id: `p${Date.now()}`,
-        fullName: name.trim(),
-        nameNative: null,
-        gender: "",
-        birthYear: null,
-        deathYear: null,
-        isAlive: true,
-        bio: "",
-        birthPlace: "",
-        profession: "",
-        email: "",
-        phone: "",
-        address: "",
-        website: "",
-        lat: null,
-        lng: null,
-        photoUrl: "",
-      };
-      handleCreatePersonAndLink(np, "child", parentId, undefined, undefined, rel);
+      const pA = rawPersonsRef.current.find((p) => p.id === union.partnerA);
+      const pB = rawPersonsRef.current.find((p) => p.id === union.partnerB);
+      setAddChildUnion({
+        unionId,
+        parentAName: pA?.fullName ?? "Unknown",
+        parentBName: pB?.fullName ?? "",
+      });
     },
-    [rawUnionsRef, handleCreatePersonAndLink]
+    [rawUnionsRef, rawPersonsRef]
   );
 
   // ─── Layout ───
@@ -1157,6 +1140,23 @@ export default function TapestryCanvas() {
           nextId={() => nextPersonId(rawPersons)}
           onAdd={handleAddStandalonePerson}
           onClose={() => setShowAddPerson(false)}
+        />
+      )}
+
+      {addChildUnion && (
+        <AddChildModal
+          parentAName={addChildUnion.parentAName}
+          parentBName={addChildUnion.parentBName}
+          persons={rawPersons}
+          onAdd={(person, relType) => {
+            const union = rawUnionsRef.current.find((u) => u.id === addChildUnion.unionId);
+            if (!union) return;
+            const parentId = union.partnerA || union.partnerB;
+            if (!parentId) return;
+            handleCreatePersonAndLink(person, "child", parentId, undefined, undefined, relType);
+            setAddChildUnion(null);
+          }}
+          onClose={() => setAddChildUnion(null)}
         />
       )}
 
