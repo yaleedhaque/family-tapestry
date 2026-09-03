@@ -25,7 +25,6 @@ import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
 import CollapsedNode from "@/components/CollapsedNode";
 import FamilyChildEdge from "@/components/FamilyChildEdge";
-import FamilyMarriageEdge from "@/components/FamilyMarriageEdge";
 import InfoPanel from "@/components/InfoPanel";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import {
@@ -67,7 +66,7 @@ import { useTreeManagement } from "@/hooks/useTreeManagement";
 import { downloadGedcom } from "@/lib/gedcom";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode, collapsedNode: CollapsedNode };
-const edgeTypes = { familychild: FamilyChildEdge, marriage: FamilyMarriageEdge };
+const edgeTypes = { familychild: FamilyChildEdge };
 
 function makeMarriageEdge(source: string, target: string, unionType: string, targetHandle?: string): Edge {
   const isDivorced = unionType === "divorced";
@@ -76,18 +75,12 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
     source,
     target,
     targetHandle,
-    type: "marriage",
-    data: {
-      color: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage)",
-      width: 2.5,
+    type: "smoothstep",
+    style: {
+      stroke: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage)",
+      strokeWidth: 2.5,
       opacity: isDivorced ? 0.85 : 1,
-      dash: isDivorced ? "6 4" : undefined,
-      label: isDivorced ? "divorced" : undefined,
-      labelStyle: isDivorced
-        ? { fill: "var(--ember-red)", fontSize: 10, fontFamily: "var(--font-body)" }
-        : undefined,
-      labelBgStyle: isDivorced ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
-      labelBgPadding: isDivorced ? ([6, 3] as [number, number]) : undefined,
+      strokeDasharray: isDivorced ? "6 4" : undefined,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
@@ -95,6 +88,12 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
       width: 14,
       height: 14,
     },
+    label: isDivorced ? "divorced" : undefined,
+    labelStyle: isDivorced
+      ? { fill: "var(--ember-red)", fontSize: 10, fontFamily: "var(--font-body)" }
+      : undefined,
+    labelBgStyle: isDivorced ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
+    labelBgPadding: isDivorced ? ([6, 3] as [number, number]) : undefined,
   };
 }
 
@@ -133,13 +132,6 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 const ANIM_DURATION = 550;
 const UNION_W = 110;
 const PERSON_W = 210;
-// Marriage edges are native React Flow `straight` edges, so for a perfectly horizontal
-// line the diamond's partner-corner handles (at node-local y=75, i.e. dCy) must sit at
-// EXACTLY the couple's card-bottom height. Any drop here would make the straight line
-// slope. The child-corner (bottom of the diamond) still drops to the offspring row, so
-// the diamond's vertical extent below the cards is unchanged below; keep DROP 0 for
-// flat marriage lines.
-const DIAMOND_DROP = 0;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
@@ -529,11 +521,8 @@ export default function TapestryCanvas() {
       const ux = n.position.x;
       // The diamond graphic is always drawn such that its two partner corners sit at
       // each partner's card-bottom height, so both marriage lines enter horizontally.
-      // Its vertical centre is therefore the (now level) partner-bottom height, pushed
-      // DIAMOND_DROP farther DOWN so the corners hang a little below the cards — that
-      // lengthens each marriage line's straight horizontal run and removes the visible
-      // left/right bend at the corner entry.
-      let dCy = (aBottomEff + bBottomEff) / 2 + DIAMOND_DROP;
+      // Its vertical centre is therefore the (now level) partner-bottom height.
+      let dCy = (aBottomEff + bBottomEff) / 2;
       // Never let the diamond rise above the couple's own cards (the taller one).
       const dTopLimit = rowTop + partnerHeight;
       if (dCy - 16 < dTopLimit) dCy = dTopLimit + 16;
