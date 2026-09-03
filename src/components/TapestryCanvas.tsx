@@ -202,6 +202,13 @@ const ANIM_DURATION = 1200;
 // diamond corner handle (left vs right).
 const PERSON_W = 140;
 const UNION_W = 110;
+// Diamond vertical placement. The layout engine (src/lib/layoutEngine.ts) offsets
+// every union diamond DIAMOND_Y_OFFSET=86 below its couple's row TOP. That yields the
+// confirmed "perfect" look for a ~134px card. Because actual card height varies with
+// name wrapping, the "diamond anchor fix" effect re-anchors each diamond DIAMOND_DROP
+// above the bottom of its taller partner card, which for a standard 134.5px card is
+// identical to the fixed 86px offset (no visual change) but keeps taller cards consistent.
+const DIAMOND_DROP = 48.5; // gap from diamond top to the couple's card bottom (~134.5 - 86)
 
 function nextUnionId(unions: UnionLike[]) {
   const maxN = unions.reduce((max, u) => {
@@ -247,7 +254,7 @@ function toDbSource(s: Source) {
 }
 
 export default function TapestryCanvas() {
-  const { fitView, setViewport, getViewport } = useReactFlow();
+  const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
   const { user, canEdit, loading: authLoading } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
@@ -553,6 +560,51 @@ export default function TapestryCanvas() {
     },
     [setNodes, setFlowEdges]
   );
+
+  //  --  --  Diamond anchor fix  --  --
+  // The layout engine offsets every union diamond a fixed DIAMOND_Y_OFFSET below
+  // its couple's row TOP. But person cards render at their natural content height,
+  // which differs when a name wraps onto two lines (taller card). A fixed top
+  // offset therefore makes a diamond hanging below a TALLER card look HIGHER than
+  // one below a shorter card — exactly what the user flagged for the Shahidul×Ambia
+  // diamond. Fix: once the tree has settled and React Flow has MEASURED the real
+  // rendered card sizes (node.measured), re-anchor each two-partner diamond so its
+  // top sits a constant DIAMOND_DROP above the bottom of the taller of its two
+  // partner cards. Standard single-line cards end up unchanged (~0 delta, so the
+  // confirmed "perfect" 86 placement is preserved); taller name-wrapped cards drop
+  // the extra few px so every diamond looks identical relative to its couple.
+  useEffect(() => {
+    if (animPhase !== "done") return;
+    const all = getNodes();
+    const byId = new Map(all.map((n) => [n.id, n]));
+    const measured = new Map<string, number>();
+    for (const n of all) if (n.measured?.height) measured.set(n.id, n.measured.height);
+    const adjustments: { id: string; y: number }[] = [];
+    for (const n of all) {
+      if (n.type !== "unionNode") continue;
+      const union = (n.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
+      const a = union?.partnerA;
+      const b = union?.partnerB;
+      if (!a || !b) continue;
+      const at = byId.get(a);
+      const bt = byId.get(b);
+      const ah = at ? measured.get(a) : undefined;
+      const bh = bt ? measured.get(b) : undefined;
+      if (!at || !bt || ah == null || bh == null) continue;
+      const partnerHeight = Math.max(ah, bh);
+      const rowTop = Math.min(at.position.y, bt.position.y);
+      const target = rowTop + partnerHeight - DIAMOND_DROP;
+      if (Math.abs(target - n.position.y) > 1.5) {
+        adjustments.push({ id: n.id, y: target });
+      }
+    }
+    if (adjustments.length === 0) return;
+    setNodes((nds) => nds.map((nd) => {
+      const adj = adjustments.find((x) => x.id === nd.id);
+      return adj ? { ...nd, position: { ...nd.position, y: adj.y } } : nd;
+    }));
+    // Keep the same zoom/pan (do not refit — that would zoom-jump on tall cards).
+  }, [animPhase, getNodes, setNodes]);
 
   //  --  --  Initial load  --  -- 
   useEffect(() => {
