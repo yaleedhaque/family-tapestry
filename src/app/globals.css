@@ -5,7 +5,7 @@
 :root {
   /* The Tapestry — Design Tokens (§3.1 retained) */
   --tapestry-bg: #16130F;
-  --tapestry-bg-alt: #201B14;
+  --tapestry-bg-alt: #2D2519;
   --thread-gold: #C9A544;
   --thread-gold-dim: #9A7B3C;
   --ember-red: #C96B52;
@@ -18,7 +18,7 @@
 
   /* Bright, high-contrast edge/line colours (dark theme) */
   --edge-marriage: #E8C76A;
-  --edge-child: #B3A489;
+  --edge-child: #D4C4A0;
   --edge-adopted: #69B896;
   --edge-step: #E8BF6A;
   --edge-marriage-dim: #C9A544;
@@ -89,7 +89,7 @@
 
 html.light {
   --tapestry-bg: #F5F0E8;
-  --tapestry-bg-alt: #EBE3D5;
+  --tapestry-bg-alt: #DDD3C1;
   --thread-gold: #7A5B1F;
   --thread-gold-dim: #6E511A;
   --ember-red: #8C2E2E;
@@ -102,7 +102,7 @@ html.light {
 
   /* Bright, high-contrast edge/line colours (light theme) */
   --edge-marriage: #8A6522;
-  --edge-child: #6E645A;
+  --edge-child: #5A4E42;
   --edge-adopted: #2F6B50;
   --edge-step: #8A6A28;
   --edge-marriage-dim: #6E511A;
