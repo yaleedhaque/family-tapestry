@@ -5,7 +5,7 @@
 :root {
   /* The Tapestry — Design Tokens (§3.1 retained) */
   --tapestry-bg: #16130F;
-  --tapestry-bg-alt: #2D2519;
+  --tapestry-bg-alt: #201B14;
   /* Person-card surface — one elevation step above the canvas/panels so cards
      read distinctly WITHOUT changing the canvas background (see
      BrickBackground, which paints the canvas with --tapestry-bg-alt). */
@@ -93,7 +93,7 @@
 
 html.light {
   --tapestry-bg: #F5F0E8;
-  --tapestry-bg-alt: #DDD3C1;
+  --tapestry-bg-alt: #EBE3D5;
   --card-bg: #DDD3C1;
   --thread-gold: #7A5B1F;
   --thread-gold-dim: #6E511A;
