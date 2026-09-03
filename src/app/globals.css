@@ -5,7 +5,7 @@
 :root {
   /* The Tapestry — Design Tokens (§3.1 retained) */
   --tapestry-bg: #16130F;
-  --tapestry-bg-alt: #2D2519;
+  --tapestry-bg-alt: #403624;
   --thread-gold: #C9A544;
   --thread-gold-dim: #9A7B3C;
   --ember-red: #C96B52;
@@ -13,7 +13,7 @@
   --parchment: #EFE6D8;
   --parchment-dim: #B8AC98;
   --living-glow: #D98B3E;
-  --deceased-frame: #6E6553;
+  --deceased-frame: #8A8078;
   --accent-emerald: #3E6B5C;
 
   /* Bright, high-contrast edge/line colours (dark theme) */
