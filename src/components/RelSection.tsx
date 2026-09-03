@@ -64,6 +64,7 @@ interface RelSectionProps {
   onEditEdgeRelChange?: (val: string) => void;
   onSaveEdge?: () => void;
   onCancelEditEdge?: () => void;
+  onSetSingleParent?: (childId: string, parentId: string) => void;
 }
 
 export function RelSection({
@@ -79,6 +80,7 @@ export function RelSection({
   canEdit,
   onEditEdge, editingEdgeKey, editEdgeRel, onEditEdgeRelChange,
   onSaveEdge, onCancelEditEdge,
+  onSetSingleParent,
 }: RelSectionProps) {
   const { t } = useLang();
   return (
@@ -111,6 +113,16 @@ export function RelSection({
                   )}
                   {onEditUnion && (
                     <button onClick={() => onEditUnion(item)} aria-label={`Edit relationship with ${item.label}`} title="Change type / years" className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors text-xs">✎</button>
+                  )}
+                  {canEdit && onSetSingleParent && item.edge && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Attach this child to ONLY ${item.label} (single-parent line)? The other parent will be removed from this child.`)) onSetSingleParent?.(item.edge!.childId, item.id);
+                      }}
+                      aria-label={`Make ${item.label} the only parent`}
+                      title="Make this the only parent — child connects to just this one parent"
+                      className="px-1.5 h-6 flex items-center rounded text-[10px] text-[var(--parchment-dim)] hover:text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors border border-[var(--thread-gold-dim)]/30"
+                    >solo</button>
                   )}
                   <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.label}`} className="w-8 h-8 flex items-center justify-center rounded text-[var(--parchment-dim)] hover:text-[var(--ember-red)] hover:bg-[var(--ember-red)]/10 transition-colors text-xs shrink-0">✕</button>
                 </div>

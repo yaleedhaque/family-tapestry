@@ -111,6 +111,7 @@ interface UseTreeCrudReturn {
     fromId: string,
     toId: string
   ) => void;
+  handleSetSingleParent: (childId: string, parentId: string) => void;
   handleAddSource: (source: Source) => void;
   handleUpdateSource: (source: Source) => void;
   handleDeleteSource: (sourceId: string) => void;
@@ -306,6 +307,54 @@ export function useTreeCrud({
         );
     },
     [user, toast, rawEdgesRef, rawPersonsRef, rawUnionsRef, setRawEdges]
+  );
+
+  // ─── CRUD: Make [this] parent the child's ONLY parent (single-parent line) ───
+  // Reparents a child so it connects to a single parent (single-parent union)
+  // instead of a couple diamond. Removes the child from ALL its current unions
+  // first, so the server-side consolidation (which merges couple+lone-parent
+  // duplicates) never re-attaches the other parent.
+  const handleSetSingleParent = useCallback(
+    (childId: string, parentId: string) => {
+      const currentUnions = rawUnionsRef.current;
+      const currentEdges = rawEdgesRef.current;
+      const withoutChild = currentEdges.filter((e) => e.childId !== childId);
+      const existing = currentUnions.find(
+        (u) => u.id !== "" && u.partnerA === parentId && !u.partnerB && withoutChild.some((e) => e.unionId === u.id)
+      );
+      let union = existing;
+      let nextUnions = currentUnions;
+      if (!union) {
+        const newId = nextUnionId(currentUnions);
+        union = {
+          id: newId,
+          partnerA: parentId,
+          partnerB: "",
+          type: "marriage",
+          startYear: null,
+          endYear: null,
+        };
+        nextUnions = [...currentUnions, union];
+      }
+      const nextEdges = [
+        ...withoutChild,
+        { unionId: union.id, childId, relationshipType: "biological" },
+      ];
+      setRawUnions(nextUnions);
+      setRawEdges(nextEdges);
+      if (user)
+        apiCall(
+          "PUT",
+          "/tree",
+          {
+            persons: rawPersonsRef.current,
+            unions: nextUnions,
+            edges: nextEdges,
+          },
+          () => toast("Failed to save single-parent change", "error")
+        );
+    },
+    [user, toast, rawUnionsRef, rawEdgesRef, rawPersonsRef, setRawEdges, setRawUnions]
   );
 
   // ─── CRUD: Add child (existing person) ───
@@ -784,6 +833,7 @@ export function useTreeCrud({
     handleAddParent,
     handleCreatePersonAndLink,
     handleRemoveLink,
+    handleSetSingleParent,
     handleAddSource,
     handleUpdateSource,
     handleDeleteSource,

@@ -289,6 +289,7 @@ export default function TapestryCanvas() {
     handleAddParent,
     handleCreatePersonAndLink,
     handleRemoveLink,
+    handleSetSingleParent,
     handleAddSource,
     handleUpdateSource,
     handleDeleteSource,
@@ -1048,6 +1049,7 @@ export default function TapestryCanvas() {
           onUpdateEdgeType={handleUpdateEdgeType}
           onCreatePersonAndLink={handleCreatePersonAndLink}
           onRemoveLink={handleRemoveLink}
+          onSetSingleParent={handleSetSingleParent}
           nextPersonId={() => nextPersonId(rawPersons)}
           onNavigate={handleNavigatePerson}
           canEdit={selectedPerson ? gate.canEditPerson(selectedPerson.id) : false}

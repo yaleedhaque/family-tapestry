@@ -75,6 +75,7 @@ interface InfoPanelProps {
     relationshipType?: string,
   ) => void;
   onRemoveLink: (linkType: "partner" | "child", fromId: string, toId: string) => void;
+  onSetSingleParent: (childId: string, parentId: string) => void;
   nextPersonId: () => string;
   onNavigate: (personId: string) => void;
   canEdit?: boolean;
@@ -105,6 +106,7 @@ export default function InfoPanel({
   onUpdateEdgeType,
   onCreatePersonAndLink,
   onRemoveLink,
+  onSetSingleParent,
   nextPersonId,
   onNavigate,
   canEdit = true,
@@ -463,6 +465,7 @@ const np: PersonLike = {
                   setEditingEdgeKey(null);
                 }}
                 onCancelEditEdge={() => setEditingEdgeKey(null)}
+                onSetSingleParent={canEdit ? (childId, parentId) => onSetSingleParent(childId, parentId) : undefined}
               />
               {hasDualBioParents && (
                 <p className="text-[11px] text-[var(--ember-red)] bg-[var(--ember-red)]/10 rounded px-3 py-2 leading-relaxed">
