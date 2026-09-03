@@ -89,7 +89,7 @@
 
 html.light {
   --tapestry-bg: #F5F0E8;
-  --tapestry-bg-alt: #DDD3C1;
+  --tapestry-bg-alt: #D6C8AD;
   --thread-gold: #7A5B1F;
   --thread-gold-dim: #6E511A;
   --ember-red: #8C2E2E;
@@ -97,7 +97,7 @@ html.light {
   --parchment: #2C2520;
   --parchment-dim: #6B6058;
   --living-glow: #A65B1F;
-  --deceased-frame: #8A8078;
+  --deceased-frame: #7A6F63;
   --accent-emerald: #3E7B5C;
 
   /* Bright, high-contrast edge/line colours (light theme) */

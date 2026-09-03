@@ -37,7 +37,7 @@ function PersonNode({ data }: NodeProps) {
       tabIndex={0}
       className={`
         relative flex flex-col items-center gap-1.5 rounded-lg
-        border px-4 py-3 w-[140px] transition-all duration-200
+        border-2 px-4 py-3 w-[140px] transition-all duration-200
         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]
         ${isHighlighted ? "ring-2 ring-[var(--thread-gold)] ring-offset-2 ring-offset-[var(--tapestry-bg)] scale-105 shadow-[0_0_20px_rgba(201,162,75,0.3)]" : ""}
         ${isDimmed ? "opacity-35" : ""}
