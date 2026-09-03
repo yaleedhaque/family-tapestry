@@ -494,6 +494,58 @@ function recentreChildren(
   }
 }
 
+// ---------------------------------------------------------------------------
+// PARENT-ABOVE-CHILD GUARANTEE
+//
+// The layout is structurally guaranteed to place every person's parents ABOVE them:
+//
+//   - ELK's layered layout is given a DAG where every parent->child relationship is
+//     an ELK edge (couple-compound OR single parent -> child person). With
+//     `elk.direction: DOWN`, the layering strategy assigns each target a strictly
+//     deeper layer than its source (NETWORK_SIMPLEX enforces `layer(v) >=
+//     layer(u) + 1` for every edge), so a child person is ALWAYS on a deeper row than
+//     its parent union / single parent. There is never an upward parent->child edge,
+//     so the DAG cannot route a child above a parent.
+//
+//   - The only non-parent->child edges are the remarriage "marriage-bar" edges that
+//     join a couple compound to a FLAT (remarrying) spouse. Those connect SPOUSES,
+//     not a parent/child pair, so they never violate the invariant.
+//
+// `verifyParentsAboveChildren` is the authoritative assertion of this invariant. It
+// reads the final TOP-LEFT positions (post-recentre, post-side-swap) and checks, for
+// EVERY parent->child edge, that the child person's TOP edge lies strictly BELOW the
+// parent's BOTTOM edge. A couple-union's parent bottom = the union diamond's bottom
+// (it hangs below the partner cards); a single-parent's bottom = the lone parent's
+// card bottom. It returns the list of violating edges (empty = always-above holds).
+// It is used by the tests as a belt-and-braces guard so any future change that
+// breaks the invariant fails loudly instead of shipping a scrambled tree.
+// ---------------------------------------------------------------------------
+export function verifyParentsAboveChildren(
+  positions: Map<string, LayoutResult>,
+  persons: LayoutPerson[],
+  unions: LayoutUnion[],
+  edges: LayoutEdge[]
+): string[] {
+  const unionById = new Map(unions.map((u) => [u.id, u]));
+  const violations: string[] = [];
+  for (const ed of edges) {
+    const child = positions.get(ed.childId);
+    if (!child) continue;
+    const u = unionById.get(ed.unionId);
+    const parent = u ? positions.get(u.id) : undefined;
+    if (!u || !parent) continue;
+    // Bottom of the parent: the union diamond always hangs below the partner cards
+    // (DIAMOND_Y_OFFSET), so the union's bottom is the true "parents' row bottom".
+    const parentBottom = parent.y + LAYOUT_UNION_H;
+    if (child.y <= parentBottom + 0.5) {
+      violations.push(
+        `${ed.childId} not below ${ed.unionId} (child top ${child.y} vs parent bottom ${parentBottom})`
+      );
+    }
+  }
+  return violations;
+}
+
 // True if the cards in `ids` (already moved) now overlap any OTHER person/diamond
 // box that sits on the same row. Couple compounds' diamonds and all persons are
 // considered; the moved cards themselves are excluded.

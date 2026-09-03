@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadCircleData, resolveEdit } from "@/lib/server-permissions";
 import { can, canEditField, type Role } from "@/lib/permissions";
+
+// Publicly editable NAME fields. Any logged-in member (admin/editor/user) may
+// correct a person's name regardless of whether they are inside that person's
+// edit circle — a name is public genealogical data and should not be locked
+// behind the circle. EVERYTHING else stays gated by the existing rules.
+const PUBLIC_NAME_FIELDS = new Set(["full_name", "name_native"]);
 import {
   normalizeGender,
   wouldGenderChangeBreakRule,
@@ -136,15 +142,23 @@ export async function PATCH(request: NextRequest) {
 
   if (role !== "user") return forbidden();
 
-  // User role: enforce circle + field-level rules (5.2).
+  // User role: enforce circle + field-level rules (5.2). The ONLY relaxation is
+  // the name: any user may rename any person (PUBLIC_NAME_FIELDS), so a "none"
+  // (outside-circle) person can still have its name corrected.
   const circle = await loadCircleData(db, auth.user!.id);
   const res = resolveEdit(role, circle, id);
-  if (res.kind === "none") return forbidden();
 
-  const requested = Object.keys(fields).map(toColumn);
-  if (res.kind === "circle") {
+  const requestedCols = Object.keys(fields).map(toColumn);
+
+  // Word-fields phase (outside circle): only the public NAME fields are allowed.
+  if (res.kind === "none") {
+    const nonName = requestedCols.filter((f) => !PUBLIC_NAME_FIELDS.has(f));
+    if (nonName.length > 0) {
+      return forbidden();
+    }
+  } else if (res.kind === "circle") {
     // Non-self circle member: only genealogical fields (block private).
-    const blocked = requested.filter((f) => !canEditField("user", circle, id, f));
+    const blocked = requestedCols.filter((f: string) => !canEditField("user", circle, id, f));
     if (blocked.length > 0) {
       return NextResponse.json(
         { error: `Not allowed to edit private field: ${blocked[0]}` },

@@ -89,8 +89,12 @@ export default function PersonDetailPage() {
   );
 
   const gate = useUserCircle(user, persons, unions, parentEdges);
+  const isLoggedIn = !!user;
+  const canRename = isLoggedIn && (user?.role ? user.role !== "viewer" : true);
 
   const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
 
   const person = useMemo(() => persons.find((p) => p.id === id) ?? getStaticPerson(id), [persons, id]);
 
@@ -167,6 +171,19 @@ export default function PersonDetailPage() {
       .catch(() => alert("Failed to save changes. Please try again."));
   };
 
+  const renamePerson = () => {
+    const name = nameDraft.trim();
+    if (!name) return;
+    fetch(`/api/tree/persons`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, fullName: name }),
+    })
+      .then((res) => { if (!res.ok) throw new Error("save failed"); })
+      .then(() => { setRenaming(false); setNameDraft(""); })
+      .catch(() => alert("Failed to rename. Please try again."));
+  };
+
   if (!person) {
     return (
       <div className="min-h-screen bg-[var(--tapestry-bg)] flex items-center justify-center">
@@ -196,9 +213,25 @@ export default function PersonDetailPage() {
           </Link>
           <div className="flex-1" />
           <span className="text-[10px] md:text-xs text-[var(--parchment-dim)]">Person Profile</span>
+          {canRename && (
+            <button
+              onClick={() => {
+                setNameDraft(person.fullName);
+                setRenaming((r) => !r);
+                setEditing(false);
+              }}
+              className="text-[10px] md:text-xs px-2.5 py-1.5 rounded-lg bg-[var(--tapestry-bg)]/60 border border-[var(--thread-gold-dim)]/30 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/15 transition-colors font-body"
+              title="Rename this person (available to all members)"
+            >
+              {renaming ? "Cancel" : "Rename"}
+            </button>
+          )}
           {gate.canEditPerson(id) && (
             <button
-              onClick={() => setEditing((e) => !e)}
+              onClick={() => {
+                setEditing((e) => !e);
+                setRenaming(false);
+              }}
               className="text-[10px] md:text-xs px-2.5 py-1.5 rounded-lg bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/25 transition-colors font-body"
             >
               {editing ? "Done" : "Edit"}
@@ -238,6 +271,26 @@ export default function PersonDetailPage() {
             <span className="text-[10px] text-[var(--parchment-dim)]">{person.isAlive ? "Living" : "Deceased"}</span>
           </div>
         </div>
+
+        {/* Rename (available to all members) */}
+        {renaming && (
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") renamePerson(); if (e.key === "Escape") setRenaming(false); }}
+              className="w-64 bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body text-center focus:outline-none focus:border-[var(--thread-gold)]"
+              placeholder="Full name"
+            />
+            <button
+              onClick={renamePerson}
+              className="px-3 py-2 text-sm rounded-lg bg-[var(--thread-gold)] text-[var(--tapestry-bg)] font-body hover:opacity-90 transition-opacity"
+            >
+              Save
+            </button>
+          </div>
+        )}
 
         {/* Edit Profile */}
         {editing && (

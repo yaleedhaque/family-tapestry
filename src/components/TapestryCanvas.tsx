@@ -74,16 +74,16 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
     targetHandle,
     type: "smoothstep",
     style: {
-      stroke: isDivorced ? "var(--divorce-red)" : "var(--thread-gold)",
-      strokeWidth: 2,
-      opacity: isDivorced ? 0.7 : 0.85,
+      stroke: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage)",
+      strokeWidth: 2.5,
+      opacity: isDivorced ? 0.85 : 1,
       strokeDasharray: isDivorced ? "6 4" : undefined,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      color: isDivorced ? "var(--divorce-red)" : "var(--thread-gold-dim)",
-      width: 12,
-      height: 12,
+      color: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage-dim)",
+      width: 14,
+      height: 14,
     },
     label: isDivorced ? "divorced" : undefined,
     labelStyle: isDivorced
@@ -97,7 +97,7 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
 function makeChildEdge(source: string, target: string, relationshipType?: string, sourceHandle?: string, targetHandle = "top"): Edge {
   const isAdopted = relationshipType === "adopted";
   const isStep = relationshipType === "step";
-  const color = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
+  const color = isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : "var(--edge-child)";
   return {
     id: `${source}-${target}-child`,
     source,
@@ -109,11 +109,11 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
     data: { adopted: isAdopted, step: isStep },
     style: {
       stroke: color,
-      strokeWidth: isAdopted ? 2 : 1.2,
-      opacity: 0.85,
+      strokeWidth: isAdopted ? 2.5 : 2,
+      opacity: 1,
       strokeDasharray: isAdopted ? "6 4" : undefined,
     },
-    markerEnd: { type: MarkerType.ArrowClosed, color, width: 9, height: 9 },
+    markerEnd: { type: MarkerType.ArrowClosed, color, width: 11, height: 11 },
     label: isAdopted ? "adopted" : isStep ? "step" : undefined,
     labelStyle: isAdopted
       ? { fill: "var(--accent-emerald)", fontSize: 9, fontFamily: "var(--font-body)" }

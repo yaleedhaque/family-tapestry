@@ -16,6 +16,13 @@
   --deceased-frame: #6E6553;
   --accent-emerald: #3E6B5C;
 
+  /* Bright, high-contrast edge/line colours (dark theme) */
+  --edge-marriage: #E8C76A;
+  --edge-child: #B3A489;
+  --edge-adopted: #69B896;
+  --edge-step: #E8BF6A;
+  --edge-marriage-dim: #C9A544;
+
   /* §3.2 missing semantic tokens (dark) */
   --focus-ring: #E0B84D;
   --overlay-scrim: rgba(22,19,15,.55);
@@ -92,6 +99,13 @@ html.light {
   --living-glow: #A65B1F;
   --deceased-frame: #8A8078;
   --accent-emerald: #3E7B5C;
+
+  /* Bright, high-contrast edge/line colours (light theme) */
+  --edge-marriage: #8A6522;
+  --edge-child: #6E645A;
+  --edge-adopted: #2F6B50;
+  --edge-step: #8A6A28;
+  --edge-marriage-dim: #6E511A;
 
   /* §3.2 missing semantic tokens (light) */
   --focus-ring: #8C6A22;

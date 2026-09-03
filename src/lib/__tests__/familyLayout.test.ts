@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { manualFamilyLayout, findOverlaps } from "../familyLayout";
-import { LAYOUT_PERSON_H, LAYOUT_UNION_W } from "../layoutEngine";
+import { LAYOUT_PERSON_H, LAYOUT_UNION_W, verifyParentsAboveChildren } from "../layoutEngine";
 
 // Real live-tree dataset: 13 persons, 5 unions, 5 parent edges, incl. remarriage
 // (p1 in u1+u2), an in-married wife (p7), a married child (p6 head of u4), and a
@@ -262,6 +262,59 @@ describe("ELK family layout (couple-node model)", () => {
     // Ambia must sit on the same side as her natal family (u9).
     if (natalLeft) expect(a).toBeLessThan(s);
     else expect(a).toBeGreaterThan(s);
+  });
+
+  it("GURANTEES parents are ALWAYS strictly above children (person-level, main tree)", async () => {
+    const { positions } = await manualFamilyLayout(persons, unions, edges);
+    const violations = verifyParentsAboveChildren(positions, persons, unions, edges);
+    expect(violations).toEqual([]);
+  });
+
+  it("GURANTEES parents are ALWAYS strictly above children (person-level, live Haque tree)", async () => {
+    const fam = {
+      persons: [
+        "p2", "p3", "p4", "p7", "p14", "p17", "p18", "p21", "p5", "p8",
+        "p12", "p19", "p25", "p27", "p23", "p24", "p26", "p1", "p6", "p9",
+        "p10", "p11", "p13", "p16", "p20", "p22",
+      ].map((id) => ({ id })),
+      unions: [
+        { id: "u3", partnerA: "p3", partnerB: "p2" },
+        { id: "u6", partnerA: "p6", partnerB: "p5" },
+        { id: "u9", partnerA: "p8", partnerB: "p7" },
+        { id: "u10", partnerA: "p10", partnerB: "" },
+        { id: "u12", partnerA: "p12", partnerB: "" },
+        { id: "u13", partnerA: "p9", partnerB: "" },
+        { id: "u14", partnerA: "p16", partnerB: "p25" },
+        { id: "u15", partnerA: "p23", partnerB: "p26" },
+        { id: "u16", partnerA: "p11", partnerB: "p27" },
+      ],
+      edges: [
+        { unionId: "u9", childId: "p10" },
+        { unionId: "u10", childId: "p14" },
+        { unionId: "u12", childId: "p18" },
+        { unionId: "u12", childId: "p19" },
+        { unionId: "u12", childId: "p20" },
+        { unionId: "u12", childId: "p21" },
+        { unionId: "u12", childId: "p22" },
+        { unionId: "u13", childId: "p23" },
+        { unionId: "u13", childId: "p24" },
+        { unionId: "u16", childId: "p17" },
+        { unionId: "u16", childId: "p16" },
+        { unionId: "u3", childId: "p1" },
+        { unionId: "u3", childId: "p4" },
+        { unionId: "u6", childId: "p3" },
+        { unionId: "u9", childId: "p2" },
+        { unionId: "u9", childId: "p9" },
+        { unionId: "u9", childId: "p13" },
+        { unionId: "u9", childId: "p12" },
+        { unionId: "u9", childId: "p11" },
+      ],
+    };
+    const { positions } = await manualFamilyLayout(fam.persons, fam.unions, fam.edges);
+    const violations = verifyParentsAboveChildren(positions, fam.persons, fam.unions, fam.edges);
+    expect(violations).toEqual([]);
+    // the guarantee must hold WITH zero overlaps too
+    expect(findOverlaps(positions, fam.persons, fam.unions)).toEqual([]);
   });
 
   it("handles empty trees and single-parent unions without crashing", async () => {

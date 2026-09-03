@@ -39,7 +39,7 @@ function FamilyChildEdge({
 }: EdgeProps & { data?: ChildData }) {
   const isAdopted = data?.adopted ?? false;
   const isStep = data?.step ?? false;
-  const color = isAdopted ? "var(--accent-emerald)" : isStep ? "var(--link)" : "var(--deceased-frame)";
+  const color = isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : "var(--edge-child)";
   // Short vertical trunk straight down from the source (diamond), then a horizontal
   // jog to the child's X, then a LONG straight vertical drop into the child's top.
   const midY = sourceY + TRUNK;
@@ -51,8 +51,8 @@ function FamilyChildEdge({
       markerEnd={markerEnd}
       style={{
         stroke: color,
-        strokeWidth: isAdopted ? 2 : 1.2,
-        opacity: 0.85,
+        strokeWidth: isAdopted ? 2.5 : 2,
+        opacity: 1,
         strokeDasharray: isAdopted ? "6 4" : undefined,
       }}
     />
