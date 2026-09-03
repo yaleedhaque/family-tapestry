@@ -26,6 +26,7 @@ const TRUNK = 14;
 interface ChildData {
   adopted?: boolean;
   step?: boolean;
+  color?: string;
 }
 
 function FamilyChildEdge({
@@ -39,7 +40,7 @@ function FamilyChildEdge({
 }: EdgeProps & { data?: ChildData }) {
   const isAdopted = data?.adopted ?? false;
   const isStep = data?.step ?? false;
-  const color = isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : "var(--edge-child)";
+  const color = isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : (data?.color ?? "var(--edge-child)");
   // Short vertical trunk straight down from the source (diamond), then a horizontal
   // jog to the child's X, then a LONG straight vertical drop into the child's top.
   const midY = sourceY + TRUNK;

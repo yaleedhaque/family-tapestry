@@ -95,10 +95,12 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
   };
 }
 
-function makeChildEdge(source: string, target: string, relationshipType?: string, sourceHandle?: string, targetHandle = "top"): Edge {
+function makeChildEdge(source: string, target: string, relationshipType?: string, sourceHandle?: string, targetHandle = "top", ringColor?: string): Edge {
   const isAdopted = relationshipType === "adopted";
   const isStep = relationshipType === "step";
-  const color = isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : "var(--edge-child)";
+  // Biological children draw their line in the child's ring (status) colour so each
+  // child line reads distinctly; adopted/step use their own relationship colours.
+  const color = isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : (ringColor ?? "var(--edge-child)");
   return {
     id: `${source}-${target}-child`,
     source,
@@ -106,12 +108,12 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
     sourceHandle,
     targetHandle,
     type: "familychild",
-    data: { adopted: isAdopted, step: isStep },
+    data: { adopted: isAdopted, step: isStep, color },
     style: {
       stroke: color,
-      strokeWidth: 2,
+      strokeWidth: isAdopted ? 2.5 : 2,
       strokeDasharray: isAdopted ? "6 4" : isStep ? "4 3" : undefined,
-      opacity: isAdopted || isStep ? 0.9 : 0.9,
+      opacity: 0.9,
     },
     animated: isAdopted,
     label: isAdopted ? "adopted" : isStep ? "step" : undefined,
@@ -405,10 +407,12 @@ export default function TapestryCanvas() {
 
       for (const edge of visibleEdges) {
         const union = visibleUnions.find((u) => u.id === edge.unionId);
+        const childPerson = persons.find((p) => p.id === edge.childId);
+        const ringColor = childPerson ? STATUS_RING_COLORS[personRingStatus(childPerson, unions)] : undefined;
         if (union && !union.partnerB) {
-          graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType, "bottom"));
+          graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType, "bottom", "top", ringColor));
         } else {
-          graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType, "child"));
+          graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType, "child", "top", ringColor));
         }
       }
 
