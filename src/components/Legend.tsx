@@ -9,7 +9,7 @@ export default function Legend() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="absolute top-36 md:top-36 right-4 z-30 flex flex-col items-end">
+    <div className="absolute max-md:top-40 md:top-36 right-4 z-30 flex flex-col items-end">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
