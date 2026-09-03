@@ -132,6 +132,12 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 const ANIM_DURATION = 550;
 const UNION_W = 110;
 const PERSON_W = 210;
+// How far the diamond's partner-corner line sits BELOW the couple's card bottoms.
+// Lowering the diamond past the card bottoms makes each marriage line's straight
+// horizontal run longer and the entry into the corner more direct, so the lines read
+// completely straight (no left/right bend). Must stay small enough that the diamond's
+// own child-corner (which drops to the offspring) doesn't crowd the generation below.
+const DIAMOND_DROP = 30;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
@@ -521,8 +527,11 @@ export default function TapestryCanvas() {
       const ux = n.position.x;
       // The diamond graphic is always drawn such that its two partner corners sit at
       // each partner's card-bottom height, so both marriage lines enter horizontally.
-      // Its vertical centre is therefore the (now level) partner-bottom height.
-      let dCy = (aBottomEff + bBottomEff) / 2;
+      // Its vertical centre is therefore the (now level) partner-bottom height, pushed
+      // DIAMOND_DROP farther DOWN so the corners hang a little below the cards — that
+      // lengthens each marriage line's straight horizontal run and removes the visible
+      // left/right bend at the corner entry.
+      let dCy = (aBottomEff + bBottomEff) / 2 + DIAMOND_DROP;
       // Never let the diamond rise above the couple's own cards (the taller one).
       const dTopLimit = rowTop + partnerHeight;
       if (dCy - 16 < dTopLimit) dCy = dTopLimit + 16;
