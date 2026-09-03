@@ -471,6 +471,13 @@ export default function TapestryCanvas() {
       n.measured && n.measured.width != null && n.measured.height != null;
 
     const adjustments: { id: string; y: number; cornerA: number; cornerB: number }[] = [];
+    // Equalize partner card heights within each couple: a shorter partner card makes
+    // the two diamond partner-corner handles drift off the diamond graphic's fixed
+    // corners (the diamond can only have corners at ONE height), so at least one
+    // marriage line ends up visibly bent. Growing the shorter card to match its partner
+    // brings both bottoms level, so both corners coincide with the drawn diamond and
+    // both lines run horizontally, like the straight couples.
+    const minHeights = new Map<string, number>();
     for (const n of all) {
       if (n.type !== "unionNode") continue;
       const union = (n.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
@@ -486,6 +493,15 @@ export default function TapestryCanvas() {
       const rowTop = Math.min(at.position.y, bt.position.y);
       const aBottom = at.position.y + ah;
       const bBottom = bt.position.y + bh;
+      // If the two partner cards are on the same row but differ in height, grow the
+      // shorter one so the couple's card bottoms line up (straight diamond lines).
+      if (Math.abs(aBottom - bBottom) <= 120) {
+        if (ah < partnerHeight) minHeights.set(a, partnerHeight);
+        if (bh < partnerHeight) minHeights.set(b, partnerHeight);
+      }
+      // Use equalized card bottoms for the diamond geometry (both partners level).
+      const aBottomEff = rowTop + partnerHeight;
+      const bBottomEff = rowTop + partnerHeight;
       // A couple whose two partners sit on different rows (remarriage / multi-couple
       // person) has partner bottoms far apart; a single diamond cannot meet both with
       // straight lines without landing on the unrelated cards between them. Fall back
@@ -502,11 +518,9 @@ export default function TapestryCanvas() {
       const ux = n.position.x;
       // The diamond graphic is always drawn such that its two partner corners sit at
       // each partner's card-bottom height, so both marriage lines enter horizontally.
-      // Its vertical centre is therefore the midpoint of the two partner bottoms.
-      let dCy = (aBottom + bBottom) / 2;
+      // Its vertical centre is therefore the (now level) partner-bottom height.
+      let dCy = (aBottomEff + bBottomEff) / 2;
       // Never let the diamond rise above the couple's own cards (the taller one).
-      // (For equal-height couples this is exactly the taller bottom, so lines stay
-      //  horizontal; for a big height gap it still guarantees no card overlap.)
       const dTopLimit = rowTop + partnerHeight;
       if (dCy - 16 < dTopLimit) dCy = dTopLimit + 16;
       // Box top: the 150px node spans 74px either side of the diamond centre so the
@@ -541,23 +555,24 @@ export default function TapestryCanvas() {
       }
       // Corner handles (local offsets relative to the union node TOP) must sit at each
       // partner's card-bottom height so both marriage lines enter horizontally.
-      const cornerA = aBottom - boxY;
-      const cornerB = bBottom - boxY;
+      const cornerA = aBottomEff - boxY;
+      const cornerB = bBottomEff - boxY;
       if (boxY >= 0 && Math.abs(boxY - n.position.y) > 1.5) {
         adjustments.push({ id: n.id, y: boxY, cornerA, cornerB });
       } else {
         // Diamond box already where it should be; still sync the corner heights.
-        adjustments.push({ id: n.id, y: n.position.y, cornerA: aBottom - n.position.y, cornerB: bBottom - n.position.y });
+        adjustments.push({ id: n.id, y: n.position.y, cornerA: aBottomEff - n.position.y, cornerB: bBottomEff - n.position.y });
       }
     }
-    if (adjustments.length === 0) return;
     setNodes((nds) => nds.map((nd) => {
       const adj = adjustments.find((x) => x.id === nd.id);
-      if (!adj) return nd;
+      const mh = nd.type === "personNode" ? minHeights.get(nd.id) : undefined;
+      if (!adj && mh == null) return nd;
       return {
         ...nd,
-        position: { ...nd.position, y: adj.y },
-        data: { ...nd.data, partnerCorners: { a: adj.cornerA, b: adj.cornerB } },
+        position: adj ? { ...nd.position, y: adj.y } : nd.position,
+        data: adj ? { ...nd.data, partnerCorners: { a: adj.cornerA, b: adj.cornerB } } : nd.data,
+        style: mh != null ? { ...(nd.style ?? {}), minHeight: mh } : nd.style,
       };
     }));
   }, [animPhase, getNodes, setNodes]);
