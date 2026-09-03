@@ -697,18 +697,20 @@ export function useTreeCrud({
             )
         );
       } else {
-        const edge = currentEdges.find((e) => e.childId === toId);
+        // linkType === "child": fromId = the person (child), toId = the parent to disconnect
+        const edge = currentEdges.find(
+          (e) =>
+            e.childId === fromId &&
+            currentUnions.some(
+              (u) =>
+                u.id === e.unionId &&
+                (u.partnerA === toId || u.partnerB === toId)
+            )
+        );
         if (edge) {
-          const union = currentUnions.find((u) => u.id === edge.unionId);
-          if (
-            union &&
-            (union.partnerA === fromId || union.partnerB === fromId)
-          ) {
-            nextEdges = currentEdges.filter(
-              (e) =>
-                !(e.unionId === edge.unionId && e.childId === toId)
-            );
-          }
+          nextEdges = currentEdges.filter(
+            (e) => !(e.unionId === edge.unionId && e.childId === fromId)
+          );
         }
       }
       setRawUnions(nextUnions);
