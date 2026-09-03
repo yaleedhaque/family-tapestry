@@ -313,6 +313,41 @@ export default function TapestryCanvas() {
     findParentUnion,
   });
 
+  // ─── Diamond: add child ───
+  const handleAddChildDiamond = useCallback(
+    (unionId: string) => {
+      const name = window.prompt("Child's full name:");
+      if (!name?.trim()) return;
+      const adopted = window.confirm("Is this an adopted child?\n\nOK = Adopted\nCancel = Biological");
+      const rel = adopted ? "adopted" : "biological";
+      const union = rawUnionsRef.current.find((u) => u.id === unionId);
+      if (!union) return;
+      const parentId = union.partnerA || union.partnerB;
+      if (!parentId) return;
+      const np: PersonLike = {
+        id: `p${Date.now()}`,
+        fullName: name.trim(),
+        nameNative: null,
+        gender: "",
+        birthYear: null,
+        deathYear: null,
+        isAlive: true,
+        bio: "",
+        birthPlace: "",
+        profession: "",
+        email: "",
+        phone: "",
+        address: "",
+        website: "",
+        lat: null,
+        lng: null,
+        photoUrl: "",
+      };
+      handleCreatePersonAndLink(np, "child", parentId, undefined, undefined, rel);
+    },
+    [rawUnionsRef, handleCreatePersonAndLink]
+  );
+
   // ─── Layout ───
   const runLayout = useCallback(
     async (persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[], animate: boolean, genMap?: Record<string, number>) => {
@@ -355,7 +390,7 @@ export default function TapestryCanvas() {
       }
       for (const union of visibleUnions) {
         if (!union.partnerB) continue;
-        graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons: visiblePersons, isCollapsed: collapsedRef.current.has(union.id), descendantCount: hiddenCounts.get(union.id) ?? 0, onToggleCollapse: (id: string) => toggleCollapseRef.current(id) }, position: { x: 0, y: 0 } });
+        graphNodes.push({ id: union.id, type: "unionNode", data: { union, persons: visiblePersons, isCollapsed: collapsedRef.current.has(union.id), descendantCount: hiddenCounts.get(union.id) ?? 0, onToggleCollapse: (id: string) => toggleCollapseRef.current(id), onAddChildDiamond: (unionId: string) => handleAddChildDiamond(unionId) }, position: { x: 0, y: 0 } });
       }
       for (const s of surrogates) {
         graphNodes.push({

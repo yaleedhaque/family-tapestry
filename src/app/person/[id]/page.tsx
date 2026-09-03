@@ -108,7 +108,7 @@ export default function PersonDetailPage() {
   }, [person, id, persons, unions, hasLive]);
 
   const relationships = useMemo(() => {
-    if (!person) return { parents: [] as { name: string; id: string }[], partners: [] as { name: string; id: string; union: string; type: string }[], children: [] as { name: string; id: string }[], siblings: [] as { name: string; id: string }[] };
+    if (!person) return { parents: [] as { name: string; id: string }[], partners: [] as { name: string; id: string; union: string; type: string }[], children: [] as { name: string; id: string }[], siblings: [] as { name: string; id: string; label?: string }[] };
 
     const parents: { name: string; id: string }[] = [];
     for (const pe of parentEdges) {
@@ -141,21 +141,60 @@ export default function PersonDetailPage() {
       }
     }
 
-    const siblingIds = new Set<string>();
+    type SiblingInfo = { name: string; id: string; label: string };
+    const siblingMap = new Map<string, SiblingInfo>();
+
+    // 1) Full siblings: share the SAME union (both parents)
     for (const pe of parentEdges) {
+      if (pe.childId !== person.id) continue;
       const union = unions.find((u) => u.id === pe.unionId);
-      if (union && (union.partnerA === person.id || union.partnerB === person.id)) {
-        for (const pe2 of parentEdges) {
-          if (pe2.unionId === pe.unionId && pe2.childId !== person.id) {
-            siblingIds.add(pe2.childId);
+      if (!union) continue;
+      for (const pe2 of parentEdges) {
+        if (pe2.unionId === pe.unionId && pe2.childId !== person.id && !siblingMap.has(pe2.childId)) {
+          const sib = persons.find((p) => p.id === pe2.childId);
+          if (sib) siblingMap.set(pe2.childId, { name: sib.fullName, id: sib.id, label: "Full sibling" });
+        }
+      }
+    }
+
+    // 2) Half-siblings: share a parent via a DIFFERENT union
+    // Collect this person's parent unions and their partner IDs
+    const myParentUnions = parentEdges.filter((e) => e.childId === person.id).map((e) => e.unionId);
+    const myParentIds = new Set<string>();
+    for (const uid of myParentUnions) {
+      const u = unions.find((uu) => uu.id === uid);
+      if (u) {
+        if (u.partnerA) myParentIds.add(u.partnerA);
+        if (u.partnerB) myParentIds.add(u.partnerB);
+      }
+    }
+    // Find other unions that include any of my parents
+    for (const u of unions) {
+      const aIsMine = u.partnerA && myParentIds.has(u.partnerA);
+      const bIsMine = u.partnerB && myParentIds.has(u.partnerB);
+      if (!aIsMine && !bIsMine) continue;
+      // Skip unions that are already my own parent unions (handled above)
+      if (myParentUnions.includes(u.id)) continue;
+      // Children of this union are half-siblings
+      for (const pe of parentEdges) {
+        if (pe.unionId === u.id && pe.childId !== person.id && !siblingMap.has(pe.childId)) {
+          const sib = persons.find((p) => p.id === pe.childId);
+          if (sib) {
+            const sharedParent = aIsMine ? u.partnerA : u.partnerB;
+            const sharedName = persons.find((p) => p.id === sharedParent)?.fullName?.split(" ")[0] ?? "parent";
+            const side = aIsMine && u.partnerA && myParentIds.has(u.partnerA) && u.partnerB && myParentIds.has(u.partnerB)
+              ? "" : aIsMine ? `same ${persons.find((p) => p.id === u.partnerA)?.gender === "male" ? "father" : "mother"}` : `same ${persons.find((p) => p.id === u.partnerB)?.gender === "male" ? "father" : "mother"}`;
+            siblingMap.set(pe.childId, {
+              name: sib.fullName,
+              id: sib.id,
+              label: side ? `Half-sibling (${side})` : `Half-sibling (via ${sharedName})`,
+            });
           }
         }
       }
     }
-    const siblings = Array.from(siblingIds)
-      .map((sid) => persons.find((p) => p.id === sid))
-      .filter((p): p is PersonLike => !!p)
-      .map((p) => ({ name: p.fullName, id: p.id }));
+
+    const siblings = Array.from(siblingMap.values());
 
     return { parents, partners, children, siblings };
   }, [person, persons, unions, parentEdges]);
@@ -336,7 +375,7 @@ export default function PersonDetailPage() {
                 <RelCard title="Children" items={relationships.children.map((r) => ({ id: r.id, label: r.name }))} />
               )}
               {relationships.siblings.length > 0 && (
-                <RelCard title="Siblings" items={relationships.siblings.map((r) => ({ id: r.id, label: r.name }))} />
+                <RelCard title="Siblings" items={relationships.siblings.map((r) => ({ id: r.id, label: r.name, badge: r.label && r.label !== "Full sibling" ? r.label : undefined }))} />
               )}
             </div>
           </section>

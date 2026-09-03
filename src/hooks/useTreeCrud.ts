@@ -118,6 +118,7 @@ interface UseTreeCrudReturn {
   handleNavigatePerson: (personId: string) => void;
 
   genderById: Map<string, Gender>;
+  apiCall: (method: string, path: string, body?: unknown, onError?: () => void) => void;
   wouldConflict: (
     unionId: string,
     childId: string,
@@ -789,6 +790,7 @@ export function useTreeCrud({
     handleAddStandalonePerson,
     handleNavigatePerson,
     genderById,
+    apiCall,
     wouldConflict,
   };
 }

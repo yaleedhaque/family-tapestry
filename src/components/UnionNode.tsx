@@ -14,6 +14,7 @@ function UnionNode({ data }: NodeProps) {
   const isCollapsed = (data.isCollapsed as boolean | undefined) ?? false;
   const descendantCount = (data.descendantCount as number | undefined) ?? 0;
   const onToggleCollapse = (data.onToggleCollapse as ((id: string) => void) | undefined) ?? (() => {});
+  const onAddChildDiamond = data.onAddChildDiamond as ((unionId: string) => void) | undefined;
   const collapsible = descendantCount > 0;
 
   return (
@@ -53,7 +54,13 @@ function UnionNode({ data }: NodeProps) {
       {/* Diamond centred so its centre = the couple's row centre. Its four corners
           sit at the N/E/S/W compass points; side corners are the partner targets,
           the south corner is the child source. */}
-      <div className="absolute inset-0 flex items-center justify-center">
+      <div
+        className="absolute inset-0 flex items-center justify-center cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onAddChildDiamond) onAddChildDiamond(union.id);
+        }}
+      >
         <div className="relative w-8 h-8">
           <div
             className={`absolute inset-0 rotate-45 border ${
