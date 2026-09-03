@@ -88,7 +88,6 @@ export default function HelpModal({ open: controlledOpen, onClose: controlledClo
                     <li><Gold>Scroll</Gold> to zoom in/out</li>
                     <li><Gold>Click a person node</Gold> to open their profile panel</li>
                     <li><Gold>Hover</Gold> a person to highlight their connected family (parents, partners, children)</li>
-                    <li><Gold>Minimap</Gold> (bottom-right) shows your position in the full tree</li>
                     <li><Gold>Controls</Gold> (bottom-right) for zoom in/out/fit</li>
                   </ul>
                 </Section>
