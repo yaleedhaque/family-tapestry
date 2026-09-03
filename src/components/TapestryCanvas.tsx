@@ -567,23 +567,64 @@ export default function TapestryCanvas() {
   );
 
   //  --  --  Diamond anchor fix  --  --
-  // The layout engine offsets every union diamond a fixed DIAMOND_Y_OFFSET below
-  // its couple's row TOP. But person cards render at their natural content height,
-  // which differs when a name wraps onto two lines (taller card). A fixed top
-  // offset therefore makes a diamond hanging below a TALLER card look HIGHER than
-  // one below a shorter card — exactly what the user flagged for the Shahidul×Ambia
-  // diamond. Fix: once the tree has settled and React Flow has MEASURED the real
-  // rendered card sizes (node.measured), re-anchor each two-partner diamond so its
-  // top sits a constant DIAMOND_DROP above the bottom of the taller of its two
-  // partner cards. Standard single-line cards end up unchanged (~0 delta, so the
-  // confirmed "perfect" 86 placement is preserved); taller name-wrapped cards drop
-  // the extra few px so every diamond looks identical relative to its couple.
+  // The layout engine keeps every union diamond roughly at the same drop below its
+  // couples. But person cards render at their natural content height, which differs
+  // when a name wraps onto two lines (taller card), so a diamond hanging below a taller
+  // card can look higher than one below a shorter card. Also, the user prefers the
+  // diamond low enough that its left/right corner handles sit EXACTLY level with the
+  // partners' card bottoms — which makes the marriage lines perfectly straight and
+  // horizontal (the corner handles are at node-local y=75 inside the 150px union node,
+  // so we need union.y = rowTop + partnerHeight - DIAMOND_DROP with DIAMOND_DROP=75).
+  // This re-anchors each diamond accordingly, but COLLISION-GUARDED: on a crowded tree a
+  // second row may sit closely below, so a union is only lowered as far as it can go
+  // without overlapping any other node (searched downward from the ideal target). This
+  // keeps u3 perfectly straight while never pushing a diamond into an adjacent card.
   useEffect(() => {
     if (animPhase !== "done") return;
     const all = getNodes();
     const byId = new Map(all.map((n) => [n.id, n]));
-    const measured = new Map<string, number>();
-    for (const n of all) if (n.measured?.height) measured.set(n.id, n.measured.height);
+    const hasBox = (n: { position?: { x?: number; y?: number }; measured?: { width?: number; height?: number } }) =>
+      !!n &&
+      n.position && n.position.x != null && n.position.y != null &&
+      n.measured && n.measured.width != null && n.measured.height != null;
+    const overlaps = (x: number, y: number, bx: number, by: number, w: number, h: number) =>
+      x < bx + w && x + 110 > bx && y < by + h && y + 150 > by;
+
+    const computeBoundary = (union: (typeof all)[number], rowTop: number, partnerHeight: number) => {
+      // Ideal target places the diamond corners level with the card bottoms. From there
+      // walk DOWN in small steps, but only DOWNWARD (y grows); stop at the first y that
+      // no longer collides with any other (non-partner) node. We only ever lower, so the
+      // union starts at its current/engine position and lowers toward the target, capped
+      // by the first collision-free height that is >= target.
+      const target = rowTop + partnerHeight - DIAMOND_DROP;
+      const ux = union.position.x;
+      const partners = new Set<string>();
+      const u = (union.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
+      if (u?.partnerA) partners.add(u.partnerA);
+      if (u?.partnerB) partners.add(u.partnerB);
+      const blockers: typeof all = [];
+      for (const n of all) {
+        if (n.id === union.id || partners.has(n.id)) continue;
+        if (hasBox(n)) blockers.push(n);
+      }
+      // If the ideal target itself doesn't collide, use it.
+      const collidesAt = (y: number) => {
+        for (const n of blockers) {
+          const bx = n.position.x, by = n.position.y;
+          const bw = n.measured!.width!, bh = n.measured!.height!;
+          if (overlaps(ux, y, bx, by, bw, bh)) return true;
+        }
+        return false;
+      };
+      if (!collidesAt(target)) return target;
+      // Target collides — step upward from target until it fits. Return the lowest fit
+      // point, or -1 if none fits down to the current position.
+      for (let y = target; y >= union.position.y - 1; y -= 1) {
+        if (!collidesAt(y)) return y;
+      }
+      return union.position.y;
+    };
+
     const adjustments: { id: string; y: number }[] = [];
     for (const n of all) {
       if (n.type !== "unionNode") continue;
@@ -593,13 +634,13 @@ export default function TapestryCanvas() {
       if (!a || !b) continue;
       const at = byId.get(a);
       const bt = byId.get(b);
-      const ah = at ? measured.get(a) : undefined;
-      const bh = bt ? measured.get(b) : undefined;
+      const ah = at?.measured?.height;
+      const bh = bt?.measured?.height;
       if (!at || !bt || ah == null || bh == null) continue;
       const partnerHeight = Math.max(ah, bh);
       const rowTop = Math.min(at.position.y, bt.position.y);
-      const target = rowTop + partnerHeight - DIAMOND_DROP;
-      if (Math.abs(target - n.position.y) > 1.5) {
+      const target = computeBoundary(n, rowTop, partnerHeight);
+      if (target >= 0 && Math.abs(target - n.position.y) > 1.5) {
         adjustments.push({ id: n.id, y: target });
       }
     }
