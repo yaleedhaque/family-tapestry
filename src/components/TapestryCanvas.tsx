@@ -158,24 +158,6 @@ export default function TapestryCanvas() {
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
   const [animPhase, setAnimPhase] = useState<"idle" | "running" | "done">("idle");
-
-  // Signature of the person-cards' measured heights, captured once the layout
-  // animation has settled. The diamond-anchor effect re-runs whenever this changes
-  // so the three diamond handles (partner-left / partner-right / child) follow the
-  // two partners' cards. This fixes a browser-specific disconnect: in Edge / mobile
-  // Chrome the card height can settle AFTER the initial "done" pass (web-font load,
-  // different wrapping / DPR), leaving the handles at a stale Y while the cards (and
-  // the lines attached to them) have already moved -> "the line attaches next to the
-  // dot". Re-anchoring on height change keeps them locked together. It converges
-  // (the effect only moves union Y + corners, never person heights).
-  const cardHeightSig = useMemo(() => {
-    if (animPhase !== "done") return "";
-    return nodes
-      .filter((n) => n.type === "personNode")
-      .map((n) => `${n.id}:${n.measured?.height ?? 0}`)
-      .sort()
-      .join("|");
-  }, [nodes, animPhase]);
   const [showEdges, setShowEdges] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
@@ -578,7 +560,7 @@ export default function TapestryCanvas() {
         data: { ...nd.data, partnerCorners: { a: adj.cornerA, b: adj.cornerB } },
       };
     }));
-  }, [animPhase, getNodes, setNodes, cardHeightSig]);
+  }, [animPhase, getNodes, setNodes]);
 
   // ─── Initial load ───
   useEffect(() => {
