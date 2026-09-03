@@ -43,8 +43,8 @@ function PersonNode({ data }: NodeProps) {
         ${isDimmed ? "opacity-35" : ""}
         ${
           isDeceased
-            ? "border-deceased-frame bg-tapestry-bg-alt"
-            : "border-living-glow bg-tapestry-bg-alt shadow-[0_0_12px_rgba(217,139,62,0.15)]"
+            ? "border-deceased-frame bg-[var(--card-bg)]"
+            : "border-living-glow bg-[var(--card-bg)] shadow-[0_0_12px_rgba(217,139,62,0.15)]"
         }
       `}
     >
@@ -53,7 +53,7 @@ function PersonNode({ data }: NodeProps) {
       <div
         className={`
           w-16 h-16 rounded-full border-2 overflow-hidden flex items-center justify-center
-          bg-[var(--tapestry-bg-alt)] ${isDeceased ? "grayscale" : ""}
+          bg-[var(--card-bg)] ${isDeceased ? "grayscale" : ""}
         `}
         style={{ borderColor: isDeceased ? "var(--deceased-frame)" : avatarColor }}
       >
