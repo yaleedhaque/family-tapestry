@@ -11,7 +11,7 @@ import { useUserCircle } from "@/lib/useUserCircle";
 import { useAuth } from "@/components/AuthProvider";
 import { useLang } from "@/lib/i18n";
 import { cachedPhotoUrl } from "@/lib/validation";
-import type { DbUnion, DbParentEdge, DbPerson } from "@/lib/types";
+import { toPersonLike, toUnionLike, toEdgeLike } from "@/lib/convert";
 
 const EVENT_COLORS: Record<string, string> = {
   birth: "var(--living-glow)", death: "var(--deceased-frame)",
@@ -30,38 +30,6 @@ function hashName(name: string): number {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
   return Math.abs(h);
-}
-
-function toPersonLike(p: PersonLike | DbPerson): PersonLike {
-  if ("fullName" in p && "birthPlace" in p) return p as PersonLike;
-  const dp = p as DbPerson;
-  return {
-    id: dp.id, fullName: dp.full_name, gender: dp.gender ?? "", birthYear: dp.birth_year, deathYear: dp.death_year,
-    isAlive: dp.is_alive, bio: dp.bio ?? "", birthPlace: dp.birth_place ?? "",
-    profession: dp.profession ?? "", email: dp.email ?? "", phone: dp.phone ?? "",
-    address: dp.address ?? "", website: dp.website ?? "",
-    lat: dp.lat, lng: dp.lng, photoUrl: dp.photo_url ?? "",
-    nameNative: dp.name_native, createdBy: dp.created_by, updatedAt: dp.updated_at,
-  };
-}
-
-function toUnionLike(u: DbUnion): UnionLike {
-  return {
-    id: u.id,
-    partnerA: u.partner_a,
-    partnerB: u.partner_b,
-    type: u.union_type,
-    startYear: u.start_year,
-    endYear: u.end_year,
-  };
-}
-
-function toEdgeLike(e: DbParentEdge): EdgeLike {
-  return {
-    unionId: e.union_id,
-    childId: e.child_id,
-    relationshipType: e.relationship_type,
-  };
 }
 
 /* Life events are derived from the LIVE tree data (birth/death/career plus

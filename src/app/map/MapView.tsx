@@ -14,29 +14,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
-import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+import type { PersonLike } from "@/components/InfoPanel";
 import { computeGenerationMap, GENERATION_COLORS } from "@/lib/generation";
 import { useLang } from "@/lib/i18n";
-import type { DbUnion, DbParentEdge, DbPerson } from "@/lib/types";
-
-function toUnionLike(u: DbUnion): UnionLike {
-  return {
-    id: u.id,
-    partnerA: u.partner_a,
-    partnerB: u.partner_b,
-    type: u.union_type,
-    startYear: u.start_year,
-    endYear: u.end_year,
-  };
-}
-
-function toEdgeLike(e: DbParentEdge): EdgeLike {
-  return {
-    unionId: e.union_id,
-    childId: e.child_id,
-    relationshipType: e.relationship_type,
-  };
-}
+import { toPersonLike, toUnionLike, toEdgeLike } from "@/lib/convert";
 
 type GenMap = Record<string, number>;
 
@@ -157,30 +138,6 @@ function GeocoderSearch({ onSearch, strings }: { onSearch: (q: string) => void; 
   );
 }
 
-function toPersonLikeFromDb(p: DbPerson): PersonLike {
-  return {
-    id: p.id,
-    fullName: p.full_name ?? "",
-    gender: p.gender ?? "",
-    birthYear: p.birth_year,
-    deathYear: p.death_year,
-    isAlive: p.is_alive ?? true,
-    bio: p.bio ?? "",
-    birthPlace: p.birth_place ?? "",
-    profession: p.profession ?? "",
-    email: p.email ?? "",
-    phone: p.phone ?? "",
-    address: p.address ?? "",
-    website: p.website ?? "",
-    lat: p.lat,
-    lng: p.lng,
-    photoUrl: p.photo_url ?? "",
-    nameNative: p.name_native,
-    createdBy: p.created_by,
-    updatedAt: p.updated_at,
-  };
-}
-
 export default function MapView() {
   const { canEdit } = useAuth();
   const { t } = useLang();
@@ -192,7 +149,7 @@ export default function MapView() {
   const live = useLiveTree();
 
   const persons = useMemo(
-    () => (live.persons ?? []).map(toPersonLikeFromDb),
+    () => (live.persons ?? []).map(toPersonLike),
     [live.persons]
   );
   const unions = useMemo(

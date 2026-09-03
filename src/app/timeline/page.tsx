@@ -7,7 +7,7 @@ import type { LifeEvent } from "@/data/family";
 import type { PersonLike, UnionLike } from "@/components/InfoPanel";
 import { useAuth } from "@/components/AuthProvider";
 import { useLiveTree } from "@/lib/useLiveTree";
-import type { DbUnion, DbPerson } from "@/lib/types";
+import { toPersonLike, toUnionLike } from "@/lib/convert";
 
 const EVENT_ICONS: Record<string, string> = {
   birth: "\u{1F476}",
@@ -36,42 +36,6 @@ const EVENT_COLORS: Record<string, string> = {
 };
 
 const EVENT_TYPES = ["all", "birth", "death", "marriage", "divorce", "career", "education", "migration", "achievement", "military", "other"];
-
-function toPersonLike(p: PersonLike | DbPerson): PersonLike {
-  if ("fullName" in p && "birthPlace" in p && "bio" in p) return p as PersonLike;
-  const dp = p as DbPerson;
-  return {
-    id: dp.id,
-    fullName: dp.full_name,
-    gender: dp.gender ?? "",
-    birthYear: dp.birth_year,
-    deathYear: dp.death_year,
-    isAlive: dp.is_alive,
-    bio: dp.bio ?? "",
-    birthPlace: dp.birth_place ?? "",
-    profession: dp.profession ?? "",
-    email: "",
-    phone: "",
-    address: "",
-    website: "",
-    lat: null,
-    lng: null,
-    photoUrl: dp.photo_url ?? "",
-    nameNative: dp.name_native,
-    createdBy: dp.created_by,
-  };
-}
-
-function toUnionLike(u: DbUnion): UnionLike {
-  return {
-    id: u.id,
-    partnerA: u.partner_a,
-    partnerB: u.partner_b,
-    type: u.union_type,
-    startYear: u.start_year,
-    endYear: u.end_year,
-  };
-}
 
 export default function TimelinePage() {
   const { user } = useAuth();
