@@ -205,13 +205,15 @@ const ANIM_DURATION = 1200;
 // diamond corner handle (left vs right).
 const PERSON_W = 140;
 const UNION_W = 110;
-// Diamond vertical placement. The "diamond anchor fix" effect positions each
-// union diamond so its top sits a constant gap (DIAMOND_DROP) above the bottom of
-// its taller partner card. This keeps every diamond at the same visual drop below
-// its couple's card bodies regardless of name-wrap height. DIAMOND_DROP = the gap
-// from diamond top to the couple's card bottom. Lower value = the diamond hangs
-// further down (closer to / besides the card bottoms).
-const DIAMOND_DROP = 30; // gap from diamond top to the couple's card bottom (~134.5 - 86 normally)
+// Diamond placement ("diamond anchor fix" effect). Each union node's position.y is set
+// to `rowTop + partnerHeight - DIAMOND_DROP`. The diamond is centred inside the
+// 150px-tall union node, so its left/right corner handles sit at node-local y=75 and
+// the marriage-edge target is at `union.y + 75`. Setting DIAMOND_DROP = 75 makes that
+// corner EXACTLY level with the partners' card bottoms (person source handles), so the
+// marriage lines from each partner to the diamond are perfectly STRAIGHT/horizontal.
+// Smaller values raise the diamond (line angles down); larger values lower it (line
+// angles up) — 75 is the empirically exact value for a straight line.
+const DIAMOND_DROP = 75; // union node drops this far below rowTop so corners align to card bottoms
 
 function nextUnionId(unions: UnionLike[]) {
   const maxN = unions.reduce((max, u) => {
