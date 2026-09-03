@@ -25,6 +25,7 @@ import PersonNode from "@/components/PersonNode";
 import UnionNode from "@/components/UnionNode";
 import CollapsedNode from "@/components/CollapsedNode";
 import FamilyChildEdge from "@/components/FamilyChildEdge";
+import FamilyMarriageEdge from "@/components/FamilyMarriageEdge";
 import InfoPanel from "@/components/InfoPanel";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
 import {
@@ -66,7 +67,7 @@ import { useTreeManagement } from "@/hooks/useTreeManagement";
 import { downloadGedcom } from "@/lib/gedcom";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode, collapsedNode: CollapsedNode };
-const edgeTypes = { familychild: FamilyChildEdge };
+const edgeTypes = { familychild: FamilyChildEdge, marriage: FamilyMarriageEdge };
 
 function makeMarriageEdge(source: string, target: string, unionType: string, targetHandle?: string): Edge {
   const isDivorced = unionType === "divorced";
@@ -75,12 +76,18 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
     source,
     target,
     targetHandle,
-    type: "straight",
-    style: {
-      stroke: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage)",
-      strokeWidth: 2.5,
+    type: "marriage",
+    data: {
+      color: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage)",
+      width: 2.5,
       opacity: isDivorced ? 0.85 : 1,
-      strokeDasharray: isDivorced ? "6 4" : undefined,
+      dash: isDivorced ? "6 4" : undefined,
+      label: isDivorced ? "divorced" : undefined,
+      labelStyle: isDivorced
+        ? { fill: "var(--ember-red)", fontSize: 10, fontFamily: "var(--font-body)" }
+        : undefined,
+      labelBgStyle: isDivorced ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
+      labelBgPadding: isDivorced ? ([6, 3] as [number, number]) : undefined,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
@@ -88,12 +95,6 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
       width: 14,
       height: 14,
     },
-    label: isDivorced ? "divorced" : undefined,
-    labelStyle: isDivorced
-      ? { fill: "var(--ember-red)", fontSize: 10, fontFamily: "var(--font-body)" }
-      : undefined,
-    labelBgStyle: isDivorced ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
-    labelBgPadding: isDivorced ? ([6, 3] as [number, number]) : undefined,
   };
 }
 
