@@ -128,7 +128,6 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 const ANIM_DURATION = 550;
 const UNION_W = 110;
 const PERSON_W = 210;
-const DIAMOND_DROP = 75;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
@@ -465,35 +464,6 @@ export default function TapestryCanvas() {
       !!n &&
       n.position && n.position.x != null && n.position.y != null &&
       n.measured && n.measured.width != null && n.measured.height != null;
-    const overlaps = (x: number, y: number, bx: number, by: number, w: number, h: number) =>
-      x < bx + w && x + 110 > bx && y < by + h && y + 150 > by;
-
-    const computeBoundary = (union: (typeof all)[number], rowTop: number, partnerHeight: number) => {
-      const target = rowTop + partnerHeight - DIAMOND_DROP;
-      const ux = union.position.x;
-      const partners = new Set<string>();
-      const u = (union.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
-      if (u?.partnerA) partners.add(u.partnerA);
-      if (u?.partnerB) partners.add(u.partnerB);
-      const blockers: typeof all = [];
-      for (const n of all) {
-        if (n.id === union.id || partners.has(n.id)) continue;
-        if (hasBox(n)) blockers.push(n);
-      }
-      const collidesAt = (y: number) => {
-        for (const n of blockers) {
-          const bx = n.position.x, by = n.position.y;
-          const bw = n.measured!.width!, bh = n.measured!.height!;
-          if (overlaps(ux, y, bx, by, bw, bh)) return true;
-        }
-        return false;
-      };
-      if (!collidesAt(target)) return target;
-      for (let y = target; y >= union.position.y - 1; y -= 1) {
-        if (!collidesAt(y)) return y;
-      }
-      return union.position.y;
-    };
 
     const adjustments: { id: string; y: number; cornerA: number; cornerB: number }[] = [];
     for (const n of all) {
@@ -509,18 +479,56 @@ export default function TapestryCanvas() {
       if (!at || !bt || ah == null || bh == null) continue;
       const partnerHeight = Math.max(ah, bh);
       const rowTop = Math.min(at.position.y, bt.position.y);
-      const target = computeBoundary(n, rowTop, partnerHeight);
-      // Each partner's card-bottom Y (taller card = its bottom; shorter card = its own
-      // bottom). Setting the two marriage-corner handles to these exact heights makes
-      // both marriage lines enter the diamond perfectly horizontally regardless of the
-      // two cards differing in height (name wrap / deceased extra line).
       const aBottom = at.position.y + ah;
       const bBottom = bt.position.y + bh;
-      if (target >= 0 && Math.abs(target - n.position.y) > 1.5) {
-        adjustments.push({ id: n.id, y: target, cornerA: aBottom - target, cornerB: bBottom - target });
+      const ux = n.position.x;
+      // The diamond graphic is always drawn such that its two partner corners sit at
+      // each partner's card-bottom height, so both marriage lines enter horizontally.
+      // Its vertical centre is therefore the midpoint of the two partner bottoms.
+      let dCy = (aBottom + bBottom) / 2;
+      // Never let the diamond rise above the couple's own cards (the taller one).
+      // (For equal-height couples this is exactly the taller bottom, so lines stay
+      //  horizontal; for a big height gap it still guarantees no card overlap.)
+      const dTopLimit = rowTop + partnerHeight;
+      if (dCy - 16 < dTopLimit) dCy = dTopLimit + 16;
+      // Box top: the 150px node spans 74px either side of the diamond centre so the
+      // label/collapse affordances wrap the diamond.
+      const baseY = dCy - 75;
+      // Collision-guard the DIAMOND footprint (its true visual box, ~110 wide × 68 tall
+      // covering the two partner corners) against every non-partner card.
+      const partners = new Set<string>();
+      if (union.partnerA) partners.add(union.partnerA);
+      if (union.partnerB) partners.add(union.partnerB);
+      const collides = (dpTop: number) => {
+        const dpBottom = dpTop + 150;
+        for (const nn of all) {
+          if (nn.id === n.id || partners.has(nn.id)) continue;
+          if (!hasBox(nn)) continue;
+          const bx = nn.position.x, bw = nn.measured!.width!;
+          const by = nn.position.y, bh = nn.measured!.height!;
+          // Horizontal overlap uses the diamond's x (≈ union x).
+          if (ux < bx + bw && ux + UNION_W > bx) {
+            if (dpTop < by + bh && dpBottom > by) return true;
+          }
+        }
+        return false;
+      };
+      let boxY = baseY;
+      if (collides(baseY)) {
+        let raised = baseY;
+        for (let y = baseY - 1; y >= n.position.y - 1; y -= 1) {
+          if (!collides(y)) { raised = y; break; }
+        }
+        boxY = raised;
+      }
+      // Corner handles (local offsets relative to the union node TOP) must sit at each
+      // partner's card-bottom height so both marriage lines enter horizontally.
+      const cornerA = aBottom - boxY;
+      const cornerB = bBottom - boxY;
+      if (boxY >= 0 && Math.abs(boxY - n.position.y) > 1.5) {
+        adjustments.push({ id: n.id, y: boxY, cornerA, cornerB });
       } else {
-        // Keep the diamond where it is, but still align both corners to the partner
-        // bottoms (the current delta is within tolerance, yet heights may still differ).
+        // Diamond box already where it should be; still sync the corner heights.
         adjustments.push({ id: n.id, y: n.position.y, cornerA: aBottom - n.position.y, cornerB: bBottom - n.position.y });
       }
     }
