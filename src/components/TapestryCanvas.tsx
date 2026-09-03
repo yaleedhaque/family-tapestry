@@ -30,11 +30,8 @@ import {
   toPersonLike,
   toUnionLike,
   toEdgeLike,
-  toDbPerson,
-  toDbSource,
   toUnionRow,
   toEdgeRow,
-  isBio,
 } from "@/lib/convert";
 import BrickBackground from "@/components/BrickBackground";
 import TapestryBanner from "@/components/TapestryBanner";
@@ -60,7 +57,10 @@ import type { PresencePayload } from "@/lib/types";
 import ViewerCard from "@/components/ViewerCard";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useUserCircle } from "@/lib/useUserCircle";
-import { findDualParentConflicts, consolidateSingleParentBiologicalUnions, type Gender } from "@/lib/parentRules";
+import { consolidateSingleParentBiologicalUnions, type Gender } from "@/lib/parentRules";
+import { useTreeCrud, nextPersonId } from "@/hooks/useTreeCrud";
+import { useTreeManagement } from "@/hooks/useTreeManagement";
+import { downloadGedcom } from "@/lib/gedcom";
 
 const nodeTypes = { personNode: PersonNode, unionNode: UnionNode, collapsedNode: CollapsedNode };
 const edgeTypes = { familychild: FamilyChildEdge };
@@ -104,69 +104,29 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
     target,
     sourceHandle,
     targetHandle,
-    type: "familychild",
-    animated: isAdopted,
-    data: { adopted: isAdopted, step: isStep },
+    type: "smoothstep",
     style: {
       stroke: color,
-      strokeWidth: isAdopted ? 2.5 : 2,
-      opacity: 1,
-      strokeDasharray: isAdopted ? "6 4" : undefined,
+      strokeWidth: 2,
+      strokeDasharray: isAdopted ? "6 4" : isStep ? "4 3" : undefined,
+      opacity: isAdopted || isStep ? 0.9 : 0.7,
     },
-    markerEnd: { type: MarkerType.ArrowClosed, color, width: 11, height: 11 },
+    animated: isAdopted,
     label: isAdopted ? "adopted" : isStep ? "step" : undefined,
-    labelStyle: isAdopted
-      ? { fill: "var(--accent-emerald)", fontSize: 9, fontFamily: "var(--font-body)" }
-      : isStep
-      ? { fill: "var(--link)", fontSize: 9, fontFamily: "var(--font-body)" }
-      : undefined,
-    labelBgStyle: isAdopted || isStep ? { fill: "var(--tapestry-bg)", fillOpacity: 0.9 } : undefined,
-    labelBgPadding: isAdopted || isStep ? ([5, 2] as [number, number]) : undefined,
+    labelStyle: {
+      fill: isAdopted ? "var(--edge-adopted)" : isStep ? "var(--edge-step)" : "var(--parchment-dim)",
+      fontSize: 10,
+      fontFamily: "var(--font-body)",
+    },
+    labelBgStyle: { fill: "var(--tapestry-bg)", fillOpacity: 0.9 },
+    labelBgPadding: [6, 3] as [number, number],
   };
 }
 
-const ANIM_DURATION = 1200;
-
-// Node dimensions — MUST match src/lib/familyLayout.ts (PERSON_W/PERSON_H/UNION_W).
-// Used to derive node centre-x when assigning each partner to the nearest
-// diamond corner handle (left vs right).
-const PERSON_W = 140;
+const ANIM_DURATION = 550;
 const UNION_W = 110;
-// Diamond placement ("diamond anchor fix" effect). Each union node's position.y is set
-// to `rowTop + partnerHeight - DIAMOND_DROP`. The diamond is centred inside the
-// 150px-tall union node, so its left/right corner handles sit at node-local y=75 and
-// the marriage-edge target is at `union.y + 75`. Setting DIAMOND_DROP = 75 makes that
-// corner EXACTLY level with the partners' card bottoms (person source handles), so the
-// marriage lines from each partner to the diamond are perfectly STRAIGHT/horizontal.
-// Smaller values raise the diamond (line angles down); larger values lower it (line
-// angles up) — 75 is the empirically exact value for a straight line.
-const DIAMOND_DROP = 75; // union node drops this far below rowTop so corners align to card bottoms
-
-function nextUnionId(unions: UnionLike[]) {
-  const maxN = unions.reduce((max, u) => {
-    const m = u.id.match(/u(\d+)/);
-    return m ? Math.max(max, parseInt(m[1], 10)) : max;
-  }, 0);
-  return `u${maxN + 1}`;
-}
-
-function nextPersonId(persons: PersonLike[]) {
-  const maxN = persons.reduce((max, p) => {
-    const m = p.id.match(/p(\d+)/);
-    return m ? Math.max(max, parseInt(m[1], 10)) : max;
-  }, 0);
-  return `p${maxN + 1}`;
-}
-
-function apiCall(method: string, path: string, body?: unknown, onError?: () => void) {
-  fetch(`/api${path}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  }).then((res) => {
-    if (!res.ok) onError?.();
-  }).catch(() => onError?.());
-}
+const PERSON_W = 210;
+const DIAMOND_DROP = 75;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
@@ -180,11 +140,6 @@ export default function TapestryCanvas() {
   const [rawEdges, setRawEdges] = useState<EdgeLike[]>([]);
   const [rawSources, setRawSources] = useState<Source[]>([]);
 
-  // Latest-committed mirrors of the raw data. Handlers save via PUT /api/tree
-  // inside setTimeout; reading the render-closure state there sends STALE data
-  // (the just-made edit is missing → "saves keep getting deleted"). Always read
-  // these refs inside the async/apiCall paths so the save reflects the LATEST
-  // state, not the previous render.
   const rawPersonsRef = useRef<PersonLike[]>(rawPersons);
   const rawUnionsRef = useRef<UnionLike[]>(rawUnions);
   const rawEdgesRef = useRef<EdgeLike[]>(rawEdges);
@@ -221,15 +176,11 @@ export default function TapestryCanvas() {
   const [dataLoading, setDataLoading] = useState(true);
   const [showFitHint, setShowFitHint] = useState(false);
 
-  // §collapse — collapsed unions: which couples have their whole descendant
-  // subtree folded behind a single "cluster" card. Persisted per active tree.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const collapsedRef = useRef<Set<string>>(collapsed);
   collapsedRef.current = collapsed;
   const toggleCollapseRef = useRef<(unionId: string) => void>(() => {});
 
-  // §9.4 — Per-role, per-person edit gating. Server routes stay authoritative;
-  // this only decides which controls are shown.
   const gate = useUserCircle(user, rawPersons, rawUnions, rawEdges);
   const canCreate = gate.isEditorOrAdmin || gate.role === "user";
 
@@ -243,14 +194,19 @@ export default function TapestryCanvas() {
     } catch { /* ignore */ }
   }, []);
 
-  // §2.5 — Memoized, stable generation map keyed by graph shape so ring colours
-  // never reshuffle on re-render, tab switch, or demo→live data swap.
   const generationMap = useMemo(
     () => computeGenerationMap(rawPersons, rawUnions, rawEdges),
     [rawPersons, rawUnions, rawEdges]
   );
 
-  // Realtime subscription for multi-user sync
+  // ─── Find parent union (needed by both layout and CRUD hook) ───
+  const findParentUnion = useCallback(
+    (personId: string): UnionLike | undefined =>
+      rawUnions.find((u) => u.partnerA === personId || u.partnerB === personId),
+    [rawUnions]
+  );
+
+  // ─── Realtime subscription ───
   const handleRealtimeChange = useCallback((change: TreeChange) => {
     if (!user) return;
     if (change.table === "persons" && change.eventType === "UPDATE" && change.new) {
@@ -276,7 +232,7 @@ export default function TapestryCanvas() {
   }, [user]);
   useRealtimeTree(handleRealtimeChange);
 
-  // Presence: track who's online
+  // ─── Presence ───
   const presenceUser = useMemo(() => {
     if (!user) return null;
     const meta = user.user_metadata as Record<string, unknown> | undefined;
@@ -288,56 +244,82 @@ export default function TapestryCanvas() {
   const { shareCamera } = usePresenceFollow(presenceUser, (fromUserId, camera) => {
     if (followingIdRef.current !== fromUserId) return;
     followCamsRef.current[fromUserId] = camera;
-    const host = document.getElementById("tapestry-canvas");
-    if (host) {
-      // Convert remote flow coords to a viewport centered on the remote camera.
-      // The remote broadcasts absolute flow position; we use zoom from the payload.
-      setViewport({ x: -camera.x * camera.z, y: -camera.y * camera.z, zoom: camera.z }, { duration: 250 });
-    }
   });
 
-  // Broadcast my own camera position (throttled) so others can follow me.
-  const shareMyCamera = useCallback((camera: { x: number; y: number; z: number }) => {
-    if (broadcastTimerRef.current) return;
-    broadcastTimerRef.current = window.setTimeout(() => {
-      broadcastTimerRef.current = null;
-      shareCamera(camera);
-    }, 200);
-  }, [shareCamera]);
+  const onCanvasMove = useCallback(
+    (_: unknown, viewport: { x: number; y: number; zoom: number }) => {
+      shareCamera({ x: viewport.x, y: viewport.y, z: viewport.zoom });
+      if (followingIdRef.current) {
+        setFollowingId(null);
+        followingIdRef.current = null;
+      }
+    },
+    [shareCamera]
+  );
 
-  const onCanvasMove = useCallback((_: unknown, viewport: { x: number; y: number; zoom: number }) => {
-    // User interacted with the canvas — leave any active follow so control returns to them.
-    if (followingIdRef.current) {
-      followingIdRef.current = null;
-      setFollowingId(null);
-    }
-    shareMyCamera({ x: -viewport.x / viewport.zoom, y: -viewport.y / viewport.zoom, z: viewport.zoom });
-  }, [shareMyCamera]);
+  const followUser = useCallback(
+    (viewer: PresencePayload) => {
+      if (followingId === viewer.userId) {
+        setFollowingId(null);
+        followingIdRef.current = null;
+        return;
+      }
+      setFollowingId(viewer.userId);
+      followingIdRef.current = viewer.userId;
+      const cam = followCamsRef.current[viewer.userId];
+      if (cam) {
+        setViewport({ x: cam.x, y: cam.y, zoom: cam.z }, { duration: 400 });
+      }
+    },
+    [followingId, setViewport]
+  );
 
-  const followUser = useCallback((viewer: PresencePayload) => {
-    if (followingIdRef.current === viewer.userId) {
-      followingIdRef.current = null;
-      setFollowingId(null);
-      return;
-    }
-    followingIdRef.current = viewer.userId;
-    setFollowingId(viewer.userId);
-    const cam = followCamsRef.current[viewer.userId];
-    if (cam) {
-      setViewport({ x: -cam.x * cam.z, y: -cam.y * cam.z, zoom: cam.z }, { duration: 250 });
-    }
-  }, [setViewport]);
+  // ─── CRUD hook ───
+  const {
+    handleUpdatePerson,
+    handleDeletePerson,
+    handleAddPartner,
+    handleUpdateUnion,
+    handleUpdateEdgeType,
+    handleAddChild,
+    handleAddParent,
+    handleCreatePersonAndLink,
+    handleRemoveLink,
+    handleAddSource,
+    handleUpdateSource,
+    handleDeleteSource,
+    handleAddStandalonePerson,
+    handleNavigatePerson,
+    genderById,
+    wouldConflict,
+  } = useTreeCrud({
+    user,
+    toast,
+    rawPersons,
+    rawUnions,
+    rawEdges,
+    rawSources,
+    rawPersonsRef,
+    rawUnionsRef,
+    rawEdgesRef,
+    rawSourcesRef,
+    setRawPersons,
+    setRawUnions,
+    setRawEdges,
+    setRawSources,
+    setSelectedPerson,
+    setShowAddPerson,
+    fitView,
+    findParentUnion,
+  });
 
-  //  --  --  Build graph + run ELK  --  -- 
+  // ─── Layout ───
   const runLayout = useCallback(
     async (persons: PersonLike[], unions: UnionLike[], parentEdges: EdgeLike[], animate: boolean, genMap?: Record<string, number>) => {
       const version = ++layoutVersionRef.current;
 
       const generationMap = genMap ?? computeGenerationMap(persons, unions, parentEdges);
 
-      // §collapse — fold collapsed unions' subtrees behind single cluster cards so
-      // the visible tree (and therefore the layout width) stays small even at
-      // thousands of nodes.
       const sub = visibleSubset(persons, unions, parentEdges, collapsedRef.current);
 
       const visiblePids = new Set(sub.persons);
@@ -349,15 +331,12 @@ export default function TapestryCanvas() {
         subEdgeKeys.has(`${e.unionId}\u0000${e.childId}`)
       );
 
-      // Surrogate "cluster" nodes standing in for collapsed subtrees.
       const surrogates: { id: string; unionId: string; count: number; names: string[] }[] = [];
       for (const ce of sub.collapsedEdges) {
         const ids = sub.collapseSubtree.get(ce.unionId) ?? [];
         const names = sampleDescendantNames(persons, unions, parentEdges, ce.unionId, 5);
         surrogates.push({ id: ce.childId, unionId: ce.unionId, count: ids.length, names });
       }
-      // Hidden-descendant count for EVERY visible union (powers the collapse toggle
-      // badge). Computed in one pass so this stays O(n), not O(unions × n).
       const hiddenCounts = descendantCounts(persons, unions, parentEdges);
       const layoutPersons = [
         ...visiblePersons.map((p) => ({ id: p.id, fullName: p.fullName })),
@@ -387,24 +366,10 @@ export default function TapestryCanvas() {
         });
       }
 
-      //  --  --  Lay out the (visible) tree via ELK (Sugiyama layered, couple-node)  --  -- 
-      // Spouses + their union diamond sit side by side in one row; children hang
-      // below. ELK's layered algorithm enforces non-overlapping blocks, so no two
-      // cards can collide no matter how large the tree grows (this replaced the old
-      // hand-rolled width-reservation layout that overlapped at scale). Edges remain
-      // real React Flow edges (smoothstep, connected to node handles) so they stay
-      // attached and follow the nodes when dragged.
       const { positions } = await manualFamilyLayout(layoutPersons, visibleUnions, layoutEdges, surrogates);
       if (version !== layoutVersionRef.current) return;
       const layoutPositions = new Map<string, { x: number; y: number }>(positions);
 
-      // Marriage edges: each partner connects to the union diamond. The diamond
-      // is centred BELOW/BETWEEN the partners, so we pick the diamond's left or
-      // right corner handle by which partner is actually nearer that side
-      // (left partner -> left corner, right partner -> right corner). Assigning
-      // by real layout position (not partnerA/partnerB identity) keeps every
-      // marriage line the shortest possible and crossing-free, incl. remarriage
-      // fans where a person can end up on either side of a given diamond.
       const cxOf = (n: { x: number; y: number }, w: number) => n.x + w / 2;
       for (const union of visibleUnions) {
         if (!union.partnerB) continue;
@@ -420,19 +385,15 @@ export default function TapestryCanvas() {
         graphEdges.push(makeMarriageEdge(union.partnerB, union.id, union.type, handleFor(union.partnerB)));
       }
 
-      // Child edges: union diamond bottom -> child top (smoothstep, follows drags).
       for (const edge of visibleEdges) {
         const union = visibleUnions.find((u) => u.id === edge.unionId);
         if (union && !union.partnerB) {
-          // Single parent (no diamond): child drops straight from the parent's bottom.
           graphEdges.push(makeChildEdge(union.partnerA, edge.childId, edge.relationshipType, "bottom"));
         } else {
           graphEdges.push(makeChildEdge(edge.unionId, edge.childId, edge.relationshipType, "child"));
         }
       }
 
-      // Collapse boundary edges: a single dashed straight drop from the collapsed
-      // union's diamond down to its cluster card.
       for (const s of surrogates) {
         graphEdges.push({
           id: `${s.unionId}-${s.id}-collapse`,
@@ -476,19 +437,7 @@ export default function TapestryCanvas() {
     [setNodes, setFlowEdges]
   );
 
-  //  --  --  Diamond anchor fix  --  --
-  // The layout engine keeps every union diamond roughly at the same drop below its
-  // couples. But person cards render at their natural content height, which differs
-  // when a name wraps onto two lines (taller card), so a diamond hanging below a taller
-  // card can look higher than one below a shorter card. Also, the user prefers the
-  // diamond low enough that its left/right corner handles sit EXACTLY level with the
-  // partners' card bottoms — which makes the marriage lines perfectly straight and
-  // horizontal (the corner handles are at node-local y=75 inside the 150px union node,
-  // so we need union.y = rowTop + partnerHeight - DIAMOND_DROP with DIAMOND_DROP=75).
-  // This re-anchors each diamond accordingly, but COLLISION-GUARDED: on a crowded tree a
-  // second row may sit closely below, so a union is only lowered as far as it can go
-  // without overlapping any other node (searched downward from the ideal target). This
-  // keeps u3 perfectly straight while never pushing a diamond into an adjacent card.
+  // ─── Diamond anchor fix ───
   useEffect(() => {
     if (animPhase !== "done") return;
     const all = getNodes();
@@ -501,11 +450,6 @@ export default function TapestryCanvas() {
       x < bx + w && x + 110 > bx && y < by + h && y + 150 > by;
 
     const computeBoundary = (union: (typeof all)[number], rowTop: number, partnerHeight: number) => {
-      // Ideal target places the diamond corners level with the card bottoms. From there
-      // walk DOWN in small steps, but only DOWNWARD (y grows); stop at the first y that
-      // no longer collides with any other (non-partner) node. We only ever lower, so the
-      // union starts at its current/engine position and lowers toward the target, capped
-      // by the first collision-free height that is >= target.
       const target = rowTop + partnerHeight - DIAMOND_DROP;
       const ux = union.position.x;
       const partners = new Set<string>();
@@ -517,7 +461,6 @@ export default function TapestryCanvas() {
         if (n.id === union.id || partners.has(n.id)) continue;
         if (hasBox(n)) blockers.push(n);
       }
-      // If the ideal target itself doesn't collide, use it.
       const collidesAt = (y: number) => {
         for (const n of blockers) {
           const bx = n.position.x, by = n.position.y;
@@ -527,8 +470,6 @@ export default function TapestryCanvas() {
         return false;
       };
       if (!collidesAt(target)) return target;
-      // Target collides — step upward from target until it fits. Return the lowest fit
-      // point, or -1 if none fits down to the current position.
       for (let y = target; y >= union.position.y - 1; y -= 1) {
         if (!collidesAt(y)) return y;
       }
@@ -559,10 +500,9 @@ export default function TapestryCanvas() {
       const adj = adjustments.find((x) => x.id === nd.id);
       return adj ? { ...nd, position: { ...nd.position, y: adj.y } } : nd;
     }));
-    // Keep the same zoom/pan (do not refit — that would zoom-jump on tall cards).
   }, [animPhase, getNodes, setNodes]);
 
-  //  --  --  Initial load  --  -- 
+  // ─── Initial load ───
   useEffect(() => {
     (async () => {
       const STORAGE_KEY = "family-tapestry-trees";
@@ -637,9 +577,6 @@ export default function TapestryCanvas() {
 
       setActiveTreeId(treeId);
       setTreeNames(names);
-      // Run the server's same consolidation on load so any lingering orphan
-      // single-parent unions / duplicate bio lines never reach client state or
-      // get re-sent on the next save.
       {
         const genders = new Map<string, Gender>(
           persons.map((p) => [p.id, (p.gender as Gender) ?? ""])
@@ -661,7 +598,7 @@ export default function TapestryCanvas() {
     })();
   }, [runLayout, user]);
 
-  //  --  --  Persist to localStorage on every change  --  -- 
+  // ─── Persist to localStorage ───
   useEffect(() => {
     if (isInitialLoad.current) {
       if (rawPersons.length > 0) isInitialLoad.current = false;
@@ -682,7 +619,7 @@ export default function TapestryCanvas() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: activeTreeId }));
   }, [rawPersons, rawUnions, rawEdges, rawSources, activeTreeId, treeNames]);
 
-  //  --  --  Re-layout whenever raw data changes (after first load)  --  -- 
+  // ─── Re-layout on data change ───
   const prevDataSig = useRef("");
   useEffect(() => {
     if (!initialLoadDone.current) return;
@@ -692,8 +629,7 @@ export default function TapestryCanvas() {
     runLayout(rawPersons, rawUnions, rawEdges, false, generationMap);
   }, [rawPersons, rawUnions, rawEdges, runLayout, generationMap]);
 
-  //  --  --  §collapse: toggle a union's subtree fold + re-layout on change  --  -- 
-  // Persisted per active tree in a dedicated localStorage key.
+  // ─── Collapse ───
   const collapseKey = `family-tapestry-collapsed-${activeTreeId}`;
   const loadCollapsed = useCallback((): Set<string> => {
     try {
@@ -705,7 +641,6 @@ export default function TapestryCanvas() {
     return new Set();
   }, [collapseKey]);
 
-  // Import persisted collapse set once when the active tree changes.
   useEffect(() => {
     setCollapsed(loadCollapsed());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -725,14 +660,13 @@ export default function TapestryCanvas() {
   }, [collapseKey]);
   toggleCollapseRef.current = toggleCollapse;
 
-  // Relayout whenever the collapse set changes (after first load).
   useEffect(() => {
     if (!initialLoadDone.current) return;
     runLayout(rawPersons, rawUnions, rawEdges, false, generationMap);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collapsed, runLayout]);
 
-  //  --  --  Keep selectedPerson live  --  -- 
+  // ─── Keep selectedPerson live ───
   useEffect(() => {
     if (selectedPerson) {
       const live = rawPersons.find((p) => p.id === selectedPerson.id);
@@ -740,7 +674,7 @@ export default function TapestryCanvas() {
     }
   }, [selectedPerson, rawPersons]);
 
-  //  --  --  Node click  --  -- 
+  // ─── Node click ───
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       if (node.type === "personNode") {
@@ -751,495 +685,39 @@ export default function TapestryCanvas() {
     [rawPersons]
   );
 
-  //  --  --  Find the union that makes someone a parent  --  -- 
-  const findParentUnion = useCallback(
-    (personId: string): UnionLike | undefined =>
-      rawUnions.find((u) => u.partnerA === personId || u.partnerB === personId),
-    [rawUnions]
-  );
+  // ─── Tree management hook ───
+  const {
+    switchTree,
+    createTree,
+    deleteTree,
+    renameTree,
+    handleGedcomImport,
+  } = useTreeManagement({
+    user,
+    toast,
+    rawPersons,
+    rawUnions,
+    rawEdges,
+    rawSources,
+    rawPersonsRef,
+    rawUnionsRef,
+    rawEdgesRef,
+    rawSourcesRef,
+    setRawPersons,
+    setRawUnions,
+    setRawEdges,
+    setRawSources,
+    activeTreeId,
+    setActiveTreeId,
+    treeNames,
+    setTreeNames,
+    setSelectedPerson,
+    initialLoadDone,
+    layoutVersionRef,
+    runLayout,
+  });
 
-  //  --  --  Parent-role rule: "a child cannot have two biological mothers/fathers"  --  
-  const genderById = useMemo(() => {
-    return new Map<string, Gender>(rawPersons.map((p) => [p.id, (p.gender as Gender) ?? ""]));
-  }, [rawPersons]);
-
-  const wouldConflict = useCallback(
-    (unionId: string, childId: string, rel?: string): boolean => {
-      // Compute the FINAL union/edge set (what would exist after this add).
-      const newEdge = { unionId, childId, relationshipType: rel ?? "biological" };
-      const finalEdges = rawEdges.some(
-        (e) => e.unionId === unionId && e.childId === childId
-      )
-        ? rawEdges
-        : [...rawEdges, newEdge];
-      const conflicts = findDualParentConflicts(rawUnions, finalEdges, genderById);
-      return conflicts.some((c) => c.childId === childId);
-    },
-    [rawUnions, rawEdges, genderById]
-  );
-
-  //  --  --  CRUD: Update person  --  -- 
-  const handleUpdatePerson = useCallback((updated: PersonLike) => {
-    setRawPersons((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-    setSelectedPerson(updated);
-    if (user) apiCall("PATCH", "/tree/persons", toDbPerson(updated), () => toast("Failed to save changes", "error"));
-  }, [user, toast]);
-
-  //  --  --  CRUD: Delete person  --  -- 
-  const handleDeletePerson = useCallback((personId: string) => {
-    setRawPersons((prev) => prev.filter((p) => p.id !== personId));
-    setRawUnions((prev) => prev.filter((u) => u.partnerA !== personId && u.partnerB !== personId));
-    setRawEdges((prev) => prev.filter((e) => e.childId !== personId));
-    setSelectedPerson(null);
-    if (user) apiCall("DELETE", `/tree/persons?id=${personId}`, undefined, () => toast("Failed to delete person", "error"));
-  }, [user, toast]);
-
-  //  --  --  CRUD: Add partner (existing person)  --  -- 
-  const handleAddPartner = useCallback(
-    (personId: string, partnerId: string, unionType: string, startYear: number | null) => {
-      const currentUnions = rawUnionsRef.current;
-      const newUnion = { id: nextUnionId(currentUnions), partnerA: personId, partnerB: partnerId, type: unionType, startYear, endYear: null };
-      const nextUnions = [...currentUnions, newUnion];
-      setRawUnions(nextUnions);
-      if (user) apiCall("PUT", "/tree", { unions: nextUnions, persons: rawPersonsRef.current, edges: rawEdgesRef.current }, () => toast("Failed to save relationship", "error"));
-    },
-    [user, toast]
-  );
-
-  //  --  --  CRUD: Update union (change type/years of a relationship)  --  -- 
-  const handleUpdateUnion = useCallback((updated: UnionLike) => {
-    const nextUnions = rawUnionsRef.current.map((u) => (u.id === updated.id ? updated : u));
-    setRawUnions(nextUnions);
-    if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: nextUnions, edges: rawEdgesRef.current }, () => toast("Failed to save relationship", "error"));
-  }, [user, toast]);
-
-  //  --  --  CRUD: Update a parent→child relationship type (bio/adopted/step)  -- 
-  const handleUpdateEdgeType = useCallback(
-    (unionId: string, childId: string, relationshipType: string) => {
-      const rel = (["biological", "adopted", "step"].includes(relationshipType) ? relationshipType : "biological") as "biological" | "adopted" | "step";
-      const nextEdges = rawEdgesRef.current.map((e) =>
-        e.unionId === unionId && e.childId === childId ? { ...e, relationshipType: rel } : e
-      );
-      setRawEdges(nextEdges);
-      if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: rawUnionsRef.current, edges: nextEdges }, () => toast("Failed to save relationship", "error"));
-    },
-    [user, toast]
-  );
-
-  //  --  --  CRUD: Add child (existing person)  --  -- 
-  const handleAddChild = useCallback(
-    (parentId: string, childId: string, relationshipType?: string) => {
-      const rel = relationshipType ?? "biological";
-      const currentUnions = rawUnionsRef.current;
-      const currentEdges = rawEdgesRef.current;
-      const union = findParentUnion(parentId);
-      let nextEdges: EdgeLike[];
-      let nextUnions: UnionLike[];
-      if (union) {
-        const newEdge = { unionId: union.id, childId, relationshipType: rel };
-        nextEdges = currentEdges.some((e) => e.unionId === union.id && e.childId === childId)
-          ? currentEdges
-          : [...currentEdges, newEdge];
-        nextUnions = currentUnions;
-      } else {
-        const newId = nextUnionId(currentUnions);
-        const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
-        nextUnions = [...currentUnions, newUnion];
-        nextEdges = [...currentEdges, { unionId: newId, childId, relationshipType: rel }];
-      }
-      setRawEdges(nextEdges);
-      setRawUnions(nextUnions);
-      if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: nextUnions, edges: nextEdges }, () => toast("Failed to save relationship", "error"));
-    },
-    [findParentUnion, user, toast]
-  );
-
-  //  --  --  CRUD: Add parent (existing person)  --  -- 
-  const handleAddParent = useCallback(
-    (childId: string, parentId: string, relationshipType?: string) => {
-      const rel = relationshipType ?? "biological";
-      const currentUnions = rawUnionsRef.current;
-      const currentEdges = rawEdgesRef.current;
-      const currentPersons = rawPersonsRef.current;
-      // Prefer the child's EXISTING biological union as the target when adding a
-      // biological parent, so a second bio parent merges into the same union
-      // (one diamond, one child line) instead of spawning a duplicate line.
-      const childUnionId =
-        rel === "biological"
-          ? currentEdges.find((e) => e.childId === childId && isBio(e.relationshipType))?.unionId
-          : undefined;
-      const childUnion = childUnionId
-        ? currentUnions.find((u) => u.id === childUnionId)
-        : undefined;
-      // A union the new parent is already a partner of (only used when the child
-      // has no biological relationship yet, to avoid reusing an orphan).
-      const parentUnion = currentUnions.find(
-        (u) => (u.partnerA === parentId || u.partnerB === parentId) && !childUnion
-      );
-
-      const targetUnion = childUnion ?? parentUnion;
-      if (targetUnion) {
-        if (wouldConflict(targetUnion.id, childId, rel)) {
-          toast(
-            rel === "biological"
-              ? "This child already has a biological parent of that gender. Add the extra parent as Step or Adopted (different-coloured line)."
-              : "This change was not saved.",
-            "error"
-          );
-          return;
-        }
-        // If we're reusing the child's union and the new parent is NOT already a
-        // partner, merge them in (single-parent -> couple). Otherwise just attach.
-        if (rel === "biological" && childUnion && !childUnion.partnerB) {
-          const otherParentId =
-            childUnion.partnerA === parentId ? null : childUnion.partnerA;
-          if (otherParentId && otherParentId !== parentId) {
-            const merged: UnionLike = {
-              ...childUnion,
-              partnerA: childUnion.partnerA,
-              partnerB: otherParentId,
-            };
-            const updatedUnions = currentUnions.map((u) => (u.id === merged.id ? merged : u));
-            const updatedEdges = currentEdges.map((e) =>
-              e.childId === childId && e.unionId === childUnion.id
-                ? { ...e, relationshipType: rel }
-                : e
-            );
-            setRawUnions(updatedUnions);
-            setRawEdges(updatedEdges);
-            if (user)
-              apiCall("PUT", "/tree", { persons: currentPersons, unions: updatedUnions, edges: updatedEdges }, () =>
-                toast("Failed to save relationship", "error")
-              );
-            return;
-          }
-        }
-        const newEdge = { unionId: targetUnion.id, childId, relationshipType: rel };
-        const updatedEdges = currentEdges.some(
-          (e) => e.unionId === targetUnion.id && e.childId === childId
-        )
-          ? currentEdges
-          : [...currentEdges, newEdge];
-        setRawEdges(updatedEdges);
-        if (user)
-          apiCall("PUT", "/tree", { persons: currentPersons, unions: currentUnions, edges: updatedEdges }, () =>
-            toast("Failed to save relationship", "error")
-          );
-        return;
-      }
-      // 3) No existing relationship for this child — create a fresh single-parent union.
-      const newId = nextUnionId(currentUnions);
-      const newUnion = { id: newId, partnerA: parentId, partnerB: "", type: "marriage", startYear: null, endYear: null };
-      const updatedUnions = [...currentUnions, newUnion];
-      const updatedEdges = [...currentEdges, { unionId: newId, childId, relationshipType: rel }];
-      setRawUnions(updatedUnions);
-      setRawEdges(updatedEdges);
-      if (user)
-        apiCall("PUT", "/tree", { persons: currentPersons, unions: updatedUnions, edges: updatedEdges }, () =>
-          toast("Failed to save relationship", "error")
-        );
-    },
-    [wouldConflict, user, toast]
-  );
-
-  //  --  --  CRUD: Create new person + link  --  -- 
-  const handleCreatePersonAndLink = useCallback(
-    (
-      newPerson: PersonLike,
-      linkType: "partner" | "child" | "parent",
-      relatedToId: string,
-      unionType?: string,
-      startYear?: number | null,
-      relationshipType?: string
-    ) => {
-      if (!newPerson.fullName.trim()) return;
-      if (newPerson.id === relatedToId) return;
-
-      const currentPersons = rawPersonsRef.current;
-      const currentUnions = rawUnionsRef.current;
-      const currentEdges = rawEdgesRef.current;
-
-      const nextPersons = [...currentPersons, newPerson];
-      let nextUnions = currentUnions;
-      let nextEdges = currentEdges;
-
-      if (linkType === "partner") {
-        nextUnions = [
-          ...currentUnions,
-          { id: nextUnionId(currentUnions), partnerA: relatedToId, partnerB: newPerson.id, type: unionType ?? "marriage", startYear: startYear ?? null, endYear: null },
-        ];
-      } else if (linkType === "child") {
-        const union = findParentUnion(relatedToId);
-        if (union) {
-          nextEdges = [...currentEdges, { unionId: union.id, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }];
-        } else {
-          const newId = nextUnionId(currentUnions);
-          nextUnions = [...currentUnions, { id: newId, partnerA: relatedToId, partnerB: "", type: "marriage", startYear: null, endYear: null }];
-          nextEdges = [...currentEdges, { unionId: newId, childId: newPerson.id, relationshipType: relationshipType ?? "biological" }];
-        }
-      } else {
-        const rel = relationshipType ?? "biological";
-        // The new parent gets a fresh single-parent union. Guard the parent-role
-        // rule (e.g. adding a second biological mother to a child that already
-        // has one).
-        const newU: UnionLike = { id: nextUnionId(currentUnions), partnerA: newPerson.id, partnerB: "", type: "marriage", startYear: null, endYear: null };
-        const prospective = [...currentUnions, { ...newU, id: newU.id }];
-        const prospectiveEdges = [
-          ...currentEdges,
-          { unionId: newU.id, childId: relatedToId, relationshipType: rel },
-        ];
-        const mergedGenders = new Map<string, Gender>(genderById);
-        mergedGenders.set(newPerson.id, (newPerson.gender as Gender) ?? "");
-        const conflict = findDualParentConflicts(
-          prospective,
-          prospectiveEdges,
-          mergedGenders
-        ).some((c) => c.childId === relatedToId);
-        if (conflict) {
-          toast(
-            rel === "biological"
-              ? "This child already has a biological parent of that gender. Add the new parent as Step or Adopted instead."
-              : "This change was not saved.",
-            "error"
-          );
-          return;
-        }
-        nextUnions = prospective;
-        nextEdges = prospectiveEdges;
-      }
-
-      setRawPersons(nextPersons);
-      setRawUnions(nextUnions);
-      setRawEdges(nextEdges);
-      if (user) {
-        apiCall("POST", "/tree/persons", toDbPerson(newPerson), () => toast("Failed to save new person", "error"));
-        apiCall("PUT", "/tree", { persons: nextPersons, unions: nextUnions, edges: nextEdges }, () => toast("Failed to save relationship", "error"));
-      }
-    },
-    [findParentUnion, genderById, user, toast]
-  );
-
-  //  --  --  CRUD: Remove link  --  -- 
-  const handleRemoveLink = useCallback(
-    (linkType: "partner" | "child", fromId: string, toId: string) => {
-      const currentUnions = rawUnionsRef.current;
-      const currentEdges = rawEdgesRef.current;
-      let nextUnions = currentUnions;
-      let nextEdges = currentEdges;
-      if (linkType === "partner") {
-        nextUnions = currentUnions.filter(
-          (u) => !((u.partnerA === fromId && u.partnerB === toId) || (u.partnerA === toId && u.partnerB === fromId))
-        );
-      } else {
-        const edge = currentEdges.find((e) => e.childId === toId);
-        if (edge) {
-          const union = currentUnions.find((u) => u.id === edge.unionId);
-          if (union && (union.partnerA === fromId || union.partnerB === fromId)) {
-            nextEdges = currentEdges.filter((e) => !(e.unionId === edge.unionId && e.childId === toId));
-          }
-        }
-      }
-      setRawUnions(nextUnions);
-      setRawEdges(nextEdges);
-      if (user) apiCall("PUT", "/tree", { persons: rawPersonsRef.current, unions: nextUnions, edges: nextEdges }, () => toast("Failed to save changes", "error"));
-    },
-    [user, toast]
-  );
-
-  //  --  --  CRUD: Sources  --  -- 
-  const handleAddSource = useCallback((source: Source) => {
-    setRawSources((prev) => [...prev, source]);
-    if (user) apiCall("POST", "/sources", toDbSource(source), () => toast("Failed to save source", "error"));
-  }, [user, toast]);
-
-  const handleUpdateSource = useCallback((source: Source) => {
-    setRawSources((prev) => prev.map((s) => (s.id === source.id ? source : s)));
-    if (user) apiCall("PATCH", "/sources", toDbSource(source), () => toast("Failed to update source", "error"));
-  }, [user, toast]);
-
-  const handleDeleteSource = useCallback((sourceId: string) => {
-    setRawSources((prev) => prev.filter((s) => s.id !== sourceId));
-    if (user) apiCall("DELETE", `/sources?id=${sourceId}`, undefined, () => toast("Failed to delete source", "error"));
-  }, [user, toast]);
-
-  //  --  --  CRUD: Standalone add person (no link)  --  -- 
-  const handleAddStandalonePerson = useCallback(
-    (newPerson: PersonLike) => {
-      if (!newPerson.fullName.trim()) return;
-      setRawPersons((prev) => [...prev, newPerson]);
-      setSelectedPerson(newPerson);
-      setShowAddPerson(false);
-      // Relayout first (registers the node), then frame the new person so they are
-      // ALWAYS visible regardless of the user's current pan/zoom. Isolated people are
-      // placed on their own row, so without this they can land off-screen.
-      setTimeout(() => fitView({ nodes: [{ id: newPerson.id }], padding: 0.3, duration: 400 }), 60);
-      if (user) apiCall("POST", "/tree/persons", toDbPerson(newPerson), () => toast("Failed to save new person", "error"));
-    },
-    [user, toast, fitView]
-  );
-
-  //  --  --  Navigate to person: select + fitView  --  -- 
-  const handleNavigatePerson = useCallback(
-    (personId: string) => {
-      const p = rawPersons.find((pp) => pp.id === personId);
-      if (p) {
-        setSelectedPerson(p);
-        setTimeout(() => fitView({ nodes: [{ id: personId }], padding: 0.3, duration: 400 }), 50);
-      }
-    },
-    [rawPersons, fitView]
-  );
-
-  const handleRecenter = useCallback(() => {
-    // §2.1 — reserve the fixed chrome bands (banner top / nav+search bottom) so the
-    // tree never auto-fits content underneath them.
-    const root = getComputedStyle(document.documentElement);
-    const top = parseFloat(root.getPropertyValue("--chrome-top")) || 0;
-    const bottom = parseFloat(root.getPropertyValue("--chrome-bottom")) || 0;
-    const pad = Math.min(0.5, Math.max(0.05, (top + bottom) / window.innerHeight + 0.04));
-    fitView({ padding: pad, duration: 450, maxZoom: 1.5 });
-  }, [fitView]);
-
-  //  --  --  Full-tree image export (PDF/PNG)  --  -- 
-  // Captures the ENTIRE tree (all nodes), not just the current window viewport.
-  // Fits the graph into view, waits for the transition, captures the graph area,
-  // then restores the caller's previous viewport so their editing context is kept.
-  const exportFullTree = useCallback(
-    async (format: "png" | "pdf") => {
-      const flowEl = viewportRef.current?.querySelector(".react-flow");
-      if (!flowEl) return;
-      const prev = getViewport();
-      const x0 = prev.x, y0 = prev.y, z0 = prev.zoom;
-
-      const { exportToPNG, exportToPDF } = await import("@/lib/export");
-
-      // Fit the whole graph with a small padding, capture, then restore the
-      // caller's previous viewport so their editing context is kept.
-      const restore = () => setViewport({ x: x0, y: y0, zoom: z0 }, { duration: 0 });
-      try {
-        fitView({ padding: 0.08, duration: 400, maxZoom: 3 });
-        await new Promise((r) => setTimeout(r, 700));
-        const current = getViewport();
-        if (format === "png") await exportToPNG(flowEl as HTMLDivElement, current.zoom);
-        else await exportToPDF(flowEl as HTMLDivElement, current.zoom);
-      } catch (err) {
-        console.error("Full-tree export failed:", err);
-        toast("Could not export full tree", "error");
-      } finally {
-        restore();
-      }
-    },
-    [fitView, getViewport, setViewport, toast]
-  );
-
-  //  --  --  Switch active tree  --  -- 
-  const switchTree = useCallback(
-    (newTreeId: string) => {
-      if (newTreeId === activeTreeId) return;
-      const STORAGE_KEY = "family-tapestry-trees";
-      const saved = localStorage.getItem(STORAGE_KEY);
-      let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[]; sources?: Source[] }> = {};
-      let names: Record<string, string> = treeNames;
-      if (saved) {
-        try { const p = JSON.parse(saved); trees = p.trees ?? {}; names = { ...names, ...p.names }; } catch { /* ok */ }
-      }
-      trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges, sources: rawSources };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: newTreeId }));
-
-      // Load new tree
-      const tree = trees[newTreeId];
-      if (tree) {
-        setRawPersons(tree.persons);
-        setRawUnions(tree.unions);
-        setRawEdges(tree.edges);
-        setRawSources(tree.sources ?? []);
-      } else {
-        setRawPersons(staticPersons);
-        setRawUnions(staticUnions.map(toUnionLike));
-        setRawEdges(staticEdges);
-        setRawSources([]);
-      }
-      setActiveTreeId(newTreeId);
-      setSelectedPerson(null);
-      initialLoadDone.current = false;
-      layoutVersionRef.current++;
-    },
-    [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames]
-  );
-
-  //  --  --  Create new tree  --  -- 
-  const createTree = useCallback(() => {
-    const name = prompt("Tree name:");
-    if (!name?.trim()) return;
-    const id = `tree-${Date.now().toString(36)}`;
-    setTreeNames((prev) => ({ ...prev, [id]: name.trim() }));
-    switchTree(id);
-  }, [switchTree]);
-
-  //  --  --  Delete the ACTIVE tree (admin only). Never resurrected: unlike
-  //  switchTree, this does NOT re-save the deleted tree back to storage.  --  -- 
-  const deleteTree = useCallback(() => {
-    const STORAGE_KEY = "family-tapestry-trees";
-    const saved = localStorage.getItem(STORAGE_KEY);
-    let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[]; sources?: Source[] }> = {};
-    let names: Record<string, string> = { ...treeNames };
-    if (saved) {
-      try { const p = JSON.parse(saved); trees = p.trees ?? {}; names = { ...names, ...p.names }; } catch { /* ok */ }
-    }
-
-    // Save the current tree's latest edits before removal (so pending work isn't
-    // silently lost — though it's about to be deleted anyway), then delete it.
-    trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges, sources: rawSources };
-    delete trees[activeTreeId];
-    delete names[activeTreeId];
-
-    const remaining = Object.keys(trees);
-    const nextActive = remaining.length ? remaining[0] : "default";
-    const nextNames = remaining.length ? names : { default: "The Haque Tapestry" };
-
-    const t = trees[nextActive];
-    if (t) {
-      setRawPersons(t.persons);
-      setRawUnions(t.unions);
-      setRawEdges(t.edges);
-      setRawSources(t.sources ?? []);
-    } else {
-      setRawPersons(staticPersons);
-      setRawUnions(staticUnions.map(toUnionLike));
-      setRawEdges(staticEdges);
-      setRawSources([]);
-    }
-    setTreeNames(nextNames);
-    setActiveTreeId(nextActive);
-    setSelectedPerson(null);
-    initialLoadDone.current = false;
-    layoutVersionRef.current++;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees: remaining.length ? trees : {}, names: nextNames, activeTree: nextActive }));
-  }, [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames]);
-
-  //  --  --  Rename the ACTIVE tree's title (editor/admin, same gate as + Tree).  --  -- 
-  const renameTree = useCallback(() => {
-    const current = treeNames[activeTreeId] ?? "";
-    const name = window.prompt("Tree name:", current);
-    if (!name || !name.trim() || name.trim() === current) return;
-    const trimmed = name.trim();
-    setTreeNames((prev) => {
-      const next = { ...prev, [activeTreeId]: trimmed };
-      // persist to the same localStorage tree blob
-      const STORAGE_KEY = "family-tapestry-trees";
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try {
-          const p = JSON.parse(saved);
-          const names = { ...p.names, [activeTreeId]: trimmed };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...p, names }));
-        } catch { /* ok */ }
-      }
-      return next;
-    });
-  }, [activeTreeId, treeNames]);
-
-  //  --  --  Hover highlighting: find connected nodes  --  -- 
+  // ─── Hover highlighting ───
   const connectedNodeIds = useMemo(() => {
     if (!hoveredNodeId) return null;
     const ids = new Set<string>([hoveredNodeId]);
@@ -1267,7 +745,6 @@ export default function TapestryCanvas() {
     return ids;
   }, [hoveredNodeId, rawUnions, rawEdges]);
 
-  //  --  --  Apply highlight/dim data to nodes  --  -- 
   useEffect(() => {
     if (!connectedNodeIds && !searchHighlightId) {
       setNodes((prev) => prev.map((n) => {
@@ -1287,7 +764,7 @@ export default function TapestryCanvas() {
     }));
   }, [connectedNodeIds, searchHighlightId, hoveredNodeId, setNodes]);
 
-  //  --  --  Search select handler  --  -- 
+  // ─── Search ───
   const handleSearchSelect = useCallback(
     (person: PersonLike) => {
       setSelectedPerson(person);
@@ -1297,92 +774,39 @@ export default function TapestryCanvas() {
     []
   );
 
-  //  --  --  GEDCOM export (client-side from current data)  --  -- 
-  const handleExportGedcom = useCallback(() => {
-    const lines: string[] = [
-      "0 HEAD",
-      "1 SOUR FamilyTapestry",
-      "2 VERS 1.0",
-      "1 DEST GEDCOM",
-      "1 DATE " + new Date().toISOString().split("T")[0],
-      "1 GEDC",
-      "2 VERS 5.5.1",
-      "2 FORM LINEAGE-LINKED",
-      "1 CHAR UTF-8",
-    ];
+  // ─── Full-tree export ───
+  const exportFullTree = useCallback(
+    async (format: "png" | "pdf") => {
+      const flowEl = viewportRef.current?.querySelector(".react-flow");
+      if (!flowEl) return;
+      const prev = getViewport();
+      const x0 = prev.x, y0 = prev.y, z0 = prev.zoom;
 
-    for (const p of rawPersons) {
-      const id = p.id.replace(/-/g, "").slice(0, 8).toUpperCase();
-      lines.push(`0 @${id}@ INDI`);
-      lines.push(`1 NAME ${p.fullName}`);
-      if (p.birthYear) lines.push(`1 BIRT`, `2 DATE ${p.birthYear}`);
-      if (p.deathYear) lines.push(`1 DEAT`, `2 DATE ${p.deathYear}`);
-      if (p.profession) lines.push(`1 OCCU ${p.profession}`);
-      if (p.birthPlace) lines.push(`1 BIRT`, `2 PLAC ${p.birthPlace}`);
-      if (p.bio) lines.push(`1 NOTE ${p.bio.replace(/\n/g, "\\n")}`);
-    }
+      const { exportToPNG, exportToPDF } = await import("@/lib/export");
 
-    for (const u of rawUnions) {
-      const id = u.id.replace(/-/g, "").slice(0, 8).toUpperCase();
-      const aId = u.partnerA.replace(/-/g, "").slice(0, 8).toUpperCase();
-      const bId = u.partnerB ? u.partnerB.replace(/-/g, "").slice(0, 8).toUpperCase() : "";
-      lines.push(`0 @${id}@ FAM`);
-      if (aId) lines.push(`1 HUSB @${aId}@`);
-      if (bId) lines.push(`1 WIFE @${bId}@`);
-      if (u.startYear) lines.push(`1 MARR`, `2 DATE ${u.startYear}`);
-      for (const e of rawEdges.filter((e) => e.unionId === u.id)) {
-        const cId = e.childId.replace(/-/g, "").slice(0, 8).toUpperCase();
-        lines.push(`1 CHIL @${cId}@`);
+      const restore = () => setViewport({ x: x0, y: y0, zoom: z0 }, { duration: 0 });
+      try {
+        fitView({ padding: 0.08, duration: 400, maxZoom: 3 });
+        await new Promise((r) => setTimeout(r, 700));
+        const current = getViewport();
+        if (format === "png") await exportToPNG(flowEl as HTMLDivElement, current.zoom);
+        else await exportToPDF(flowEl as HTMLDivElement, current.zoom);
+      } catch (err) {
+        console.error("Full-tree export failed:", err);
+        toast("Could not export full tree", "error");
+      } finally {
+        restore();
       }
-    }
-
-    lines.push("0 TRLR");
-
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "family-tapestry.ged";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [rawPersons, rawUnions, rawEdges]);
-
-  //  --  --  GEDCOM import handler  --  -- 
-  const handleGedcomImport = useCallback(
-    (persons: PersonLike[], unions: UnionLike[], edges: EdgeLike[]) => {
-      // #13 — Import ALWAYS creates a brand-new tree in the switcher; it never
-      // replaces (overwrites) the currently-open shared tree.
-      const name = `Imported Tree ${new Date().toLocaleDateString("en-GB")}`;
-      const id = `tree-${Date.now().toString(36)}`;
-      const STORAGE_KEY = "family-tapestry-trees";
-      const saved = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-      let trees: Record<string, { persons: PersonLike[]; unions: UnionLike[]; edges: EdgeLike[]; sources?: Source[] }> = {};
-      let names: Record<string, string> = treeNames;
-      if (saved) {
-        try { const p = JSON.parse(saved); trees = p.trees ?? {}; names = { ...names, ...p.names }; } catch { /* use defaults */ }
-      }
-      // Persist current tree state first, then seed a brand-new tree.
-      trees[activeTreeId] = { persons: rawPersons, unions: rawUnions, edges: rawEdges, sources: rawSources };
-      names[id] = name;
-      trees[id] = { persons, unions, edges, sources: [] };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ trees, names, activeTree: id }));
-
-      setTreeNames(names);
-      setActiveTreeId(id);
-      setRawPersons(persons);
-      setRawUnions(unions);
-      setRawEdges(edges);
-      setRawSources([]);
-      setSelectedPerson(null);
-      layoutVersionRef.current++;
-      initialLoadDone.current = false;
-      runLayout(persons, unions, edges, true);
-      toast(`Created new tree: ${name}`, "success");
     },
-    [activeTreeId, rawPersons, rawUnions, rawEdges, rawSources, treeNames, runLayout, toast]
+    [fitView, getViewport, setViewport, toast]
   );
 
-  //  --  --  Keyboard shortcuts  --  -- 
+  // ─── GEDCOM export ───
+  const handleExportGedcom = useCallback(() => {
+    downloadGedcom(rawPersons, rawUnions, rawEdges);
+  }, [rawPersons, rawUnions, rawEdges]);
+
+  // ─── Keyboard shortcuts ───
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -1397,6 +821,15 @@ export default function TapestryCanvas() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  // ─── Recenter ───
+  const handleRecenter = useCallback(() => {
+    const root = getComputedStyle(document.documentElement);
+    const top = parseFloat(root.getPropertyValue("--chrome-top")) || 0;
+    const bottom = parseFloat(root.getPropertyValue("--chrome-bottom")) || 0;
+    const pad = Math.min(0.5, Math.max(0.05, (top + bottom) / window.innerHeight + 0.04));
+    fitView({ padding: pad, duration: 450, maxZoom: 1.5 });
+  }, [fitView]);
 
   return (
     <>
@@ -1695,7 +1128,6 @@ export default function TapestryCanvas() {
       <KeyboardHelp />
       <MobileNav hidden={!!selectedPerson} />
 
-      {/* Online presence indicators + viewer cards */}
       {selectedViewer && (
         <div className="fixed bottom-16 left-16 z-40 hidden md:block">
           <ViewerCard
