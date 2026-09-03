@@ -231,6 +231,32 @@ export async function familyLayoutELK(
     positions.set(id, { x: t?.x ?? 0, y: t?.y ?? 0 });
   }
 
+  // --- Side-swap: choose which end of each couple compound each seated partner sits
+  //     on, so an in-married spouse (someone who is ALSO a child of another couple
+  //     elsewhere in the tree) faces toward their natal family instead of away from
+  //     it. This shortens the natal child-drop and stops it crossing the out-family
+  //     spouse's lines. It only mirrors the interiors of already-placed compounds, so
+  //     it can never introduce an overlap.
+  const natalUnionFor = natalUnionMap(unions, edges); // person id -> natal couple-union id
+  const sidePref = new Map<string, "L" | "R">(); // seated in-married partner -> preferred side
+  for (const u of couples) {
+    const t = top.get(compOf.get(u.id)!) ?? { x: 0, y: 0, w: COUPLE_W };
+    const w = t.w || COUPLE_W;
+    for (const pid of [u.partnerA, u.partnerB]) {
+      if (!pid || multiCouple.has(pid)) continue; // remarrying spouses are flat, not seated here
+      const natId = natalUnionFor.get(pid);
+      if (!natId) continue; // not in-married -> takes the opposite end by default
+      const nat = top.get(compOf.get(natId)!) ?? top.get(natId);
+      if (!nat) continue;
+      const natLeft = nat.x ?? 0;
+      // The natal compound occupies a horizontal band; decide by band CENTRE vs the
+      // couple's band centre so near-overlapping bands still resolve deterministically.
+      const natMid = natLeft + (nat.w ?? COUPLE_W) / 2;
+      const coupMid = t.x + w / 2;
+      sidePref.set(pid, natMid <= coupMid ? "L" : "R");
+    }
+  }
+
   // --- Compound internals: partners at the two ends, diamond centred between them.
   for (const u of couples) {
     const cid = compOf.get(u.id)!;
@@ -238,13 +264,40 @@ export async function familyLayoutELK(
     const w = t.w || COUPLE_W;
     const aMulti = multiCouple.has(u.partnerA!);
     const bMulti = u.partnerB ? multiCouple.has(u.partnerB) : false;
-    if (!aMulti && u.partnerA) positions.set(u.partnerA, { x: t.x, y: t.y });
-    if (!bMulti && u.partnerB) positions.set(u.partnerB, { x: t.x + w - LAYOUT_PERSON_W, y: t.y });
-    // Diamond centred between the two seated partner centres, started slightly below
-    // the partners' tops so it hangs just below the card bodies.
-    const dCentre = aMulti ? t.x + LAYOUT_PERSON_W : bMulti ? t.x + w - LAYOUT_PERSON_W : t.x + w / 2;
+
+    if (aMulti || bMulti) {
+      // ---- Remarriage couple: one partner is flat (lives in another compound).
+      //       Keep the long-standing rule: seat the single seated partner at its end
+      //       and put the diamond at the FLAT partner's end so the marriage edge reaches
+      //       the floating spouse. Side-swap does not apply (the flat spouse's natal
+      //       side is ambiguous across its two families).
+      if (u.partnerA && !aMulti) positions.set(u.partnerA, { x: t.x, y: t.y });
+      if (u.partnerB && !bMulti) positions.set(u.partnerB, { x: t.x + w - LAYOUT_PERSON_W, y: t.y });
+      const dCentre = aMulti ? t.x + LAYOUT_PERSON_W : t.x + w - LAYOUT_PERSON_W;
+      positions.set(u.id, { x: dCentre - LAYOUT_UNION_W / 2, y: t.y + DIAMOND_Y_OFFSET });
+      continue;
+    }
+
+    // ---- Fully-seated couple (both partners live in this compound): decide which
+    //      end each partner occupies. Default is partnerA left / partnerB right; an
+    //      in-married spouse with a natal-side preference is moved to that end and the
+    //      other partner takes the opposite end (side-swap). Disagreeing both-preferred
+    //      couples fall back to the default so behaviour stays deterministic.
+    let left: string = u.partnerA!;
+    let right: string = u.partnerB!;
+    const aPref = sidePref.get(u.partnerA!);
+    const bPref = sidePref.get(u.partnerB!);
+    if (aPref === "R") {
+      left = u.partnerB!;
+      right = u.partnerA!;
+    } else if (bPref === "L") {
+      left = u.partnerB!;
+      right = u.partnerA!;
+    }
+    positions.set(left, { x: t.x, y: t.y });
+    positions.set(right, { x: t.x + w - LAYOUT_PERSON_W, y: t.y });
     positions.set(u.id, {
-      x: dCentre - LAYOUT_UNION_W / 2,
+      x: t.x + w / 2 - LAYOUT_UNION_W / 2,
       y: t.y + DIAMOND_Y_OFFSET,
     });
   }
@@ -291,6 +344,24 @@ export async function familyLayoutELK(
 
 function compoundId(unionId: string) {
   return `c_${unionId}`;
+}
+
+// Map each person id to the couple-union id of their NATAL family (the union that
+// produced them as a child). Only couple unions are returned (single-parent unions
+// have no compound to face). A person with multiple/other natal edges keeps the
+// first couple-union found (deterministic).
+function natalUnionMap(
+  unions: LayoutUnion[],
+  edges: LayoutEdge[]
+): Map<string, string> {
+  const byId = new Map(unions.map((u) => [u.id, u]));
+  const map = new Map<string, string>();
+  for (const ed of edges) {
+    const u = byId.get(ed.unionId);
+    if (!u || !u.partnerB) continue; // single-parent union: no compound to face
+    if (!map.has(ed.childId)) map.set(ed.childId, ed.unionId);
+  }
+  return map;
 }
 
 // ---------------------------------------------------------------------------

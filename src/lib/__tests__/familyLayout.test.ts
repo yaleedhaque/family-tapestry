@@ -222,6 +222,48 @@ describe("ELK family layout (couple-node model)", () => {
     expect(hits).toEqual([]);
   });
 
+  it("side-swaps an in-married spouse toward their natal family", async () => {
+    // Ambia(p2) is a child of u9 (Amir x Alea, natal family) AND the in-married
+    // spouse in u3 (Shahidul x Ambia). Her natal compound (c_u9) lies to a specific
+    // side of the u3 compound; she must be seated on THAT side so her natal child-drop
+    // is short and doesn't cross Shahidul's lines. Shahidul, who is himself a child of
+    // u6, faces the other way.
+    const fam = {
+      persons: [
+        { id: "p1" }, { id: "p2" }, { id: "p3" }, { id: "p4" }, { id: "p5" },
+        { id: "p6" }, { id: "p7" }, { id: "p8" }, { id: "p9" }, { id: "p10" },
+        { id: "p11" }, { id: "p12" }, { id: "p13" },
+      ],
+      unions: [
+        { id: "u3", partnerA: "p3", partnerB: "p2" },
+        { id: "u6", partnerA: "p6", partnerB: "p5" },
+        { id: "u9", partnerA: "p8", partnerB: "p7" },
+      ],
+      edges: [
+        { unionId: "u3", childId: "p1" },
+        { unionId: "u3", childId: "p4" },
+        { unionId: "u6", childId: "p3" },
+        { unionId: "u9", childId: "p2" },
+        { unionId: "u9", childId: "p9" },
+        { unionId: "u9", childId: "p10" },
+        { unionId: "u9", childId: "p11" },
+        { unionId: "u9", childId: "p12" },
+        { unionId: "u9", childId: "p13" },
+      ],
+    };
+    const { positions } = await manualFamilyLayout(fam.persons, fam.unions, fam.edges);
+    expect(findOverlaps(positions, fam.persons, fam.unions)).toEqual([]);
+
+    const a = positions.get("p2")!.x; // Ambia
+    const s = positions.get("p3")!.x; // Shahidul
+    const u3x = positions.get("u3")!.x;
+    const u9x = positions.get("u9")!.x;
+    const natalLeft = u9x < u3x;
+    // Ambia must sit on the same side as her natal family (u9).
+    if (natalLeft) expect(a).toBeLessThan(s);
+    else expect(a).toBeGreaterThan(s);
+  });
+
   it("handles empty trees and single-parent unions without crashing", async () => {
     const empty = await manualFamilyLayout([], [], []);
     expect(empty.positions.size).toBe(0);
