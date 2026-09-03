@@ -75,7 +75,7 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
     source,
     target,
     targetHandle,
-    type: "smoothstep",
+    type: "straight",
     style: {
       stroke: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage)",
       strokeWidth: 2.5,
@@ -132,12 +132,13 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 const ANIM_DURATION = 550;
 const UNION_W = 110;
 const PERSON_W = 210;
-// How far the diamond's partner-corner line sits BELOW the couple's card bottoms.
-// Lowering the diamond past the card bottoms makes each marriage line's straight
-// horizontal run longer and the entry into the corner more direct, so the lines read
-// completely straight (no left/right bend). Must stay small enough that the diamond's
-// own child-corner (which drops to the offspring) doesn't crowd the generation below.
-const DIAMOND_DROP = 30;
+// Marriage edges are native React Flow `straight` edges, so for a perfectly horizontal
+// line the diamond's partner-corner handles (at node-local y=75, i.e. dCy) must sit at
+// EXACTLY the couple's card-bottom height. Any drop here would make the straight line
+// slope. The child-corner (bottom of the diamond) still drops to the offspring row, so
+// the diamond's vertical extent below the cards is unchanged below; keep DROP 0 for
+// flat marriage lines.
+const DIAMOND_DROP = 0;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
