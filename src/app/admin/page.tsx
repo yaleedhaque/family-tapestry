@@ -103,9 +103,17 @@ export default function AdminPage() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex items-center justify-between max-md:flex-col max-md:gap-3">
           <h1 className="font-display text-3xl text-[var(--thread-gold)] max-md:text-2xl">Admin Dashboard</h1>
-          <a href="/" className="text-xs font-body text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">
-            Back to Tree
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="/admin/sheet"
+              className="px-3 py-1.5 text-xs rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--popover-border)] text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/20 transition-colors font-body"
+            >
+              Data Sheet
+            </a>
+            <a href="/" className="text-xs font-body text-[var(--parchment-dim)] hover:text-[var(--parchment)] transition-colors">
+              Back to Tree
+            </a>
+          </div>
         </div>
 
         {stats && (
