@@ -3,9 +3,13 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { Union } from "@/data/family";
+import type { PersonLike } from "@/components/InfoPanel";
 
 function UnionNode({ data }: NodeProps) {
   const union = data.union as Union;
+  const persons = (data.persons as PersonLike[] | undefined) ?? [];
+  const partnerA = persons.find((p) => p.id === union.partnerA);
+  const partnerB = persons.find((p) => p.id === union.partnerB);
   const isDivorced = union.type === "divorced";
   const isCollapsed = (data.isCollapsed as boolean | undefined) ?? false;
   // Per-partner marriage-corner local Y offsets (relative to this 150px node's top),
@@ -31,22 +35,30 @@ function UnionNode({ data }: NodeProps) {
     // edges (left partner -> left corner, right partner -> right corner, assigned by
     // real position in TapestryCanvas), and its south corner drops to children.
     <div className="relative w-[110px] h-[150px]">
-      {/* Divider / marriage year (replaces the redundant partner-name + date-range
-          mini-label, which repeated data already shown on both flanking cards). */}
+      {/* Labels sit above the diamond, near the top of the node. */}
       <div className="absolute top-0 inset-x-0 flex flex-col items-center gap-0.5">
+        {partnerA && (
+          <span className="font-body text-[9px] text-parchment-dim">
+            {partnerA.fullName.split(" ")[0]}
+          </span>
+        )}
+        {partnerB && (
+          <span className="font-body text-[9px] text-parchment-dim">
+            {partnerB.fullName.split(" ")[0]}
+          </span>
+        )}
         <span
-          className={`font-body text-[10px] leading-none ${
-            isDivorced ? "text-divorce-red" : "text-parchment-dim"
+          className={`font-body text-[8px] italic ${
+            isDivorced ? "text-divorce-red" : "text-thread-gold-dim"
           }`}
         >
-          {isDivorced
-            ? union.startYear
-              ? `divorced ${union.startYear}`
-              : "divorced"
-            : union.startYear
-              ? `m. ${union.startYear}`
-              : ""}
+          {union.startYear} – {union.endYear ?? "present"}
         </span>
+        {isDivorced && (
+          <span className="font-body text-[7px] text-divorce-red uppercase tracking-wider">
+            divorced
+          </span>
+        )}
       </div>
 
       {/* Diamond. Its vertical position is set so that the two partner corner handles
@@ -110,10 +122,8 @@ function UnionNode({ data }: NodeProps) {
         </div>
       </div>
 
-      {/* Collapse toggle — appears when this union has descendants. The visible
-          control is a 20px circle; the invisible hit-area is 44×44 (centred on the
-          circle, same technique as the enlarged React Flow handle hit-areas in
-          globals.css). Badge shows the hidden count when collapsed. */}
+      {/* Collapse toggle — appears when this union has descendants. Badge shows the
+          hidden count when collapsed. */}
       {collapsible && (
         <button
           type="button"
@@ -128,35 +138,34 @@ function UnionNode({ data }: NodeProps) {
             e.stopPropagation();
             onToggleCollapse(union.id);
           }}
-          className="group absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-11 h-11 flex items-center justify-center cursor-pointer"
+          className={`
+            absolute bottom-0 left-1/2 -translate-x-1/2 z-10
+            flex items-center gap-1 cursor-pointer select-none
+            rounded-full border px-2.5 py-1.5 min-h-[30px]
+            transition-colors
+            ${
+              isCollapsed
+                ? "border-[var(--accent-emerald)] bg-[var(--accent-emerald)]/15 text-[var(--accent-emerald)] hover:bg-[var(--accent-emerald)]/25"
+                : "border-[var(--thread-gold)]/60 bg-[var(--tapestry-bg-alt)] text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/15"
+            }
+          `}
         >
-          <span
-            className={`relative flex items-center justify-center w-5 h-5 rounded-full transition-transform group-hover:scale-[1.08]
-              border-2 ${
-                isCollapsed
-                  ? "border-[var(--accent-emerald)] text-[var(--accent-emerald)]"
-                  : "border-[var(--thread-gold-dim)] text-[var(--thread-gold)]"
-              } bg-[var(--tapestry-bg)]`}
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            className="w-4 h-4"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              className="w-3 h-3"
-            >
-              {isCollapsed ? (
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              ) : (
-                <path d="M5 12h14" strokeLinecap="round" />
-              )}
-            </svg>
+            {isCollapsed ? (
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            ) : (
+              <path d="M5 12h14" strokeLinecap="round" />
+            )}
+          </svg>
+          <span className="font-body text-[10px] leading-none">
+            {isCollapsed ? descendantCount : ""}
           </span>
-          {isCollapsed && descendantCount > 0 && (
-            <span className="absolute -top-1 -right-3 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full bg-[var(--accent-emerald)] text-[var(--tapestry-bg)] font-body text-[9px] leading-none font-semibold">
-              {descendantCount}
-            </span>
-          )}
         </button>
       )}
     </div>

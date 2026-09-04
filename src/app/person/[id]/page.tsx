@@ -12,7 +12,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { useLang } from "@/lib/i18n";
 import { cachedPhotoUrl } from "@/lib/validation";
 import { toPersonLike, toUnionLike, toEdgeLike } from "@/lib/convert";
-import PersonRelSection from "@/components/PersonRelSection";
 
 const EVENT_COLORS: Record<string, string> = {
   birth: "var(--living-glow)", death: "var(--deceased-frame)",
@@ -358,17 +357,29 @@ export default function PersonDetailPage() {
           <QuickStat label="Location" value={person.birthPlace || "—"} />
         </div>
 
-        {/* Relationships — fully editable */}
-        <PersonRelSection
-          personId={id}
-          parents={relationships.parents.map((r) => ({ id: r.id, label: r.name }))}
-          partners={relationships.partners.map((r) => ({ id: r.id, label: r.name, sub: r.union, badge: r.type === "divorced" ? "divorced" : undefined }))}
-          children={relationships.children.map((r) => ({ id: r.id, label: r.name }))}
-          siblings={relationships.siblings.map((r) => ({ id: r.id, label: r.name, badge: r.label && r.label !== "Full sibling" ? r.label : undefined }))}
-          allPersons={persons}
-          allUnions={unions}
-          allEdges={parentEdges}
-        />
+        {/* Relationships */}
+        {(relationships.parents.length > 0 || relationships.partners.length > 0 || relationships.children.length > 0 || relationships.siblings.length > 0) && (
+          <section className="mb-8 md:mb-10">
+            <h2 className="font-display text-base md:text-lg text-[var(--thread-gold)] mb-4">Relationships</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {relationships.parents.length > 0 && (
+                <RelCard title="Parents" items={relationships.parents.map((r) => ({ id: r.id, label: r.name }))} />
+              )}
+              {relationships.partners.length > 0 && (
+                <RelCard
+                  title="Partners"
+                  items={relationships.partners.map((r) => ({ id: r.id, label: r.name, sub: r.union, badge: r.type === "divorced" ? "divorced" : undefined }))}
+                />
+              )}
+              {relationships.children.length > 0 && (
+                <RelCard title="Children" items={relationships.children.map((r) => ({ id: r.id, label: r.name }))} />
+              )}
+              {relationships.siblings.length > 0 && (
+                <RelCard title="Siblings" items={relationships.siblings.map((r) => ({ id: r.id, label: r.name, badge: r.label && r.label !== "Full sibling" ? r.label : undefined }))} />
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Contact */}
         {(person.email || person.phone || person.address || person.website) && (
@@ -619,4 +630,19 @@ function EditForm({ person, canEditPrivate, onSave, onCancel }: {
   );
 }
 
-
+function RelCard({ title, items }: { title: string; items: { id: string; label: string; sub?: string; badge?: string }[] }) {
+  return (
+    <div className="bg-white/[0.03] rounded-lg p-3 md:p-4 border border-white/[0.05]">
+      <h3 className="text-[10px] md:text-xs uppercase tracking-wider text-[var(--thread-gold-dim)] mb-2">{title}</h3>
+      {items.map((r) => (
+        <div key={r.id} className="mb-1.5 last:mb-0">
+          <Link href={`/person/${r.id}`} className="text-xs md:text-sm text-[var(--parchment)] hover:text-[var(--thread-gold)] transition-colors">
+            {r.label}
+          </Link>
+          {r.badge && <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-[var(--ember-red)]/15 text-[var(--ember-red)]">{r.badge}</span>}
+          {r.sub && <p className="text-[9px] md:text-[10px] text-[var(--parchment-dim)]">{r.sub}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}

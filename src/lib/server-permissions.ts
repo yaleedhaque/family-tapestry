@@ -88,3 +88,11 @@ export function resolveEdit(role: Role, circle: CircleData, personId: string): E
 }
 
 export type { CircleData };
+
+// 4-tier role system: admin > editor > user > viewer
+//   admin/editor: full access
+//   user: edit self + circle (family), create persons
+//   viewer: read-only
+//
+// PRIVATE_FIELDS = bio, photo_url, email, phone, address, website
+// PUBLIC_NAME_FIELDS = full_name, name_native (any user can rename anyone)

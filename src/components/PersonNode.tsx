@@ -37,7 +37,7 @@ function PersonNode({ data }: NodeProps) {
       tabIndex={0}
       className={`
         relative flex flex-col items-center gap-1.5 rounded-lg
-        border px-4 py-3 w-[140px] h-[150px] overflow-hidden transition-all duration-200
+        border px-4 py-3 w-[140px] transition-all duration-200
         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]
         ${isHighlighted ? "ring-2 ring-[var(--thread-gold)] ring-offset-2 ring-offset-[var(--tapestry-bg)] scale-105 shadow-[0_0_20px_rgba(201,162,75,0.3)]" : ""}
         ${isDimmed ? "opacity-35" : ""}
@@ -71,20 +71,19 @@ function PersonNode({ data }: NodeProps) {
 
       <span
         className={`
-          font-display text-sm font-medium text-center leading-tight w-full truncate
+          font-display text-sm font-medium text-center leading-tight
           ${isDeceased ? "text-parchment-dim" : "text-parchment"}
         `}
-        title={person.fullName}
       >
         {person.fullName}
       </span>
 
-      <span className="font-body text-[10px] text-parchment-dim whitespace-nowrap">
+      <span className="font-body text-[10px] text-parchment-dim">
         {person.birthYear} – {person.deathYear ?? "present"}
       </span>
 
       {isDeceased && (
-        <span className="font-display text-[9px] italic text-parchment-dim whitespace-nowrap">
+        <span className="font-display text-[9px] italic text-parchment-dim">
           {person.deathYear}
         </span>
       )}

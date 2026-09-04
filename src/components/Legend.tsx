@@ -36,16 +36,9 @@ export default function Legend() {
             aria-hidden="true"
             className="fixed inset-0 z-30 bg-[var(--overlay-scrim)] md:hidden"
           />
-          <div className="fixed md:absolute right-4 top-[88px] md:top-36 z-40 w-[min(320px,calc(100vw-32px))] md:max-h-[calc(100vh-140px)] max-h-[calc(100vh-140px)] overflow-y-auto bg-[var(--tapestry-bg-alt)]/98 backdrop-blur-md border border-[var(--panel-border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)]">
+          <div className="fixed md:absolute right-4 top-[88px] md:top-36 z-40 w-[min(240px,calc(100vw-32px))] md:max-h-[calc(100vh-140px)] max-h-[calc(100vh-140px)] overflow-y-auto bg-[var(--tapestry-bg-alt)]/98 backdrop-blur-md border border-[var(--popover-border)] rounded-[var(--radius-lg)] shadow-[var(--popover-shadow)]">
 
-          <div className="relative px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
-            <button
-              onClick={() => setOpen(false)}
-              aria-label="Close legend"
-              className="absolute right-4 top-2 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-[20px]"
-            >
-              ✕
-            </button>
+          <div className="px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
             <h3 className="font-display text-sm text-[var(--thread-gold)] font-semibold">{t("tree.legend")}</h3>
             <p className="text-[10px] text-[var(--parchment-dim)] mt-0.5">{t("legend.subtitle")}</p>
           </div>
@@ -96,7 +89,7 @@ export default function Legend() {
                 <span className="text-[11px] text-[var(--parchment-dim)] font-body">{t("legend.adopted")}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-4 border-t-2 border-dashed border-[var(--edge-step)] shrink-0" />
+                <span className="w-4 border-t-2 border-dashed border-[var(--link)] shrink-0" />
                 <span className="text-[11px] text-[var(--parchment-dim)] font-body">{t("legend.step")}</span>
               </div>
             </div>

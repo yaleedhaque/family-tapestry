@@ -287,22 +287,24 @@ export function consolidateSingleParentBiologicalUnions(
     merged.push({ childId, fromUnionIds: [intoId, otherId], intoUnionId: intoId });
   }
 
-  // NOTE: orphan cleanup intentionally disabled — user requires relationship
-  // connections to persist even when a single-parent union has no children.
-  // Only the merge-dedup logic above runs; empty unions are left in place.
+  // Orphan cleanup: remove single-parent unions that (after consolidation) have
+  // NO child edges and whose lone parent is already inside a couple union.
+  const edgeCountByUnion = new Map<string, number>();
+  for (const e of outEdges) edgeCountByUnion.set(e.unionId, (edgeCountByUnion.get(e.unionId) ?? 0) + 1);
+  const parentInCouple = new Set<string>();
+  for (const u of outUnions) {
+    if (unionParentIds(u).length !== 2) continue;
+    for (const p of unionParentIds(u)) parentInCouple.add(p);
+  }
+  for (let i = outUnions.length - 1; i >= 0; i--) {
+    const u = outUnions[i];
+    const parents = unionParentIds(u);
+    if (parents.length !== 1) continue;
+    if ((edgeCountByUnion.get(u.id) ?? 0) !== 0) continue; // still parents a child
+    if (!parentInCouple.has(parents[0])) continue;          // genuine lone parent elsewhere
+    outUnions.splice(i, 1);
+    outUnionsById.delete(u.id);
+  }
 
   return { unions: outUnions, edges: outEdges, merged };
-}
-
-/* ------------------------------------------------------------------ */
-/* Self-partner guard: a person cannot be their own partner.           */
-/* ------------------------------------------------------------------ */
-
-export function hasSelfPartner(unions: { id?: string; partnerA: string; partnerB: string }[]): { unionId: string } | null {
-  for (const u of unions) {
-    if (u.partnerA && u.partnerA === u.partnerB) {
-      return { unionId: u.id ?? "" };
-    }
-  }
-  return null;
 }

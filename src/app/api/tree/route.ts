@@ -7,7 +7,6 @@ import {
   findDualParentConflicts,
   normalizeGender,
   consolidateSingleParentBiologicalUnions,
-  hasSelfPartner,
   type Gender,
 } from "@/lib/parentRules";
 
@@ -185,21 +184,6 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
   const violation = dualParentError({ unions, edges, genders });
   if (violation) return NextResponse.json(violation, { status: 400 });
 
-  // Self-partner guard: a person cannot be their own partner.
-  const selfPartner = hasSelfPartner(
-    unions.map((u) => ({
-      id: String(u.id ?? ""),
-      partnerA: String(u.partnerA ?? u.partner_a ?? ""),
-      partnerB: String(u.partnerB ?? u.partner_b ?? ""),
-    }))
-  );
-  if (selfPartner) {
-    return NextResponse.json(
-      { error: "A person cannot be assigned as their own partner." },
-      { status: 400 }
-    );
-  }
-
   // Auto-consolidate the "two-line" bug: if a child ended up attached to two
   // distinct single-parent biological unions, merge them into one couple union
   // (single diamond → single child line). Runs on every full save. If the two
@@ -350,21 +334,6 @@ async function syncUserTree(db: ReturnType<typeof createServiceClient>, body: Tr
     const genders = await loadGenders(db, Array.from(allPersonIds));
     const violation = dualParentError({ unions, edges, genders });
     if (violation) return NextResponse.json(violation, { status: 400 });
-
-    // Self-partner guard: a person cannot be their own partner.
-    const selfPartner = hasSelfPartner(
-      unions.map((u) => ({
-        id: String(u.id ?? ""),
-        partnerA: String(u.partnerA ?? u.partner_a ?? ""),
-        partnerB: String(u.partnerB ?? u.partner_b ?? ""),
-      }))
-    );
-    if (selfPartner) {
-      return NextResponse.json(
-        { error: "A person cannot be assigned as their own partner." },
-        { status: 400 }
-      );
-    }
 
     // Auto-consolidate the "two-line" bug: merge a child's two single-parent
     // biological unions into one couple union. Same parents, so the circle

@@ -43,7 +43,6 @@ import KeyboardHelp from "@/components/KeyboardHelp";
 import HelpModal from "@/components/HelpModal";
 import AddPersonModal from "@/components/AddPersonModal";
 import AddChildModal from "@/components/AddChildModal";
-import UnionChildrenPanel from "@/components/UnionChildrenPanel";
 import MobileNav from "@/components/MobileNav";
 import Legend from "@/components/Legend";
 import { useAuth } from "@/components/AuthProvider";
@@ -168,7 +167,6 @@ export default function TapestryCanvas() {
   const [showGedcomImport, setShowGedcomImport] = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [addChildUnion, setAddChildUnion] = useState<{ unionId: string; parentAName: string; parentBName: string } | null>(null);
-  const [selectedUnion, setSelectedUnion] = useState<UnionLike | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [activeTreeId, setActiveTreeId] = useState("default");
   const [treeNames, setTreeNames] = useState<Record<string, string>>({ "default": "The Haque Tapestry" });
@@ -209,38 +207,36 @@ export default function TapestryCanvas() {
   );
 
   // ─── Find parent union (needed by both layout and CRUD hook) ───
-  // Prefer a couple union (has partnerB) so child lines always originate
-  // from the diamond bottom when the parent is married.
   const findParentUnion = useCallback(
-    (personId: string): UnionLike | undefined => {
-      const couple = rawUnions.find(
-        (u) => (u.partnerA === personId || u.partnerB === personId) && u.partnerB
-      );
-      return couple ?? rawUnions.find(
-        (u) => u.partnerA === personId || u.partnerB === personId
-      );
-    },
+    (personId: string): UnionLike | undefined =>
+      rawUnions.find((u) => u.partnerA === personId || u.partnerB === personId),
     [rawUnions]
   );
 
   // ─── Realtime subscription ───
-  // Any change to persons/unions/parent_edges triggers a full tree refetch
-  // so every view (tree, map, timeline, person page) stays in sync instantly.
-  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRealtimeChange = useCallback((change: TreeChange) => {
     if (!user) return;
-    if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
-    realtimeTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch("/api/tree", { cache: "no-store" });
-        if (!res.ok) return;
-        const db = await res.json();
-        if (Array.isArray(db.persons)) setRawPersons(db.persons.map(toPersonLike));
-        if (Array.isArray(db.unions)) setRawUnions(db.unions.map(toUnionLike));
-        if (Array.isArray(db.edges)) setRawEdges(db.edges.map(toEdgeLike));
-      } catch { /* keep last good snapshot */ }
-    }, 300);
-  }, [user, setRawPersons, setRawUnions, setRawEdges]);
+    if (change.table === "persons" && change.eventType === "UPDATE" && change.new) {
+      const n = change.new as Record<string, unknown>;
+      setRawPersons((prev) =>
+        prev.map((p) =>
+          p.id === n.id
+            ? {
+                ...p,
+                fullName: (n.full_name as string) ?? p.fullName,
+                birthYear: (n.birth_year as number) ?? p.birthYear,
+                deathYear: (n.death_year as number) ?? p.deathYear,
+                isAlive: (n.is_alive as boolean) ?? p.isAlive,
+                bio: (n.bio as string) ?? p.bio,
+                birthPlace: (n.birth_place as string) ?? p.birthPlace,
+                profession: (n.profession as string) ?? p.profession,
+                photoUrl: (n.photo_url as string) ?? p.photoUrl,
+              }
+            : p
+        )
+      );
+    }
+  }, [user]);
   useRealtimeTree(handleRealtimeChange);
 
   // ─── Presence ───
@@ -325,14 +321,20 @@ export default function TapestryCanvas() {
     findParentUnion,
   });
 
-  // ─── Diamond: show children panel ───
+  // ─── Diamond: add child ───
   const handleAddChildDiamond = useCallback(
     (unionId: string) => {
       const union = rawUnionsRef.current.find((u) => u.id === unionId);
       if (!union) return;
-      setSelectedUnion(union);
+      const pA = rawPersonsRef.current.find((p) => p.id === union.partnerA);
+      const pB = rawPersonsRef.current.find((p) => p.id === union.partnerB);
+      setAddChildUnion({
+        unionId,
+        parentAName: pA?.fullName ?? "Unknown",
+        parentBName: pB?.fullName ?? "",
+      });
     },
-    [rawUnionsRef]
+    [rawUnionsRef, rawPersonsRef]
   );
 
   // ─── Layout ───
@@ -520,11 +522,12 @@ export default function TapestryCanvas() {
       // The diamond graphic is always drawn such that its two partner corners sit at
       // each partner's card-bottom height, so both marriage lines enter horizontally.
       // Its vertical centre is therefore the (now level) partner-bottom height.
-      // Diamond centre = card bottom. The diamond graphic's two partner corners
-      // sit at dCy ± (corner offset), so placing dCy at card-bottom makes both
-      // marriage lines perfectly horizontal.
-      let dCy = aBottomEff;
-      // Box top: the 150px union node is centred on dCy, so node top = dCy - 75.
+      let dCy = (aBottomEff + bBottomEff) / 2;
+      // Never let the diamond rise above the couple's own cards (the taller one).
+      const dTopLimit = rowTop + partnerHeight;
+      if (dCy - 16 < dTopLimit) dCy = dTopLimit + 16;
+      // Box top: the 150px node spans 74px either side of the diamond centre so the
+      // label/collapse affordances wrap the diamond.
       const baseY = dCy - 75;
       // Collision-guard the DIAMOND footprint (its true visual box, ~110 wide × 68 tall
       // covering the two partner corners) against every non-partner card.
@@ -1020,7 +1023,6 @@ export default function TapestryCanvas() {
             />
             {!isMobile && (
               <MiniMap
-                style={{ backgroundColor: "var(--mipmap-bg)" }}
                 nodeStrokeColor="var(--thread-gold)"
                 nodeColor={(n) =>
                   STATUS_RING_COLORS[(n.data?.ringStatus as keyof typeof STATUS_RING_COLORS | undefined) ?? "living"]
@@ -1177,58 +1179,42 @@ export default function TapestryCanvas() {
 
       {/* Navigation bar — desktop only */}
       <nav className="fixed bottom-0 left-0 right-0 z-20 hidden md:flex justify-center pb-3 pointer-events-none">
-        <div className="flex items-center gap-6 px-4 py-1 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
-          {/* Group 1 — Navigation */}
-          <div className="flex items-center gap-3">
-            <a href="/" className="relative px-3 py-2 text-[13px] font-body text-[var(--thread-gold)]">
-              Tree
-              <span className="absolute left-3 right-3 bottom-0 h-0.5 bg-[var(--thread-gold)] rounded-full" />
-            </a>
-            <a href="/timeline" className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
-            <a href="/map" className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Map</a>
-            <button
-              onClick={() => setShowGedcomImport(true)}
-              className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
-            >
-              Import
-            </button>
-          </div>
-
-          <div className="w-px h-6 bg-[var(--panel-border)]" />
-
-          {/* Group 2 — Utilities */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowHelp(true)}
-              className="w-11 h-11 flex items-center justify-center rounded-full text-[18px] leading-none text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors"
-              title="Keyboard shortcuts (?)"
-              aria-label="Help & keyboard shortcuts"
-            >
-              ?
-            </button>
-            <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
-            <a href="/privacy" className="w-11 h-11 flex items-center justify-center rounded-full text-[18px] leading-none text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors" title="Privacy Policy" aria-label="Privacy Policy">
-              🔒
-            </a>
-            <button
-              onClick={toggleTheme}
-              className="w-11 h-11 flex items-center justify-center rounded-full text-[18px] leading-none text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors"
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              aria-label="Toggle color theme"
-            >
-              {theme === "dark" ? "☀" : "☾"}
-            </button>
-          </div>
-
-          <div className="w-px h-6 bg-[var(--panel-border)]" />
-
-          {/* Group 3 — Account */}
+        <div className="flex items-center gap-1 px-2 py-1.5 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
+          <a href="/" className="px-3 py-1.5 text-xs rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">Tree</a>
+          <a href="/timeline" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
+          <a href="/map" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Map</a>
+          <button
+            onClick={() => setShowGedcomImport(true)}
+            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+          >
+            Import
+          </button>
+          <button
+            onClick={() => setShowHelp(true)}
+            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+            title="Keyboard shortcuts (?)"
+            aria-label="Help & keyboard shortcuts"
+          >
+            ?
+          </button>
+          <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+          <a href="/privacy" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body" title="Privacy Policy" aria-label="Privacy Policy">
+            🔒
+          </a>
+          <button
+            onClick={toggleTheme}
+            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            aria-label="Toggle color theme"
+          >
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
           {!authLoading && (
             user ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 pl-1 border-l border-[var(--thread-gold-dim)]/20 ml-1">
                 <span className="px-2 py-1 text-[10px] rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">{user.role ?? "editor"}</span>
                 {user.role === "admin" && (
-                  <a href="/admin" className="px-3 py-2 text-[13px] rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body">
+                  <a href="/admin" className="px-2 py-1 text-[10px] rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body">
                     Admin
                   </a>
                 )}
@@ -1238,13 +1224,13 @@ export default function TapestryCanvas() {
                     await createClient().auth.signOut();
                     window.location.reload();
                   }}
-                  className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--ember-red)] transition-colors font-body"
+                  className="px-2 py-1 text-[10px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
                 >
                   Sign Out
                 </button>
               </div>
             ) : (
-              <a href="/auth/login" className="px-3 py-2 text-[13px] rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body border border-[var(--thread-gold)]/30">
+              <a href="/auth/login" className="px-3 py-1.5 text-xs rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body border border-[var(--thread-gold)]/30 ml-1">
                 Sign In
               </a>
             )
@@ -1279,36 +1265,6 @@ export default function TapestryCanvas() {
             setAddChildUnion(null);
           }}
           onClose={() => setAddChildUnion(null)}
-        />
-      )}
-
-      {selectedUnion && (
-        <UnionChildrenPanel
-          union={selectedUnion}
-          persons={rawPersons}
-          edges={rawEdges}
-          onSelectChild={(person) => {
-            setSelectedPerson(rawPersons.find((p) => p.id === person.id) ?? person);
-            setSelectedUnion(null);
-          }}
-          onAddChild={(unionId) => {
-            const union = rawUnionsRef.current.find((u) => u.id === unionId);
-            if (!union) return;
-            const pA = rawPersonsRef.current.find((p) => p.id === union.partnerA);
-            const pB = rawPersonsRef.current.find((p) => p.id === union.partnerB);
-            setAddChildUnion({
-              unionId,
-              parentAName: pA?.fullName ?? "Unknown",
-              parentBName: pB?.fullName ?? "",
-            });
-            setSelectedUnion(null);
-          }}
-          onLinkExisting={(unionId, childId) => {
-            const union = rawUnionsRef.current.find((u) => u.id === unionId);
-            if (union) handleAddChild(union.partnerA, childId, "biological");
-            setSelectedUnion(null);
-          }}
-          onClose={() => setSelectedUnion(null)}
         />
       )}
 

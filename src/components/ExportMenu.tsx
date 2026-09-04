@@ -71,7 +71,7 @@ export default function ExportMenu({ persons, unions, edges, onExportGedcom, onE
       </button>
 
       {open && (
-        <div className="mt-2 border border-[var(--panel-border)] rounded-lg overflow-hidden bg-[var(--tapestry-bg-alt)]/70 shadow-[var(--shadow-xl)]">
+        <div className="mt-2 border border-[var(--popover-border)] rounded-lg overflow-hidden bg-[var(--tapestry-bg-alt)]/70 shadow-[var(--popover-shadow)]">
           <div className="px-3 py-2 border-b border-[var(--thread-gold-dim)]/20">
             <h3 className="font-display text-xs text-[var(--thread-gold)] font-semibold">{t("export.title")}</h3>
           </div>
