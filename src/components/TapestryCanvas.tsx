@@ -137,7 +137,7 @@ const PERSON_W = 210;
 // centre + its side corners sit at cardBottom + DIAMOND_DROP, so marriage lines
 // jog down by this amount into the diamond (the small jog approved on 2026-09-03,
 // DIAMOND_Y_OFFSET=86 with the real ~150px cards = an ~11-20px hang below).
-const DIAMOND_DROP = 21;
+const DIAMOND_DROP = 22;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
