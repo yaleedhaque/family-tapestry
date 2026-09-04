@@ -230,6 +230,10 @@ export function useTreeCrud({
       unionType: string,
       startYear: number | null
     ) => {
+      if (personId === partnerId) {
+        toast("A person cannot be assigned as their own partner.", "error");
+        return;
+      }
       const currentUnions = rawUnionsRef.current;
       const newUnion = {
         id: nextUnionId(currentUnions),

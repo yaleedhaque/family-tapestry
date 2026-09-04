@@ -308,3 +308,16 @@ export function consolidateSingleParentBiologicalUnions(
 
   return { unions: outUnions, edges: outEdges, merged };
 }
+
+/* ------------------------------------------------------------------ */
+/* Self-partner guard: a person cannot be their own partner.           */
+/* ------------------------------------------------------------------ */
+
+export function hasSelfPartner(unions: { id?: string; partnerA: string; partnerB: string }[]): { unionId: string } | null {
+  for (const u of unions) {
+    if (u.partnerA && u.partnerA === u.partnerB) {
+      return { unionId: u.id ?? "" };
+    }
+  }
+  return null;
+}
