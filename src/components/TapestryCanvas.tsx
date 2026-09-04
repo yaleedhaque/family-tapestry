@@ -133,6 +133,11 @@ function makeChildEdge(source: string, target: string, relationshipType?: string
 const ANIM_DURATION = 550;
 const UNION_W = 110;
 const PERSON_W = 210;
+// How far the union diamond hangs BELOW the partner card bottoms. The diamond
+// centre + its side corners sit at cardBottom + DIAMOND_DROP, so marriage lines
+// jog down by this amount into the diamond (the small jog approved on 2026-09-03,
+// DIAMOND_Y_OFFSET=86 with the real ~150px cards = an ~11-20px hang below).
+const DIAMOND_DROP = 18;
 
 export default function TapestryCanvas() {
   const { fitView, setViewport, getViewport, getNodes } = useReactFlow();
@@ -537,7 +542,7 @@ export default function TapestryCanvas() {
       // the far partner's line travels from its own card to the diamond.
       if (Math.abs(aBottom - bBottom) > 120) {
         const nearBottom = Math.min(aBottom, bBottom);
-        let boxY = nearBottom - 75;
+        let boxY = nearBottom + DIAMOND_DROP - 75;
         if (collides(boxY)) {
           let raised = boxY;
           for (let y = boxY - 1; y >= n.position.y - 1; y -= 1) {
@@ -553,12 +558,14 @@ export default function TapestryCanvas() {
         }
         continue;
       }
-      // The diamond graphic is always drawn such that its two partner corners sit at
-      // each partner's card-bottom height, so both marriage lines enter horizontally.
-      // Diamond centre = card bottom = dCy.
+      // The diamond graphic is drawn at the midpoint of its two partner corners, so to
+      // make the diamond hang BELOW the card seam (the approved look) the whole box is
+      // dropped DIAMOND_DROP below the card bottoms AND the corners are kept at the
+      // diamond's own height (75 = box centre). Marriage lines then jog down by
+      // DIAMOND_DROP into the diamond side corners — the small jog the user approved.
       const dCy = aBottomEff;
-      // Box top: the 150px union node is centred on dCy, so node top = dCy - 75.
-      const baseY = dCy - 75;
+      // Box top: the 150px union node is centred on cardBottom + DIAMOND_DROP.
+      const baseY = dCy + DIAMOND_DROP - 75;
       let boxY = baseY;
       if (collides(baseY)) {
         let raised = baseY;
@@ -567,15 +574,17 @@ export default function TapestryCanvas() {
         }
         boxY = raised;
       }
-      // Corner handles (local offsets relative to the union node TOP) must sit at each
-      // partner's card-bottom height so both marriage lines enter horizontally.
-      const cornerA = aBottomEff - boxY;
-      const cornerB = bBottomEff - boxY;
+      // Corner handles (local offsets relative to the union node TOP) must sit at the
+      // diamond's own side corners (75 = box centre) so the diamond graphic — whose
+      // centre is the corner midpoint — hangs DIAMOND_DROP below the card bottoms.
+      // Marriage lines jog down into the corners, giving the approved small jog.
+      const cornerA = 75;
+      const cornerB = 75;
       if (boxY >= 0 && Math.abs(boxY - n.position.y) > 1.5) {
         adjustments.push({ id: n.id, y: boxY, cornerA, cornerB });
       } else {
-        // Diamond box already where it should be; still sync the corner heights.
-        adjustments.push({ id: n.id, y: n.position.y, cornerA: aBottomEff - n.position.y, cornerB: bBottomEff - n.position.y });
+        // Diamond box already where it should be; still sync the corners.
+        adjustments.push({ id: n.id, y: n.position.y, cornerA: 75, cornerB: 75 });
       }
     }
     setNodes((nds) => nds.map((nd) => {
