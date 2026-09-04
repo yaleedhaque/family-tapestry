@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useLang } from "@/lib/i18n";
 import type { PersonLike, UnionLike, EdgeLike } from "./InfoPanel";
 
@@ -9,6 +10,7 @@ interface UnionChildrenPanelProps {
   edges: EdgeLike[];
   onSelectChild: (person: PersonLike) => void;
   onAddChild: (unionId: string) => void;
+  onLinkExisting: (unionId: string, childId: string) => void;
   onClose: () => void;
 }
 
@@ -18,9 +20,12 @@ export default function UnionChildrenPanel({
   edges,
   onSelectChild,
   onAddChild,
+  onLinkExisting,
   onClose,
 }: UnionChildrenPanelProps) {
   const { t } = useLang();
+  const [linkMode, setLinkMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const partnerA = persons.find((p) => p.id === union.partnerA);
   const partnerB = persons.find((p) => p.id === union.partnerB);
 
@@ -31,6 +36,19 @@ export default function UnionChildrenPanel({
       relType: e.relationshipType ?? "biological",
     }))
     .filter((c) => c.person);
+
+  const childIds = new Set(childEdges.map((e) => e.childId));
+  const partnerIds = new Set([union.partnerA, union.partnerB].filter(Boolean));
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return persons.filter(
+      (p) =>
+        p.fullName.toLowerCase().includes(q) &&
+        !childIds.has(p.id) &&
+        !partnerIds.has(p.id)
+    );
+  }, [searchQuery, persons, childIds, partnerIds]);
 
   const title = partnerA && partnerB
     ? `${partnerA.fullName} & ${partnerB.fullName}`
@@ -62,7 +80,7 @@ export default function UnionChildrenPanel({
         </div>
 
         {/* Children list */}
-        {children.length === 0 ? (
+        {children.length === 0 && !linkMode ? (
           <div className="text-center py-8">
             <p className="text-sm font-body text-[var(--parchment-dim)]">
               {t("tree.legend.parentChild")}: —
@@ -120,16 +138,69 @@ export default function UnionChildrenPanel({
           </div>
         )}
 
-        {/* Add children button */}
-        <button
-          onClick={() => onAddChild(union.id)}
-          className="w-full py-2.5 text-sm rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--popover-border)] text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/20 transition-colors font-body flex items-center justify-center gap-2"
-        >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-            <path d="M8 3v10M3 8h10" strokeLinecap="round" />
-          </svg>
-          {t("add.submit").replace("Add a Person", "Add Child")}
-        </button>
+        {/* Link existing person */}
+        {linkMode && (
+          <div className="mb-4 bg-white/[0.03] rounded-lg border border-[var(--thread-gold-dim)]/20 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-body text-[var(--thread-gold)]">Link existing person as child</span>
+              <button onClick={() => { setLinkMode(false); setSearchQuery(""); }} className="text-[var(--parchment-dim)] hover:text-[var(--parchment)] text-xs">✕</button>
+            </div>
+            <input
+              type="text"
+              placeholder="Search by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+              className="w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]"
+            />
+            {searchResults.length > 0 && (
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {searchResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      onLinkExisting(union.id, p.id);
+                      setLinkMode(false);
+                      setSearchQuery("");
+                    }}
+                    className="w-full text-left px-3 py-2 rounded hover:bg-[var(--thread-gold)]/10 text-sm text-[var(--parchment)] font-body transition-colors"
+                  >
+                    {p.fullName} <span className="ml-2 text-[10px] text-[var(--parchment-dim)]">{p.birthYear} – {p.deathYear ?? "present"}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searchQuery && searchResults.length === 0 && (
+              <p className="text-xs text-[var(--parchment-dim)] italic">No matches found.</p>
+            )}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => onAddChild(union.id)}
+            className="flex-1 py-2.5 text-sm rounded-lg bg-[var(--thread-gold)]/10 border border-[var(--popover-border)] text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/20 transition-colors font-body flex items-center justify-center gap-2"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+              <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+            </svg>
+            Add New
+          </button>
+          <button
+            onClick={() => setLinkMode(!linkMode)}
+            className={`flex-1 py-2.5 text-sm rounded-lg border transition-colors font-body flex items-center justify-center gap-2 ${
+              linkMode
+                ? "bg-[var(--thread-gold)]/20 border-[var(--thread-gold)]/50 text-[var(--thread-gold)]"
+                : "bg-white/5 border-[var(--thread-gold-dim)]/30 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)]"
+            }`}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+              <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+            </svg>
+            Link Existing
+          </button>
+        </div>
       </div>
     </div>
   );

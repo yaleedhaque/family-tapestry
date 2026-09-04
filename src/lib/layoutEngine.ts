@@ -380,17 +380,18 @@ function natalUnionMap(
 // Safe child recentring (straight child drops).
 //
 // After the compound pass, every box already has a non-overlapping position. This
-// post-pass tries to pull FREE (non-spouse) child cards so they line up under their
-// parent — single children drop straight, multi-child fans centre as a group under
-// the parent. Children of the SAME parent are kept as a contiguous fan block, and
-// each row is repacked left-to-right with enforced min spacing so the block order
-// and spacing stay valid.
+// post-pass pulls FREE (non-spouse) child cards so they line up under their
+// parent — single children drop straight, and each child is centred independently
+// under its parent's diamond/single-parent handle.
 //
-// Safety: a row is only committed if, after the moves, the WHOLE layout is still
-// overlap-free (verified with findOverlaps). If the proposal would overlap anything
-// (usually because a neighbouring independent family claims the same space) the row
-// is reverted to ELK's guaranteed-clean positions. Consequently this pass can only
-// make drops straighter; it can never introduce an overlap.
+// Siblings are NOT grouped into a single block: each child gets its own optimal
+// X position, giving flexible horizontal placement. ELK's layering still
+// determines vertical positions (guaranteeing parent-above-child).
+//
+// Safety: a child is only committed if its new placement doesn't overlap any
+// OTHER box on the layout. If it would overlap, it reverts to ELK's
+// guaranteed-clean position. This pass can only make drops straighter; it can
+// never introduce an overlap.
 // ---------------------------------------------------------------------------
 function recentreChildren(
   positions: Map<string, LayoutResult>,
@@ -422,87 +423,39 @@ function recentreChildren(
     if (!seated.has(p.id) && !multiCouple.has(p.id)) freeIds.add(p.id);
   }
 
-  // Group free children by parent union so a fan stays together and centres as a
-  // single block under the parent. `cardParentGroup` maps each free child to the id
-  // of the first parent union that produces it (so grouped cards aren't duplicated).
-  const cardParentGroup = new Map<string, string>();
-  for (const ed of edges) {
-    if (!freeIds.has(ed.childId) || cardParentGroup.has(ed.childId)) continue;
-    cardParentGroup.set(ed.childId, ed.unionId);
-  }
-
-  // Row bucket -> list of free child ids on that row (left-to-right).
-  const rowBuckets = new Map<number, string[]>();
+  // Move each free child independently: centre it under its parent, then revert
+  // if the new position overlaps any other box.
   for (const id of Array.from(freeIds)) {
     const v = positions.get(id);
     if (!v) continue;
-    const row = Math.round((v.y + LAYOUT_PERSON_H / 2) / ROW_STEP);
-    let arr = rowBuckets.get(row);
-    if (!arr) rowBuckets.set(row, (arr = []));
-    arr.push(id);
-  }
-  for (const arr of Array.from(rowBuckets.values()))
-    arr.sort((a, b) => positions.get(a)!.x - positions.get(b)!.x);
+    const target = parentCentre.get(id);
+    if (target === undefined) continue; // no parent known — keep ELK position
 
-  for (const ids of Array.from(rowBuckets.values())) {
-    // Assemble fan blocks for this row: cards sharing one parent-union become a
-    // single contiguous block that wants to centre at the parent's x.
-    const blockById = new Map<string, { ids: string[]; target: number; width: number }>();
-    for (const id of ids) {
-      if (blockById.has(id)) continue;
-      const g = cardParentGroup.get(id);
-      const blockIds: string[] = [];
-      let target = positionCenter(positions, id);
-      let width = LAYOUT_PERSON_W;
-      if (g) {
-        for (const other of ids) {
-          if (cardParentGroup.get(other) === g && positions.has(other)) blockIds.push(other);
-        }
-        target = parentCentre.get(blockIds[0]) ?? positionCenter(positions, id);
-        width = blockIds.length * LAYOUT_PERSON_W + (blockIds.length - 1) * GAP;
-      } else {
-        blockIds.push(id);
-      }
-      const blk = { ids: blockIds, target, width };
-      for (const m of blockIds) blockById.set(m, blk);
+    const idealX = target - LAYOUT_PERSON_W / 2;
+    const oldX = v.x;
+    v.x = idealX;
+
+    // Check overlap with every OTHER person/union box
+    let collides = false;
+    for (const other of persons) {
+      if (other.id === id) continue;
+      const ov = positions.get(other.id);
+      if (!ov) continue;
+      const ox = Math.min(v.x + LAYOUT_PERSON_W, ov.x + LAYOUT_PERSON_W) - Math.max(v.x, ov.x);
+      const oy = Math.min(v.y + LAYOUT_PERSON_H, ov.y + LAYOUT_PERSON_H) - Math.max(v.y, ov.y);
+      if (ox > 0 && oy > 0) { collides = true; break; }
     }
-
-    // Unique blocks in row order (by their left-most card).
-    const blocks = Array.from(blockById.values()).filter(
-      (b, i, self) => self.findIndex((x) => x.ids[0] === b.ids[0]) === i
-    );
-    blocks.sort(
-      (a, b) => (positions.get(a.ids[0])?.x ?? 0) - (positions.get(b.ids[0])?.x ?? 0)
-    );
-
-    // Lay blocks left-to-right honouring targets where space allows, enforcing min
-    // gap so blocks never overlap. Card x within a block is the fan order (ids are
-    // already sorted by ascending current x -> left-to-right fan).
-    const placed: { block: (typeof blocks)[number]; cx: number }[] = [];
-    let rightEdge = -Infinity;
-    for (const b of blocks) {
-      const idealLeft = b.target - b.width / 2;
-      const left = rightEdge === -Infinity ? idealLeft : Math.max(idealLeft, rightEdge + GAP);
-      placed.push({ block: b, cx: left + b.width / 2 });
-      rightEdge = left + b.width;
-    }
-
-    for (const p of placed) {
-      const { block, cx } = p;
-      const oldX = new Map<string, number>();
-      for (const id of block.ids) oldX.set(id, positions.get(id)!.x);
-      let x = cx - block.width / 2;
-      for (const id of block.ids) {
-        const v = positions.get(id);
-        if (v) v.x = x;
-        x += LAYOUT_PERSON_W + GAP;
-      }
-      // Revert THIS block only if its new placement overlaps any other box on its
-      // row (e.g. a couple-compound / pinned spouse that occupies part of the span).
-      if (blockCollides(positions, persons, unions, block.ids)) {
-        for (const id of block.ids) positions.get(id)!.x = oldX.get(id)!;
+    if (!collides) {
+      for (const u of unions) {
+        if (!u.partnerB) continue;
+        const uv = positions.get(u.id);
+        if (!uv) continue;
+        const ox = Math.min(v.x + LAYOUT_PERSON_W, uv.x + LAYOUT_UNION_W) - Math.max(v.x, uv.x);
+        const oy = Math.min(v.y + LAYOUT_PERSON_H, uv.y + LAYOUT_UNION_H) - Math.max(v.y, uv.y);
+        if (ox > 0 && oy > 0) { collides = true; break; }
       }
     }
+    if (collides) v.x = oldX; // revert — keep ELK's safe position
   }
 }
 
@@ -557,53 +510,6 @@ export function verifyParentsAboveChildren(
   }
   return violations;
 }
-
-// True if the cards in `ids` (already moved) now overlap any OTHER person/diamond
-// box that sits on the same row. Couple compounds' diamonds and all persons are
-// considered; the moved cards themselves are excluded.
-function blockCollides(
-  positions: Map<string, LayoutResult>,
-  persons: { id: string }[],
-  unions: LayoutUnion[],
-  ids: string[]
-): boolean {
-  const moved = new Set<string>(ids);
-  const bounds: { id: string; x: number; y: number; w: number; h: number }[] = [];
-  for (const p of persons) {
-    if (moved.has(p.id)) continue;
-    const v = positions.get(p.id);
-    if (v) bounds.push({ id: p.id, x: v.x, y: v.y, w: LAYOUT_PERSON_W, h: LAYOUT_PERSON_H });
-  }
-  for (const u of unions) {
-    if (!u.partnerB) continue;
-    if (moved.has(u.id)) continue;
-    const v = positions.get(u.id);
-    if (v) bounds.push({ id: u.id, x: v.x, y: v.y, w: LAYOUT_UNION_W, h: LAYOUT_UNION_H });
-  }
-  // the moved block's bounding box
-  let minX = Infinity,
-    maxX = -Infinity;
-  const y = positions.get(ids[0])?.y ?? 0;
-  for (const id of ids) {
-    const v = positions.get(id)!;
-    minX = Math.min(minX, v.x);
-    maxX = Math.max(maxX, v.x + LAYOUT_PERSON_W);
-  }
-  for (const b of bounds) {
-    const sameRow = Math.abs(b.y - y) < LAYOUT_PERSON_H - 1;
-    if (!sameRow) continue;
-    const ox = Math.min(maxX, b.x + b.w) - Math.max(minX, b.x);
-    if (ox > 0) return true;
-  }
-  return false;
-}
-
-function positionCenter(positions: Map<string, LayoutResult>, id: string): number {
-  const v = positions.get(id);
-  return v ? v.x + LAYOUT_PERSON_W / 2 : 0;
-}
-
-const ROW_STEP = 410;
 
 // Exact axis-aligned bounding-box overlap detection for a completed layout.
 // Returns overlapping pairs of the form `a x b (oxW x oyH)`. Uses real rendered

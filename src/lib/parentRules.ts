@@ -287,24 +287,9 @@ export function consolidateSingleParentBiologicalUnions(
     merged.push({ childId, fromUnionIds: [intoId, otherId], intoUnionId: intoId });
   }
 
-  // Orphan cleanup: remove single-parent unions that (after consolidation) have
-  // NO child edges and whose lone parent is already inside a couple union.
-  const edgeCountByUnion = new Map<string, number>();
-  for (const e of outEdges) edgeCountByUnion.set(e.unionId, (edgeCountByUnion.get(e.unionId) ?? 0) + 1);
-  const parentInCouple = new Set<string>();
-  for (const u of outUnions) {
-    if (unionParentIds(u).length !== 2) continue;
-    for (const p of unionParentIds(u)) parentInCouple.add(p);
-  }
-  for (let i = outUnions.length - 1; i >= 0; i--) {
-    const u = outUnions[i];
-    const parents = unionParentIds(u);
-    if (parents.length !== 1) continue;
-    if ((edgeCountByUnion.get(u.id) ?? 0) !== 0) continue; // still parents a child
-    if (!parentInCouple.has(parents[0])) continue;          // genuine lone parent elsewhere
-    outUnions.splice(i, 1);
-    outUnionsById.delete(u.id);
-  }
+  // NOTE: orphan cleanup intentionally disabled — user requires relationship
+  // connections to persist even when a single-parent union has no children.
+  // Only the merge-dedup logic above runs; empty unions are left in place.
 
   return { unions: outUnions, edges: outEdges, merged };
 }

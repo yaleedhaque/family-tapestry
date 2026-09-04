@@ -8,7 +8,7 @@ export interface RelSectionItem {
   id: string;
   unionId?: string;
   label: string;
-  sub: string;
+  sub?: string;
   badge?: string;
   union?: UnionLike;
   edge?: { unionId: string; childId: string; relationshipType: string };

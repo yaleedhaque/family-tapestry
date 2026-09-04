@@ -209,36 +209,38 @@ export default function TapestryCanvas() {
   );
 
   // ─── Find parent union (needed by both layout and CRUD hook) ───
+  // Prefer a couple union (has partnerB) so child lines always originate
+  // from the diamond bottom when the parent is married.
   const findParentUnion = useCallback(
-    (personId: string): UnionLike | undefined =>
-      rawUnions.find((u) => u.partnerA === personId || u.partnerB === personId),
+    (personId: string): UnionLike | undefined => {
+      const couple = rawUnions.find(
+        (u) => (u.partnerA === personId || u.partnerB === personId) && u.partnerB
+      );
+      return couple ?? rawUnions.find(
+        (u) => u.partnerA === personId || u.partnerB === personId
+      );
+    },
     [rawUnions]
   );
 
   // ─── Realtime subscription ───
+  // Any change to persons/unions/parent_edges triggers a full tree refetch
+  // so every view (tree, map, timeline, person page) stays in sync instantly.
+  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRealtimeChange = useCallback((change: TreeChange) => {
     if (!user) return;
-    if (change.table === "persons" && change.eventType === "UPDATE" && change.new) {
-      const n = change.new as Record<string, unknown>;
-      setRawPersons((prev) =>
-        prev.map((p) =>
-          p.id === n.id
-            ? {
-                ...p,
-                fullName: (n.full_name as string) ?? p.fullName,
-                birthYear: (n.birth_year as number) ?? p.birthYear,
-                deathYear: (n.death_year as number) ?? p.deathYear,
-                isAlive: (n.is_alive as boolean) ?? p.isAlive,
-                bio: (n.bio as string) ?? p.bio,
-                birthPlace: (n.birth_place as string) ?? p.birthPlace,
-                profession: (n.profession as string) ?? p.profession,
-                photoUrl: (n.photo_url as string) ?? p.photoUrl,
-              }
-            : p
-        )
-      );
-    }
-  }, [user]);
+    if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/tree", { cache: "no-store" });
+        if (!res.ok) return;
+        const db = await res.json();
+        if (Array.isArray(db.persons)) setRawPersons(db.persons.map(toPersonLike));
+        if (Array.isArray(db.unions)) setRawUnions(db.unions.map(toUnionLike));
+        if (Array.isArray(db.edges)) setRawEdges(db.edges.map(toEdgeLike));
+      } catch { /* keep last good snapshot */ }
+    }, 300);
+  }, [user, setRawPersons, setRawUnions, setRawEdges]);
   useRealtimeTree(handleRealtimeChange);
 
   // ─── Presence ───
@@ -1300,6 +1302,11 @@ export default function TapestryCanvas() {
               parentAName: pA?.fullName ?? "Unknown",
               parentBName: pB?.fullName ?? "",
             });
+            setSelectedUnion(null);
+          }}
+          onLinkExisting={(unionId, childId) => {
+            const union = rawUnionsRef.current.find((u) => u.id === unionId);
+            if (union) handleAddChild(union.partnerA, childId, "biological");
             setSelectedUnion(null);
           }}
           onClose={() => setSelectedUnion(null)}
