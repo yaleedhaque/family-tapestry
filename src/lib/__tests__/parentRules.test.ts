@@ -6,6 +6,7 @@ import {
   findDualParentConflicts,
   wouldCreateDualBiologicalParent,
   wouldGenderChangeBreakRule,
+  hasSelfPartner,
   type Gender,
   type UnionRow,
   type EdgeRow,
@@ -195,5 +196,38 @@ describe("wouldGenderChangeBreakRule", () => {
     const edges: EdgeRow[] = [{ unionId: "u1", childId: "kid" }];
     const result = wouldGenderChangeBreakRule([u1], edges, genders, "stranger", "female");
     expect(result).toBeNull();
+  });
+});
+
+describe("hasSelfPartner", () => {
+  it("detects a person assigned as their own partner", () => {
+    const unions = [{ id: "u1", partnerA: "p1", partnerB: "p1" }];
+    expect(hasSelfPartner(unions)).toEqual({ unionId: "u1" });
+  });
+
+  it("returns null for valid couples", () => {
+    const unions = [
+      { id: "u1", partnerA: "p1", partnerB: "p2" },
+      { id: "u2", partnerA: "p3", partnerB: "p4" },
+    ];
+    expect(hasSelfPartner(unions)).toBeNull();
+  });
+
+  it("returns null for empty unions", () => {
+    expect(hasSelfPartner([])).toBeNull();
+  });
+
+  it("returns null for single-parent unions (empty partnerB)", () => {
+    const unions = [{ id: "u1", partnerA: "p1", partnerB: "" }];
+    expect(hasSelfPartner(unions)).toBeNull();
+  });
+
+  it("detects self-partner in a mixed list", () => {
+    const unions = [
+      { id: "u1", partnerA: "p1", partnerB: "p2" },
+      { id: "u2", partnerA: "p3", partnerB: "p3" },
+      { id: "u3", partnerA: "p4", partnerB: "p5" },
+    ];
+    expect(hasSelfPartner(unions)).toEqual({ unionId: "u2" });
   });
 });

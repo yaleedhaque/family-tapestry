@@ -136,8 +136,8 @@ describe("consolidateSingleParentBiologicalUnions", () => {
     const yaleedEdges = res.edges.filter((e) => e.childId === "yaleed");
     expect(yaleedEdges).toHaveLength(1);
     expect(yaleedEdges[0].unionId).toBe("u3");
-    // Orphan cleanup is ENABLED — u1 (empty, lone parent already in couple u3) is removed.
-    expect(res.unions.some((u) => u.id === "u1")).toBe(false);
+    // Orphan cleanup is DISABLED (user requirement) — u1 persists even with no children.
+    expect(res.unions.some((u) => u.id === "u1")).toBe(true);
     // u2 is kept because it genuinely parents p4.
     expect(res.unions.some((u) => u.id === "u2")).toBe(true);
     // u2's edge to p4 preserved.

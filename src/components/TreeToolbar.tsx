@@ -46,8 +46,15 @@ export default function TreeToolbar({ persons, unions, parentEdges, onExportGedc
       </button>
 
       {expanded && (
-        <div className="absolute top-0 right-12 w-60 max-h-[calc(100vh-8rem)] overflow-y-auto bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--popover-border)] rounded-xl shadow-[var(--popover-shadow)]">
-          <div className="px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
+        <div className="absolute top-0 right-12 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--panel-border)] rounded-xl shadow-[var(--shadow-xl)]">
+          <div className="relative px-4 py-3 border-b border-[var(--thread-gold-dim)]/20">
+            <button
+              onClick={() => setExpanded(false)}
+              aria-label="Close tree overview"
+              className="absolute right-4 top-2 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-[20px]"
+            >
+              ✕
+            </button>
             <h3 className="font-display text-sm text-[var(--thread-gold)] font-semibold">{t("tree.overview")}</h3>
           </div>
 

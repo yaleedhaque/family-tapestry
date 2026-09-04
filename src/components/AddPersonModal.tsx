@@ -67,7 +67,10 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
     onAdd(person);
   };
 
-  const inputCls = "w-full bg-white/5 border border-[var(--thread-gold-dim)]/30 rounded px-3 py-2 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/40 focus:outline-none focus:border-[var(--thread-gold)]";
+  // §2.6 form input fill — solid elevated surface, gold-dim border, focus glow,
+  // radius-sm, 44px touch target, 12px horizontal padding.
+  const inputCls =
+    "w-full min-h-[44px] bg-[var(--tapestry-bg-alt)] border border-[var(--thread-gold-dim)] rounded-[var(--radius-sm)] px-3 text-sm text-[var(--parchment)] font-body placeholder:text-[var(--parchment-dim)]/60 focus:outline-none focus:border-2 focus:border-[var(--thread-gold)] focus:shadow-[var(--glow-focus)]";
   const labelCls = "text-[10px] uppercase tracking-wider text-[var(--thread-gold-dim)] block mb-1";
 
   return (
@@ -97,9 +100,6 @@ export default function AddPersonModal({ persons, nextId, onAdd, onClose }: AddP
               <label className={labelCls}>{t("add.nameNative")}</label>
               <input type="text" value={nameNative} onChange={(e) => setNameNative(e.target.value)} placeholder="Name in Bengali, Hindi, Arabic… (optional)" dir="auto" className={inputCls} />
             </div>
-          </Group>
-
-          <Group label={t("add.identity")}>
             <div>
               <label className={labelCls}>{t("gender.label")}</label>
               <select value={gender} onChange={(e) => setGender(e.target.value)} className={inputCls}>
