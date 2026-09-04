@@ -21,8 +21,6 @@
 
 export const HOP_R = 6; // hop arc radius (px)
 export const HOP_PAIR_CAP = 5000; // max edge-pairs checked before skipping a pass
-export const FOCUS_COLLAPSE_DEPTH = 3; // default auto-collapse radius around focus (gens)
-export const VIRTUALIZE_THRESHOLD = 300; // visible nodes above which RF virtualizes
 
 export interface Segment {
   // A horizontal segment: { y, x0, x1 } (x1 > x0). A vertical: { x, y0, y1 } (y1 > y0).
@@ -217,11 +215,6 @@ export function computeHops(edges: ChildEdgeMeta[]): Map<string, HopPoint[]> {
     arr.sort((p, q) => (p.py - q.py) || (p.px - q.px));
   }
   return hops;
-}
-
-export interface HopsSpec {
-  vertical?: boolean;
-  onVertical?: boolean; // deprecated alias, kept for clarity
 }
 
 // Build the SVG `d` string for a child edge path, splicing a semicircular hop at

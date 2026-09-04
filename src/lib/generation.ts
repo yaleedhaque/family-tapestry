@@ -39,17 +39,6 @@ export const STATUS_RING_COLORS: Record<PersonRingStatus, string> = {
   divorced: "var(--divorce-red)",
 };
 
-export function generationLabel(gen: number): string {
-  switch (gen) {
-    case 0: return "Generations";
-    case 1: return "Grandparents & earlier";
-    case 2: return "Parents";
-    case 3: return "Siblings / this generation";
-    case 4: return "Children";
-    case 5: return "Grandchildren";
-    default: return `Generation ${gen + 1}`;
-  }
-}
 
 export function computeGenerationMap(
   persons: PersonLike[],
