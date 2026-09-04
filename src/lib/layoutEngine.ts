@@ -63,14 +63,13 @@ export interface LayoutMetrics {
 }
 
 export const LAYOUT_PERSON_W = 140; // real rendered card width  (PersonNode w-[140px])
-export const LAYOUT_PERSON_H = 231; // real rendered card height (measured)
+export const LAYOUT_PERSON_H = 150; // real rendered card height (PersonNode h-[150px])
 export const LAYOUT_UNION_W = 110; // real rendered union diamond width
 export const LAYOUT_UNION_H = 150; // real rendered union diamond height
-// How far below the couple's row top the union diamond node starts. The default
-// (LAYOUT_PERSON_H - LAYOUT_UNION_H)/2 centers the diamond on the 231-layout-tall
-// card, but real cards render shorter (~140), so this is pushed lower so the
-// diamond hangs clearly below the card bodies (the requested look).
-const DIAMOND_Y_OFFSET = 86;
+// Diamond offset below couple row top. With LAYOUT_PERSON_H == LAYOUT_UNION_H
+// (both 150), offset 0 places diamond corners exactly at card bottoms → straight
+// horizontal marriage lines by construction.
+const DIAMOND_Y_OFFSET = 0;
 const GAP = 48;
 
 // Width of a couple block when both partners are inside: [A | diamond | B]

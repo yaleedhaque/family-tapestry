@@ -36,7 +36,7 @@ const edges = [
 ];
 
 const PW = 140;
-const PH = 231; // real rendered PersonNode height (matches layoutEngine.LAYOUT_PERSON_H)
+const PH = 150; // real rendered PersonNode height (matches layoutEngine.LAYOUT_PERSON_H)
 
 function cxOf(positions: Map<string, { x: number; y: number }>, id: string) {
   return positions.get(id)!.x + PW / 2;
