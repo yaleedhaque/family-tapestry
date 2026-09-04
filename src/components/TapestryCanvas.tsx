@@ -76,7 +76,7 @@ function makeMarriageEdge(source: string, target: string, unionType: string, tar
     source,
     target,
     targetHandle,
-    type: "straight",
+    type: "smoothstep",
     style: {
       stroke: isDivorced ? "var(--divorce-red)" : "var(--edge-marriage)",
       strokeWidth: 2.5,
