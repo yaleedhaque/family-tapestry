@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import AdminSheet from "@/components/AdminSheet";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+import { toPersonLike, toUnionLike, toEdgeLike } from "@/lib/convert";
+import type { DbPerson } from "@/lib/types";
+
+type UnionInput = { id: string; partnerA?: string; partner_a?: string; partnerB?: string; partner_b?: string; type?: string; union_type?: string; startYear?: number | null; start_year?: number | null; endYear?: number | null; end_year?: number | null; createdBy?: string | null; created_by?: string | null };
+type EdgeInput = { unionId?: string; union_id?: string; childId?: string; child_id?: string; relationshipType?: string; relationship_type?: string; createdBy?: string | null; created_by?: string | null };
 
 export default function AdminSheetPage() {
   const { loading: authLoading, canAdmin } = useAuth();
@@ -24,9 +29,9 @@ export default function AdminSheetPage() {
       const res = await fetch("/api/tree");
       if (res.ok) {
         const data = await res.json();
-        setPersons(data.persons ?? []);
-        setUnions(data.unions ?? []);
-        setEdges(data.edges ?? []);
+        setPersons((data.persons ?? []).map((p: DbPerson | PersonLike) => toPersonLike(p)));
+        setUnions((data.unions ?? []).map((u: UnionInput) => toUnionLike(u)));
+        setEdges((data.edges ?? []).map((e: EdgeInput) => toEdgeLike(e)));
       }
     } catch {
       /* ignore */
