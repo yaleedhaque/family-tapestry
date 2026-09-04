@@ -162,6 +162,7 @@ export default function TapestryCanvas() {
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonLike | null>(null);
   const [animPhase, setAnimPhase] = useState<"idle" | "running" | "done">("idle");
+  const [layoutTick, setLayoutTick] = useState(0);
   const [showEdges, setShowEdges] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
@@ -456,6 +457,11 @@ export default function TapestryCanvas() {
         setShowEdges(true);
         setNodes(positioned);
         setFlowEdges(graphEdges);
+        // Non-animated re-layouts (data-change / collapse effects) reset union nodes
+        // to their layout spots; nudge the diamond-anchor to re-run so diamonds stay
+        // anchored below their cards after edits (animPhase is already "done" and won't
+        // change again).
+        setLayoutTick((t) => t + 1);
       }
     },
     [setNodes, setFlowEdges]
@@ -503,31 +509,10 @@ export default function TapestryCanvas() {
       // Use equalized card bottoms for the diamond geometry (both partners level).
       const aBottomEff = rowTop + partnerHeight;
       const bBottomEff = rowTop + partnerHeight;
-      // A couple whose two partners sit on different rows (remarriage / multi-couple
-      // person) has partner bottoms far apart; a single diamond cannot meet both with
-      // straight lines without landing on the unrelated cards between them. Fall back
-      // to the legacy layout anchor (centered corners) for those.
-      if (Math.abs(aBottom - bBottom) > 120) {
-        adjustments.push({
-          id: n.id,
-          y: n.position.y,
-          cornerA: 75,
-          cornerB: 75,
-        });
-        continue;
-      }
       const ux = n.position.x;
-      // The diamond graphic is always drawn such that its two partner corners sit at
-      // each partner's card-bottom height, so both marriage lines enter horizontally.
-      // Its vertical centre is therefore the (now level) partner-bottom height.
-      // Diamond centre = card bottom. The diamond graphic's two partner corners
-      // sit at dCy ± (corner offset), so placing dCy at card-bottom makes both
-      // marriage lines perfectly horizontal.
-      let dCy = aBottomEff;
-      // Box top: the 150px union node is centred on dCy, so node top = dCy - 75.
-      const baseY = dCy - 75;
-      // Collision-guard the DIAMOND footprint (its true visual box, ~110 wide × 68 tall
-      // covering the two partner corners) against every non-partner card.
+      // Collision-guard helper: does the diamond footprint (its true visual box,
+      // ~110 wide × 150 node tall, covering the two partner corners) hit any
+      // non-partner card?
       const partners = new Set<string>();
       if (union.partnerA) partners.add(union.partnerA);
       if (union.partnerB) partners.add(union.partnerB);
@@ -545,6 +530,35 @@ export default function TapestryCanvas() {
         }
         return false;
       };
+      // A couple whose two partners sit on different rows (remarriage / multi-couple
+      // person) has partner bottoms far apart; a single symmetric diamond cannot hug
+      // both card bottoms. Anchor it below the NEARER (topmost) partner's card bottom
+      // so the diamond hangs off that card and ITS marriage line stays horizontal;
+      // the far partner's line travels from its own card to the diamond.
+      if (Math.abs(aBottom - bBottom) > 120) {
+        const nearBottom = Math.min(aBottom, bBottom);
+        let boxY = nearBottom - 75;
+        if (collides(boxY)) {
+          let raised = boxY;
+          for (let y = boxY - 1; y >= n.position.y - 1; y -= 1) {
+            if (!collides(y)) { raised = y; break; }
+          }
+          boxY = raised;
+        }
+        if (boxY >= 0 && Math.abs(boxY - n.position.y) > 1.5) {
+          adjustments.push({ id: n.id, y: boxY, cornerA: 75, cornerB: 75 });
+        } else {
+          // Diamond already sitting at the near partner's bottom; keep centred corners.
+          adjustments.push({ id: n.id, y: n.position.y, cornerA: 75, cornerB: 75 });
+        }
+        continue;
+      }
+      // The diamond graphic is always drawn such that its two partner corners sit at
+      // each partner's card-bottom height, so both marriage lines enter horizontally.
+      // Diamond centre = card bottom = dCy.
+      const dCy = aBottomEff;
+      // Box top: the 150px union node is centred on dCy, so node top = dCy - 75.
+      const baseY = dCy - 75;
       let boxY = baseY;
       if (collides(baseY)) {
         let raised = baseY;
@@ -575,7 +589,7 @@ export default function TapestryCanvas() {
         style: mh != null ? { ...(nd.style ?? {}), minHeight: mh } : nd.style,
       };
     }));
-  }, [animPhase, getNodes, setNodes]);
+  }, [animPhase, layoutTick, getNodes, setNodes]);
 
   // ─── Line-hop pass (Group D) ───
   // AFTER layout settles and edges have rendered (diamond-anchor effect above has
