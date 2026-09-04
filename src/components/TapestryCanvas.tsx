@@ -43,6 +43,7 @@ import KeyboardHelp from "@/components/KeyboardHelp";
 import HelpModal from "@/components/HelpModal";
 import AddPersonModal from "@/components/AddPersonModal";
 import AddChildModal from "@/components/AddChildModal";
+import UnionChildrenPanel from "@/components/UnionChildrenPanel";
 import MobileNav from "@/components/MobileNav";
 import Legend from "@/components/Legend";
 import { useAuth } from "@/components/AuthProvider";
@@ -167,6 +168,7 @@ export default function TapestryCanvas() {
   const [showGedcomImport, setShowGedcomImport] = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [addChildUnion, setAddChildUnion] = useState<{ unionId: string; parentAName: string; parentBName: string } | null>(null);
+  const [selectedUnion, setSelectedUnion] = useState<UnionLike | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [activeTreeId, setActiveTreeId] = useState("default");
   const [treeNames, setTreeNames] = useState<Record<string, string>>({ "default": "The Haque Tapestry" });
@@ -321,20 +323,14 @@ export default function TapestryCanvas() {
     findParentUnion,
   });
 
-  // ─── Diamond: add child ───
+  // ─── Diamond: show children panel ───
   const handleAddChildDiamond = useCallback(
     (unionId: string) => {
       const union = rawUnionsRef.current.find((u) => u.id === unionId);
       if (!union) return;
-      const pA = rawPersonsRef.current.find((p) => p.id === union.partnerA);
-      const pB = rawPersonsRef.current.find((p) => p.id === union.partnerB);
-      setAddChildUnion({
-        unionId,
-        parentAName: pA?.fullName ?? "Unknown",
-        parentBName: pB?.fullName ?? "",
-      });
+      setSelectedUnion(union);
     },
-    [rawUnionsRef, rawPersonsRef]
+    [rawUnionsRef]
   );
 
   // ─── Layout ───
@@ -1282,6 +1278,31 @@ export default function TapestryCanvas() {
             setAddChildUnion(null);
           }}
           onClose={() => setAddChildUnion(null)}
+        />
+      )}
+
+      {selectedUnion && (
+        <UnionChildrenPanel
+          union={selectedUnion}
+          persons={rawPersons}
+          edges={rawEdges}
+          onSelectChild={(person) => {
+            setSelectedPerson(rawPersons.find((p) => p.id === person.id) ?? person);
+            setSelectedUnion(null);
+          }}
+          onAddChild={(unionId) => {
+            const union = rawUnionsRef.current.find((u) => u.id === unionId);
+            if (!union) return;
+            const pA = rawPersonsRef.current.find((p) => p.id === union.partnerA);
+            const pB = rawPersonsRef.current.find((p) => p.id === union.partnerB);
+            setAddChildUnion({
+              unionId,
+              parentAName: pA?.fullName ?? "Unknown",
+              parentBName: pB?.fullName ?? "",
+            });
+            setSelectedUnion(null);
+          }}
+          onClose={() => setSelectedUnion(null)}
         />
       )}
 
