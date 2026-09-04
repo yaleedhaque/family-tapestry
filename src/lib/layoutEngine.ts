@@ -66,9 +66,9 @@ export const LAYOUT_PERSON_W = 140; // real rendered card width  (PersonNode w-[
 export const LAYOUT_PERSON_H = 150; // real rendered card height (PersonNode h-[150px])
 export const LAYOUT_UNION_W = 110; // real rendered union diamond width
 export const LAYOUT_UNION_H = 150; // real rendered union diamond height
-// Diamond offset below couple row top. With LAYOUT_PERSON_H == LAYOUT_UNION_H
-// (both 150), offset 0 places diamond corners exactly at card bottoms → straight
-// horizontal marriage lines by construction.
+// Diamond offset below couple row top. Set to 0 so the layout engine places the
+// union node at the couple's row; the diamond-anchor effect in TapestryCanvas
+// dynamically moves it down to card-bottom height at runtime.
 const DIAMOND_Y_OFFSET = 0;
 const GAP = 48;
 

@@ -520,12 +520,11 @@ export default function TapestryCanvas() {
       // The diamond graphic is always drawn such that its two partner corners sit at
       // each partner's card-bottom height, so both marriage lines enter horizontally.
       // Its vertical centre is therefore the (now level) partner-bottom height.
-      let dCy = (aBottomEff + bBottomEff) / 2;
-      // Never let the diamond rise above the couple's own cards (the taller one).
-      const dTopLimit = rowTop + partnerHeight;
-      if (dCy - 16 < dTopLimit) dCy = dTopLimit + 16;
-      // Box top: the 150px node spans 74px either side of the diamond centre so the
-      // label/collapse affordances wrap the diamond.
+      // Diamond centre = card bottom. The diamond graphic's two partner corners
+      // sit at dCy ± (corner offset), so placing dCy at card-bottom makes both
+      // marriage lines perfectly horizontal.
+      let dCy = aBottomEff;
+      // Box top: the 150px union node is centred on dCy, so node top = dCy - 75.
       const baseY = dCy - 75;
       // Collision-guard the DIAMOND footprint (its true visual box, ~110 wide × 68 tall
       // covering the two partner corners) against every non-partner card.
