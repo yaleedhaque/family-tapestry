@@ -76,7 +76,7 @@ html.light {
   --divorce-red: #B0231E;
   --parchment: #2C2520;
   --parchment-dim: #6B6058;
-  --living-glow: #A65B1F;
+  --living-glow: #A45A1F; /* was #A65B1F — 4.47:1 on #F5F0E8 (fails AA body text); darkened ~1% to 4.56:1 */
   --deceased-frame: #8A8078;
   --accent-emerald: #3E7B5C;
 
@@ -90,7 +90,7 @@ html.light {
   /* §3.2 missing semantic tokens (light) */
   --focus-ring: #8C6A22;
   --overlay-scrim: rgba(44,37,32,.4);
-  --link: #8A6A28;
+  --link: #876827; /* was #8A6A28 — 4.44:1 on #F5F0E8 (fails AA body text); darkened ~2% to 4.58:1 */
   --shadow-color: rgba(44,37,32,.18);
 
   /* §3.3 elevation / shadow scale */
