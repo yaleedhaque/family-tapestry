@@ -1023,6 +1023,7 @@ export default function TapestryCanvas() {
             />
             {!isMobile && (
               <MiniMap
+                style={{ backgroundColor: "var(--mipmap-bg)" }}
                 nodeStrokeColor="var(--thread-gold)"
                 nodeColor={(n) =>
                   STATUS_RING_COLORS[(n.data?.ringStatus as keyof typeof STATUS_RING_COLORS | undefined) ?? "living"]
@@ -1179,42 +1180,58 @@ export default function TapestryCanvas() {
 
       {/* Navigation bar — desktop only */}
       <nav className="fixed bottom-0 left-0 right-0 z-20 hidden md:flex justify-center pb-3 pointer-events-none">
-        <div className="flex items-center gap-1 px-2 py-1.5 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
-          <a href="/" className="px-3 py-1.5 text-xs rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">Tree</a>
-          <a href="/timeline" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
-          <a href="/map" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Map</a>
-          <button
-            onClick={() => setShowGedcomImport(true)}
-            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
-          >
-            Import
-          </button>
-          <button
-            onClick={() => setShowHelp(true)}
-            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
-            title="Keyboard shortcuts (?)"
-            aria-label="Help & keyboard shortcuts"
-          >
-            ?
-          </button>
-          <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
-          <a href="/privacy" className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body" title="Privacy Policy" aria-label="Privacy Policy">
-            🔒
-          </a>
-          <button
-            onClick={toggleTheme}
-            className="px-3 py-1.5 text-xs rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
-            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            aria-label="Toggle color theme"
-          >
-            {theme === "dark" ? "☀" : "☾"}
-          </button>
+        <div className="flex items-center gap-6 px-4 py-1 bg-[var(--tapestry-bg)]/95 backdrop-blur-md border border-[var(--thread-gold-dim)]/30 rounded-full shadow-[0_-2px_16px_rgba(0,0,0,0.4)] pointer-events-auto">
+          {/* Group 1 — Navigation */}
+          <div className="flex items-center gap-3">
+            <a href="/" className="relative px-3 py-2 text-[13px] font-body text-[var(--thread-gold)]">
+              Tree
+              <span className="absolute left-3 right-3 bottom-0 h-0.5 bg-[var(--thread-gold)] rounded-full" />
+            </a>
+            <a href="/timeline" className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Timeline</a>
+            <a href="/map" className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body">Map</a>
+            <button
+              onClick={() => setShowGedcomImport(true)}
+              className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+            >
+              Import
+            </button>
+          </div>
+
+          <div className="w-px h-6 bg-[var(--panel-border)]" />
+
+          {/* Group 2 — Utilities */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowHelp(true)}
+              className="w-11 h-11 flex items-center justify-center rounded-full text-[18px] leading-none text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors"
+              title="Keyboard shortcuts (?)"
+              aria-label="Help & keyboard shortcuts"
+            >
+              ?
+            </button>
+            <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+            <a href="/privacy" className="w-11 h-11 flex items-center justify-center rounded-full text-[18px] leading-none text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors" title="Privacy Policy" aria-label="Privacy Policy">
+              🔒
+            </a>
+            <button
+              onClick={toggleTheme}
+              className="w-11 h-11 flex items-center justify-center rounded-full text-[18px] leading-none text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors"
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label="Toggle color theme"
+            >
+              {theme === "dark" ? "☀" : "☾"}
+            </button>
+          </div>
+
+          <div className="w-px h-6 bg-[var(--panel-border)]" />
+
+          {/* Group 3 — Account */}
           {!authLoading && (
             user ? (
-              <div className="flex items-center gap-1.5 pl-1 border-l border-[var(--thread-gold-dim)]/20 ml-1">
+              <div className="flex items-center gap-3">
                 <span className="px-2 py-1 text-[10px] rounded-full bg-[var(--thread-gold)]/15 text-[var(--thread-gold)] font-body">{user.role ?? "editor"}</span>
                 {user.role === "admin" && (
-                  <a href="/admin" className="px-2 py-1 text-[10px] rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body">
+                  <a href="/admin" className="px-3 py-2 text-[13px] rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body">
                     Admin
                   </a>
                 )}
@@ -1224,13 +1241,13 @@ export default function TapestryCanvas() {
                     await createClient().auth.signOut();
                     window.location.reload();
                   }}
-                  className="px-2 py-1 text-[10px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5 transition-colors font-body"
+                  className="px-3 py-2 text-[13px] rounded-full text-[var(--parchment-dim)] hover:text-[var(--ember-red)] transition-colors font-body"
                 >
                   Sign Out
                 </button>
               </div>
             ) : (
-              <a href="/auth/login" className="px-3 py-1.5 text-xs rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body border border-[var(--thread-gold)]/30 ml-1">
+              <a href="/auth/login" className="px-3 py-2 text-[13px] rounded-full text-[var(--thread-gold)] hover:bg-[var(--thread-gold)]/10 transition-colors font-body border border-[var(--thread-gold)]/30">
                 Sign In
               </a>
             )

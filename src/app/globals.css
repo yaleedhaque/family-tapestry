@@ -24,7 +24,7 @@
   --edge-marriage: #E8C76A;
   --edge-child: #D4C4A0;
   --edge-adopted: #69B896;
-  --edge-step: #E8BF6A;
+  --edge-step: #D98099; /* muted rose — distinct from marriage gold (was #E8BF6A gold-family) */
   --edge-marriage-dim: #C9A544;
 
   /* §3.2 missing semantic tokens (dark) */
@@ -69,7 +69,7 @@
 html.light {
   --tapestry-bg: #F5F0E8;
   --tapestry-bg-alt: #EBE3D5;
-  --card-bg: #DDD3C1;
+  --card-bg: #D6C8AC; /* was #DDD3C1 — nearly invisible vs canvas; widened elevation step */
   --thread-gold: #7A5B1F;
   --thread-gold-dim: #6E511A;
   --ember-red: #8C2E2E;
@@ -84,7 +84,7 @@ html.light {
   --edge-marriage: #8A6522;
   --edge-child: #5A4E42;
   --edge-adopted: #2F6B50;
-  --edge-step: #8A6A28;
+  --edge-step: #B0637A; /* muted rose — distinct from marriage gold (was #8A6A28 gold-family) */
   --edge-marriage-dim: #6E511A;
 
   /* §3.2 missing semantic tokens (light) */

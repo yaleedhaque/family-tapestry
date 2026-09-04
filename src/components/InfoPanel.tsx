@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import type { Source } from "@/data/family";
 import { useLang } from "@/lib/i18n";
 import { sanitizeField, validateEmail, validateUrl, validateYear, cachedPhotoUrl } from "@/lib/validation";
@@ -14,6 +14,40 @@ function getInitials(name: string): string {
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }
+
+const TAB_ICONS: Record<string, ReactNode> = {
+  profile: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <circle cx="10" cy="7" r="3" />
+      <path d="M5 16c0-2.5 2.2-4 5-4s5 1.5 5 4" strokeLinecap="round" />
+    </svg>
+  ),
+  parents: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <circle cx="10" cy="5" r="2.2" />
+      <circle cx="4" cy="14" r="2.2" />
+      <circle cx="16" cy="14" r="2.2" />
+      <path d="M10 7.2v3.6M5.6 12.6 8 9M14.4 12.6 12 9" strokeLinecap="round" />
+    </svg>
+  ),
+  partners: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <path d="M10 17S3 12.5 3 7.8A3.2 3.2 0 0 1 10 7a3.2 3.2 0 0 1 7 .8C17 12.5 10 17 10 17Z" strokeLinejoin="round" />
+    </svg>
+  ),
+  children: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <circle cx="10" cy="4" r="2.2" />
+      <circle cx="10" cy="15" r="2.2" />
+      <path d="M10 6.2v6.6" strokeLinecap="round" />
+    </svg>
+  ),
+  sources: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h4l2 2h4A1.5 1.5 0 0 1 17 7.5v7A1.5 1.5 0 0 1 15.5 16h-10A1.5 1.5 0 0 1 4 14.5v-9Z" strokeLinejoin="round" />
+    </svg>
+  ),
+};
 export interface PersonLike {
   id: string;
   fullName: string;
@@ -298,14 +332,14 @@ const np: PersonLike = {
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
 
-      <div className="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-[var(--tapestry-bg-alt)] border-l border-[var(--thread-gold-dim)] z-50 flex flex-col overflow-hidden shadow-[-8px_0_32px_rgba(0,0,0,0.5)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[72vh] max-md:max-h-[72vh] max-md:w-full max-md:max-w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-3xl max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+      <div className="fixed top-4 right-4 bottom-4 h-auto w-[380px] max-w-[92vw] bg-[var(--tapestry-bg-alt)] border-l border-[var(--panel-border)] rounded-l-[var(--radius-lg)] z-50 flex flex-col overflow-hidden shadow-[var(--shadow-xl)] max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[72vh] max-md:max-h-[72vh] max-md:w-full max-md:max-w-full max-md:border-l-0 max-md:border-t max-md:rounded-t-3xl max-md:rounded-l-none max-md:shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
         {/* Mobile drag handle + close row */}
         <div className="hidden max-md:flex items-center justify-between px-4 pt-3 pb-1 relative">
           <div className="w-10 h-1 rounded-full bg-[var(--thread-gold-dim)]/30 mx-auto" />
           <button
             onClick={onClose}
             aria-label="Close profile"
-            className="absolute right-3 top-1 w-11 h-11 flex items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-sm"
+            className="absolute right-3 top-1 w-11 h-11 flex items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-[20px]"
           >
             ✕
           </button>
@@ -317,7 +351,7 @@ const np: PersonLike = {
             onClick={onClose}
             aria-label="Close profile"
             title="Close"
-            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-sm"
+            className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-white/5 border border-[var(--thread-gold-dim)]/40 text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:border-[var(--thread-gold-dim)] hover:bg-white/10 transition-colors text-[20px]"
           >
             ✕
           </button>
@@ -374,25 +408,30 @@ const np: PersonLike = {
             }
           }}
         >
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              id={`info-tab-${t.key}`}
-              aria-selected={tab === t.key}
-              aria-controls="info-tabpanel"
-              tabIndex={tab === t.key ? 0 : -1}
-              onClick={() => switchTab(t.key)}
-              className={`px-3 py-1.5 rounded text-xs font-body whitespace-nowrap transition-colors ${
-                tab === t.key
-                  ? "bg-[var(--thread-gold)] text-[var(--tapestry-bg)]"
-                  : "text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5"
-              }`}
-            >
-              {t.label}
-              {t.count > 0 && <span className="ml-1 opacity-60">{t.count}</span>}
-            </button>
-          ))}
+          {tabs.map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                role="tab"
+                id={`info-tab-${t.key}`}
+                aria-selected={active}
+                aria-controls="info-tabpanel"
+                tabIndex={active ? 0 : -1}
+                onClick={() => switchTab(t.key)}
+                title={t.label}
+                className={`min-h-[44px] px-3 py-2 rounded text-[13px] font-body whitespace-nowrap transition-colors flex items-center justify-center gap-1.5 ${
+                  active
+                    ? "bg-[var(--thread-gold)] text-[var(--tapestry-bg)]"
+                    : "text-[var(--parchment-dim)] hover:text-[var(--parchment)] hover:bg-white/5"
+                }`}
+              >
+                <span className="md:hidden shrink-0">{TAB_ICONS[t.key]}</span>
+                <span className={`${active ? "" : "hidden md:inline"}`}>{t.label}</span>
+                {active && t.count > 0 && <span className="opacity-60 hidden md:inline">{t.count}</span>}
+              </button>
+            );
+          })}
 
           <div className="flex-1" />
 
