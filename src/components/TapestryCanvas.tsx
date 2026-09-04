@@ -473,35 +473,70 @@ export default function TapestryCanvas() {
   );
 
   // ─── Diamond anchor fix ───
+  // The raw ELK spots place union nodes at the couple's row top (DIAMOND_Y_OFFSET=0),
+  // i.e. the diamond graphic centred on the card-mid = "up". This effect drops them
+  // DIAMOND_DROP below the card bottoms. It MUST wait for React Flow to measure the
+  // freshly-created node objects: a non-animated re-layout (session restore, data
+  // change, collapse) sets nodes at raw spots and bumps layoutTick in the SAME tick,
+  // so reading getNodes() immediately returns unmeasured nodes -> every union would be
+  // skipped and the diamonds would stay "up" (~> the "after refresh diamonds go up"
+  // bug). Retry on rAF (bounded) until all partners are measured, then apply once.
   useEffect(() => {
     if (animPhase !== "done") return;
-    const all = getNodes();
-    const byId = new Map(all.map((n) => [n.id, n]));
-    const hasBox = (n: { position?: { x?: number; y?: number }; measured?: { width?: number; height?: number } }) =>
-      !!n &&
-      n.position && n.position.x != null && n.position.y != null &&
-      n.measured && n.measured.width != null && n.measured.height != null;
+    let disposed = false;
+    let attempts = 0;
+    const apply = () => {
+      if (disposed) return;
+      const all = getNodes();
+      const byId = new Map(all.map((n) => [n.id, n]));
+      const hasBox = (n: { position?: { x?: number; y?: number }; measured?: { width?: number; height?: number } }) =>
+        !!n &&
+        n.position && n.position.x != null && n.position.y != null &&
+        n.measured && n.measured.width != null && n.measured.height != null;
 
-    const adjustments: { id: string; y: number; cornerA: number; cornerB: number }[] = [];
-    // Equalize partner card heights within each couple: a shorter partner card makes
-    // the two diamond partner-corner handles drift off the diamond graphic's fixed
-    // corners (the diamond can only have corners at ONE height), so at least one
-    // marriage line ends up visibly bent. Growing the shorter card to match its partner
-    // brings both bottoms level, so both corners coincide with the drawn diamond and
-    // both lines run horizontally, like the straight couples.
-    const minHeights = new Map<string, number>();
-    for (const n of all) {
-      if (n.type !== "unionNode") continue;
-      const union = (n.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
-      const a = union?.partnerA;
-      const b = union?.partnerB;
-      if (!a || !b) continue;
-      const at = byId.get(a);
-      const bt = byId.get(b);
-      const ah = at?.measured?.height;
-      const bh = bt?.measured?.height;
-      if (!at || !bt || ah == null || bh == null) continue;
-      const partnerHeight = Math.max(ah, bh);
+      // If any couple's partners aren't measured yet, wait a frame and retry (the
+      // nodes were just recreated by a runLayout setNodes and React Flow measures
+      // them asynchronously after mount).
+      let unmeasured = false;
+      for (const n of all) {
+        if (n.type !== "unionNode") continue;
+        const union = (n.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
+        const a = union?.partnerA;
+        const b = union?.partnerB;
+        if (!a || !b) continue;
+        const at = byId.get(a);
+        const bt = byId.get(b);
+        if (!at || !bt || at.measured?.height == null || bt.measured?.height == null) {
+          unmeasured = true;
+          break;
+        }
+      }
+      if (unmeasured && attempts < 30) {
+        attempts += 1;
+        requestAnimationFrame(apply);
+        return;
+      }
+
+      const adjustments: { id: string; y: number; cornerA: number; cornerB: number }[] = [];
+      // Equalize partner card heights within each couple: a shorter partner card makes
+      // the two diamond partner-corner handles drift off the diamond graphic's fixed
+      // corners (the diamond can only have corners at ONE height), so at least one
+      // marriage line ends up visibly bent. Growing the shorter card to match its partner
+      // brings both bottoms level, so both corners coincide with the drawn diamond and
+      // both lines run horizontally, like the straight couples.
+      const minHeights = new Map<string, number>();
+      for (const n of all) {
+        if (n.type !== "unionNode") continue;
+        const union = (n.data as { union?: { partnerA?: string; partnerB?: string } })?.union;
+        const a = union?.partnerA;
+        const b = union?.partnerB;
+        if (!a || !b) continue;
+        const at = byId.get(a);
+        const bt = byId.get(b);
+        const ah = at?.measured?.height;
+        const bh = bt?.measured?.height;
+        if (!at || !bt || ah == null || bh == null) continue;
+        const partnerHeight = Math.max(ah, bh);
       const rowTop = Math.min(at.position.y, bt.position.y);
       const aBottom = at.position.y + ah;
       const bBottom = bt.position.y + bh;
@@ -598,6 +633,12 @@ export default function TapestryCanvas() {
         style: mh != null ? { ...(nd.style ?? {}), minHeight: mh } : nd.style,
       };
     }));
+    };
+    const raf = requestAnimationFrame(apply);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
+    };
   }, [animPhase, layoutTick, getNodes, setNodes]);
 
   // ─── Line-hop pass (Group D) ───
