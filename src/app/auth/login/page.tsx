@@ -4,12 +4,13 @@ import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n";
+import { safePath } from "@/lib/safe-path";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useLang();
-  const redirect = searchParams.get("redirect") || "/";
+  const redirect = safePath(searchParams.get("redirect"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

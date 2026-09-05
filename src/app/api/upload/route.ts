@@ -3,6 +3,8 @@ import sharp from "sharp";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { loadCircleData, resolveEdit } from "@/lib/server-permissions";
+import { canEditField, type Role } from "@/lib/permissions";
 
 const MAX_EDGE = 400;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -39,6 +41,30 @@ export async function POST(request: NextRequest) {
 
     if (!/^[a-zA-Z0-9_-]{1,64}$/.test(personId)) {
       return NextResponse.json({ error: "Invalid personId" }, { status: 400 });
+    }
+
+    // Writes must go through the same circle/field gates as PATCH: an
+    // authenticated user may only upload a portrait for a person they could
+    // otherwise set photo_url on. This prevents clobbering other people's files.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("approved, role")
+      .eq("id", user.id)
+      .single();
+    if (!profile?.approved) {
+      return NextResponse.json({ error: "Account not approved" }, { status: 403 });
+    }
+    const role = (profile.role ?? "viewer") as Role;
+    if (role !== "admin" && role !== "editor" && role !== "user") {
+      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    }
+    if (role === "user") {
+      const db = createServiceClient();
+      const circle = await loadCircleData(db, user.id);
+      const res = resolveEdit("user", circle, personId);
+      if (res.kind === "none" || (res.kind === "circle" && !canEditField("user", circle, personId, "photo_url"))) {
+        return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+      }
     }
 
     const bytes = await file.arrayBuffer();

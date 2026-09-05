@@ -94,8 +94,8 @@ export async function PATCH(request: NextRequest) {
 
   // Changing gender can retroactively create two biological mothers/fathers
   // for the person's children — block that (any role).
-  if (fields.gender !== undefined || fields.gender !== undefined) {
-    const newGender = normalizeGender((fields.gender ?? fields.gender ?? "") as string);
+  if (fields.gender !== undefined) {
+    const newGender = normalizeGender((fields.gender ?? "") as string);
     const oldGender =
       (await db.from("persons").select("gender").eq("id", id).single()).data?.gender ?? "";
     if (newGender !== oldGender) {
@@ -187,6 +187,9 @@ export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+    return NextResponse.json({ error: "invalid id" }, { status: 400 });
+  }
 
   const db = createServiceClient();
 
@@ -204,7 +207,7 @@ export async function DELETE(request: NextRequest) {
 function mapFields(fields: Record<string, unknown>): Record<string, unknown> {
   const update: Record<string, unknown> = {};
   if (fields.fullName !== undefined || fields.full_name !== undefined) update.full_name = fields.fullName ?? fields.full_name;
-  if (fields.gender !== undefined || fields.gender !== undefined) update.gender = normalizeGender((fields.gender ?? fields.gender ?? "") as string);
+  if (fields.gender !== undefined) update.gender = normalizeGender((fields.gender ?? "") as string);
   if (fields.nameNative !== undefined || fields.name_native !== undefined) update.name_native = fields.nameNative ?? fields.name_native;
   if (fields.birthYear !== undefined || fields.birth_year !== undefined) update.birth_year = fields.birthYear ?? fields.birth_year;
   if (fields.deathYear !== undefined || fields.death_year !== undefined) update.death_year = fields.deathYear ?? fields.death_year;

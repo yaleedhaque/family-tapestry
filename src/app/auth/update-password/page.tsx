@@ -12,12 +12,7 @@ export default function UpdatePasswordPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.includes("access_token")) {
-      setReady(true);
-    } else {
-      setReady(true);
-    }
+    setReady(true);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

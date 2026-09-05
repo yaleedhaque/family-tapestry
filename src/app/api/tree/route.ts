@@ -134,37 +134,42 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
     return (await db.from(table).delete().in("id", gone)).error;
   };
 
-  // persons (preserve existing created_by on updates)
-  const { data: existingPersons } = await db.from("persons").select("id, created_by");
-  const createdBy = new Map<string, string>(
-    (existingPersons ?? []).map((r: Record<string, unknown>) => [
-      String(r.id),
-      String(r.created_by),
-    ])
+  // persons (preserve existing created_by / links / metadata / privacy_level on updates)
+  const { data: existingPersons } = await db
+    .from("persons")
+    .select("id, created_by, links, metadata, privacy_level");
+  const existingById = new Map<string, Record<string, unknown>>(
+    (existingPersons ?? []).map((r: Record<string, unknown>) => [String(r.id), r])
   );
-  const personRows = persons.map((p: Record<string, unknown>) => ({
-    id: String(p.id),
-    full_name: p.fullName ?? p.full_name ?? "",
-    gender: p.gender ?? p.gender ?? "",
-    birth_year: p.birthYear ?? p.birth_year ?? null,
-    death_year: p.deathYear ?? p.death_year ?? null,
-    is_alive: p.isAlive ?? p.is_alive ?? true,
-    birth_place: p.birthPlace ?? p.birth_place ?? null,
-    death_place: p.deathPlace ?? p.death_place ?? null,
-    profession: p.profession ?? null,
-    bio: p.bio ?? null,
-    photo_url: p.photoUrl ?? p.photo_url ?? null,
-    email: p.email ?? null,
-    phone: p.phone ?? null,
-    address: p.address ?? null,
-    website: p.website ?? null,
-    lat: p.lat ?? null,
-    lng: p.lng ?? null,
-    links: p.links ?? "[]",
-    metadata: p.metadata ?? "{}",
-    privacy_level: p.privacy_level ?? "family",
-    created_by: createdBy.get(String(p.id)) ?? userId,
-  }));
+  const createdBy = new Map<string, string>(
+    Array.from(existingById.values()).map((r) => [String(r.id), String(r.created_by)])
+  );
+  const personRows = persons.map((p: Record<string, unknown>) => {
+    const cur = existingById.get(String(p.id));
+    return {
+      id: String(p.id),
+      full_name: p.fullName ?? p.full_name ?? "",
+      gender: p.gender ?? "",
+      birth_year: p.birthYear ?? p.birth_year ?? null,
+      death_year: p.deathYear ?? p.death_year ?? null,
+      is_alive: p.isAlive ?? p.is_alive ?? true,
+      birth_place: p.birthPlace ?? p.birth_place ?? null,
+      death_place: p.deathPlace ?? p.death_place ?? null,
+      profession: p.profession ?? null,
+      bio: p.bio ?? null,
+      photo_url: p.photoUrl ?? p.photo_url ?? null,
+      email: p.email ?? null,
+      phone: p.phone ?? null,
+      address: p.address ?? null,
+      website: p.website ?? null,
+      lat: p.lat ?? null,
+      lng: p.lng ?? null,
+      links: p.links ?? cur?.links ?? "[]",
+      metadata: p.metadata ?? cur?.metadata ?? "{}",
+      privacy_level: p.privacy_level ?? cur?.privacy_level ?? "family",
+      created_by: createdBy.get(String(p.id)) ?? userId,
+    };
+  });
   if (personRows.length > 0) {
     const { error } = await db.from("persons").upsert(personRows, { onConflict: "id" });
     if (error) return NextResponse.json({ error: `Persons upsert failed: ${error.message}` }, { status: 500 });
@@ -179,7 +184,7 @@ async function syncFullTree(db: ReturnType<typeof createServiceClient>, body: Tr
   // FINAL union/edge set plus the persons' genders (payload + existing DB rows).
   const genders = await loadGenders(db, personRows.map((r) => r.id));
   for (const p of persons) {
-    const g = normalizeGender((p.gender ?? p.gender ?? "") as string);
+    const g = normalizeGender((p.gender ?? "") as string);
     if (g) genders.set(String(p.id), g);
   }
   const violation = dualParentError({ unions, edges, genders });
@@ -300,7 +305,7 @@ async function syncUserTree(db: ReturnType<typeof createServiceClient>, body: Tr
     const id = String(p.id);
     payloadPersonIds.add(id);
     const current = existingById.get(id);
-    const row = normalizePerson(p, current ? String(current.created_by ?? "") : userId);
+    const row = normalizePerson(p, current ? String(current.created_by ?? "") : userId, current);
 
     if (!current) {
       // New person — a User may add people (their own node / parents / partner / children).
@@ -525,11 +530,15 @@ async function syncUserTree(db: ReturnType<typeof createServiceClient>, body: Tr
 }
 
 /* ---------- shared row helpers ---------- */
-function normalizePerson(p: Record<string, unknown>, createdBy: string): Record<string, unknown> {
+function normalizePerson(
+  p: Record<string, unknown>,
+  createdBy: string,
+  current?: Record<string, unknown> | null
+): Record<string, unknown> {
   return {
     id: String(p.id),
     full_name: p.fullName ?? p.full_name ?? "",
-    gender: p.gender ?? p.gender ?? "",
+    gender: p.gender ?? "",
     birth_year: p.birthYear ?? p.birth_year ?? null,
     death_year: p.deathYear ?? p.death_year ?? null,
     is_alive: p.isAlive ?? p.is_alive ?? true,
@@ -544,9 +553,9 @@ function normalizePerson(p: Record<string, unknown>, createdBy: string): Record<
     website: p.website ?? null,
     lat: p.lat ?? null,
     lng: p.lng ?? null,
-    links: p.links ?? "[]",
-    metadata: p.metadata ?? "{}",
-    privacy_level: p.privacy_level ?? "family",
+    links: p.links ?? current?.links ?? "[]",
+    metadata: p.metadata ?? current?.metadata ?? "{}",
+    privacy_level: p.privacy_level ?? current?.privacy_level ?? "family",
     created_by: createdBy,
   };
 }
