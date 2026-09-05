@@ -909,10 +909,14 @@ export default function TapestryCanvas() {
   const connectedNodeIds = useMemo(() => {
     if (!hoveredNodeId) return null;
     const ids = new Set<string>([hoveredNodeId]);
+    // Unions the hovered node is a partner in — their children should also light up
+    // (hovering a parent lights up that couple's children, not just the diamond).
+    const hoveredUnions = new Set<string>();
 
     for (const u of rawUnions) {
       if (u.partnerA === hoveredNodeId || u.partnerB === hoveredNodeId) {
         ids.add(u.id);
+        hoveredUnions.add(u.id);
         if (u.partnerA) ids.add(u.partnerA);
         if (u.partnerB) ids.add(u.partnerB);
       }
@@ -926,7 +930,7 @@ export default function TapestryCanvas() {
           if (union.partnerB) ids.add(union.partnerB);
         }
       }
-      if (e.unionId === hoveredNodeId) {
+      if (e.unionId === hoveredNodeId || hoveredUnions.has(e.unionId)) {
         ids.add(e.childId);
       }
     }
