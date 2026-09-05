@@ -415,7 +415,9 @@ const np: PersonLike = {
               >
                 <span className="md:hidden shrink-0">{TAB_ICONS[t.key]}</span>
                 <span className={`${active ? "" : "hidden md:inline"}`}>{t.label}</span>
-                {active && t.count > 0 && <span className="opacity-60 hidden md:inline">{t.count}</span>}
+                {t.key !== "profile" && (
+                  <span className={`opacity-60 ${active ? "" : "hidden md:inline"}`}>{t.count}</span>
+                )}
               </button>
             );
           })}

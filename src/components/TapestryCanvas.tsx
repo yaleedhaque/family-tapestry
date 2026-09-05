@@ -1088,12 +1088,13 @@ export default function TapestryCanvas() {
             />
             {!isMobile && (
               <MiniMap
-                style={{ backgroundColor: "var(--mipmap-bg)" }}
+                style={{ backgroundColor: "var(--tapestry-bg-alt)" }}
                 nodeStrokeColor="var(--thread-gold)"
                 nodeColor={(n) =>
                   STATUS_RING_COLORS[(n.data?.ringStatus as keyof typeof STATUS_RING_COLORS | undefined) ?? "living"]
                 }
-                maskColor="rgba(22,19,15,0.7)"
+                maskColor="var(--minimap-mask)"
+                maskStrokeColor="var(--thread-gold)"
                 pannable
                 zoomable
               />

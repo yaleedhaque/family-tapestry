@@ -55,6 +55,7 @@
   --scrollbar-thumb-hover: rgba(201,162,75,0.5);
   --scrollbar-track: rgba(255,255,255,0.04);
   --mipmap-bg: rgba(20,17,14,0.85);
+  --minimap-mask: rgba(16,13,11,0.28);
   --control-hover-bg: rgba(201,162,75,0.15);
   --control-icon: #EFE6D8;
 
@@ -107,6 +108,7 @@ html.light {
   --scrollbar-thumb-hover: rgba(122,91,31,0.6);
   --scrollbar-track: rgba(44,37,32,0.06);
   --mipmap-bg: rgba(255,255,255,0.9);
+  --minimap-mask: rgba(44,37,32,0.16);
   --control-hover-bg: rgba(122,91,31,0.12);
   --control-icon: #2C2520;
 
