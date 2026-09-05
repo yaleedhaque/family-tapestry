@@ -7,7 +7,7 @@ import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 
 /* ── Pure relation helpers (mirror useTreeCrud.ai semantics) ───────────── */
 
-function nextUnionId(unions: UnionLike[]): string {
+export function nextUnionId(unions: UnionLike[]): string {
   let max = 0;
   for (const u of unions) {
     const n = parseInt(u.id.replace(/\D/g, ""), 10);
@@ -16,7 +16,7 @@ function nextUnionId(unions: UnionLike[]): string {
   return `u${max + 1}`;
 }
 
-function findParentUnion(unions: UnionLike[], personId: string): UnionLike | undefined {
+export function findParentUnion(unions: UnionLike[], personId: string): UnionLike | undefined {
   const couple = unions.find(
     (u) => (u.partnerA === personId || u.partnerB === personId) && u.partnerB
   );
@@ -69,7 +69,7 @@ function newSingleUnion(unions: UnionLike[], parentId: string): { union: UnionLi
 }
 
 /** Add parent T to child C (mirrors useTreeCrud.handleAddParent). Returns null on gender conflict. */
-function commitAddParent(
+export function commitAddParent(
   unions: UnionLike[],
   edges: EdgeLike[],
   persons: PersonLike[],
@@ -89,21 +89,31 @@ function commitAddParent(
   );
   const targetUnion = childUnion ?? parentUnion;
   if (targetUnion) {
-    if (bioConflict(unions, edges, persons, childId, targetUnion.id, rel)) return null;
+    const isExistingPartner =
+      targetUnion.partnerA === parentId || targetUnion.partnerB === parentId;
+    // A child whose biological couple union is already full cannot gain a third bio parent.
+    if (rel === "biological" && childUnion && childUnion.partnerB && !isExistingPartner) {
+      return null;
+    }
+    // Prospective couple (single → couple) so the conflict check sees the merged genders.
+    const prospectiveUnions =
+      rel === "biological" && childUnion && !childUnion.partnerB && !isExistingPartner
+        ? unions.map((u) => (u.id === childUnion.id ? { ...u, partnerB: parentId } : u))
+        : unions;
+    if (bioConflict(prospectiveUnions, edges, persons, childId, targetUnion.id, rel)) {
+      return null;
+    }
     // Merge a second biological parent into the child's single-parent union.
-    if (rel === "biological" && childUnion && !childUnion.partnerB) {
-      const other = childUnion.partnerA === parentId ? null : childUnion.partnerA;
-      if (other && other !== parentId) {
-        const merged: UnionLike = { ...childUnion, partnerB: other };
-        return {
-          unions: unions.map((u) => (u.id === merged.id ? merged : u)),
-          edges: edges.map((e) =>
-            e.childId === childId && e.unionId === childUnion.id
-              ? { ...e, relationshipType: rel }
-              : e
-          ),
-        };
-      }
+    if (rel === "biological" && childUnion && !childUnion.partnerB && !isExistingPartner) {
+      const merged: UnionLike = { ...childUnion, partnerB: parentId };
+      return {
+        unions: unions.map((u) => (u.id === merged.id ? merged : u)),
+        edges: edges.map((e) =>
+          e.childId === childId && e.unionId === childUnion.id
+            ? { ...e, relationshipType: rel }
+            : e
+        ),
+      };
     }
     const newEdge = { unionId: targetUnion.id, childId, relationshipType: rel };
     const newEdges = edges.some((e) => e.unionId === targetUnion.id && e.childId === childId)
@@ -119,7 +129,7 @@ function commitAddParent(
 }
 
 /** Add child C to parent P (mirrors useTreeCrud.handleAddChild — attaches to P's couple/single union). */
-function commitAddChild(
+export function commitAddChild(
   unions: UnionLike[],
   edges: EdgeLike[],
   parentId: string,
@@ -141,7 +151,7 @@ function commitAddChild(
   };
 }
 
-function commitAddPartner(
+export function commitAddPartner(
   unions: UnionLike[],
   edges: EdgeLike[],
   selfId: string,
@@ -160,7 +170,7 @@ function commitAddPartner(
 }
 
 /** Disconnect one parent-relationship (mirrors useTreeCrud.handleRemoveLink "child"): keeps the child on the other parent if the union is a couple. */
-function commitRemoveParent(
+export function commitRemoveParent(
   unions: UnionLike[],
   edges: EdgeLike[],
   childId: string,
@@ -203,7 +213,7 @@ function commitRemoveParent(
   return { unions: nextUnions, edges: nextEdges };
 }
 
-function commitRemovePartner(
+export function commitRemovePartner(
   unions: UnionLike[],
   edges: EdgeLike[],
   unionId: string
@@ -214,7 +224,7 @@ function commitRemovePartner(
   };
 }
 
-function commitEditEdgeRel(
+export function commitEditEdgeRel(
   edges: EdgeLike[],
   unionId: string,
   childId: string,
@@ -226,7 +236,7 @@ function commitEditEdgeRel(
   );
 }
 
-function commitEditUnion(
+export function commitEditUnion(
   unions: UnionLike[],
   unionId: string,
   patch: Partial<Pick<UnionLike, "type" | "startYear" | "endYear">>
