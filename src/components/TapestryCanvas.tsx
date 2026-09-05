@@ -1187,11 +1187,6 @@ export default function TapestryCanvas() {
           canEditPrivate={selectedPerson ? gate.canEditPrivate(selectedPerson.id) : false}
           canDelete={gate.canDelete}
           locked={selectedPerson ? gate.locked(selectedPerson.id) : false}
-          sources={rawSources.filter((s) => s.personId === selectedPerson?.id)}
-          onAddSource={handleAddSource}
-          onUpdateSource={handleUpdateSource}
-          onDeleteSource={handleDeleteSource}
-          nextSourceId={() => `src-${Date.now().toString(36)}`}
         />
       </div>
 

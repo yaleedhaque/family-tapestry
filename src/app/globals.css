@@ -67,9 +67,11 @@
 }
 
 html.light {
-  --tapestry-bg: #F5F0E8;
+  /* User request 2026-09-05: swapped card bg with main bg so person cards are the
+     lightest surface. Elevation still reads bg (tan, darkest) < bg-alt (panels) < card (cream, lightest). */
+  --tapestry-bg: #D6C8AC;
   --tapestry-bg-alt: #EBE3D5;
-  --card-bg: #D6C8AC; /* was #DDD3C1 — nearly invisible vs canvas; widened elevation step */
+  --card-bg: #F5F0E8;
   --thread-gold: #7A5B1F;
   --thread-gold-dim: #6E511A;
   --ember-red: #8C2E2E;

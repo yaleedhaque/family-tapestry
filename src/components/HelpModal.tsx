@@ -75,7 +75,7 @@ export default function HelpModal({ open: controlledOpen, onClose: controlledClo
                 <Section title="Getting Started">
                   <ol className="list-decimal list-inside space-y-2">
                     <li><strong>View the tree</strong> — The home page shows your family tree. Pan by dragging, zoom with scroll.</li>
-                    <li><strong>Click any person</strong> — A side panel opens with their full profile, relationships, and sources.</li>
+                    <li><strong>Click any person</strong> — A side panel opens with their full profile and relationships.</li>
                     <li><strong>Sign up</strong> — Create an account to start editing. Your account needs admin approval before you can make changes.</li>
                     <li><strong>Add people</strong> — Use the <Gold>+ button</Gold> (bottom-right) to add a new person, or add partners/children/parents from an existing person&apos;s profile.</li>
                     <li><strong>Edit profiles</strong> — Open any person, click &quot;Edit Profile&quot; to update their details, biography, and contact info.</li>
@@ -112,7 +112,6 @@ export default function HelpModal({ open: controlledOpen, onClose: controlledClo
                     <li><Gold>Parents tab</Gold> — View, add, or remove parent relationships</li>
                     <li><Gold>Partners tab</Gold> — View, add, or remove partner relationships (marriage, partnership, divorced)</li>
                     <li><Gold>Children tab</Gold> — View, add, or remove child relationships</li>
-                    <li><Gold>Sources tab</Gold> — Cite sources (birth certificates, documents, photos, etc.) for a person&apos;s information</li>
                     <li><Gold>Delete</Gold> — Remove a person from the tree (with confirmation)</li>
                   </ul>
                 </Section>

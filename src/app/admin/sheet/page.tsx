@@ -103,6 +103,31 @@ export default function AdminSheetPage() {
     []
   );
 
+  const handleSaveRelations = useCallback(
+    async (newUnions: UnionLike[], newEdges: EdgeLike[]) => {
+      setSaving(true);
+      try {
+        const res = await fetch("/api/tree", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ persons, unions: newUnions, edges: newEdges }),
+        });
+        if (res.ok) {
+          setUnions(newUnions);
+          setEdges(newEdges);
+        } else {
+          // Server rejected (e.g. dual-bio-parent conflict) -> revert to persisted state
+          await fetchTree();
+        }
+      } catch {
+        await fetchTree();
+      } finally {
+        setSaving(false);
+      }
+    },
+    [persons, fetchTree]
+  );
+
   if (authLoading || !canAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--tapestry-bg)]">
@@ -152,6 +177,7 @@ export default function AdminSheetPage() {
             edges={edges}
             onSavePerson={handleSavePerson}
             onImportTree={handleImportTree}
+            onSaveRelations={handleSaveRelations}
           />
         )}
       </div>

@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import type { Source } from "@/data/family";
 import { useLang } from "@/lib/i18n";
 import { sanitizeField, validateEmail, validateUrl, validateYear, cachedPhotoUrl } from "@/lib/validation";
 import { findDualParentConflicts, type Gender } from "@/lib/parentRules";
 import { RelSection } from "@/components/RelSection";
-import { SourcesTab } from "@/components/SourcesTab";
 import { ProfileTab } from "@/components/ProfileTab";
 
 function getInitials(name: string): string {
@@ -116,14 +114,9 @@ interface InfoPanelProps {
   canEditPrivate?: boolean;
   canDelete?: boolean;
   locked?: boolean;
-  sources?: Source[];
-  onAddSource?: (source: Source) => void;
-  onUpdateSource?: (source: Source) => void;
-  onDeleteSource?: (sourceId: string) => void;
-  nextSourceId?: () => string;
 }
 
-  type Tab = "profile" | "parents" | "partners" | "children" | "sources";
+  type Tab = "profile" | "parents" | "partners" | "children";
 
 export default function InfoPanel({
   person,
@@ -147,11 +140,6 @@ export default function InfoPanel({
   canEditPrivate = true,
   canDelete = true,
   locked = false,
-  sources = [],
-  onAddSource,
-  onUpdateSource,
-  onDeleteSource,
-  nextSourceId,
 }: InfoPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -325,7 +313,6 @@ const np: PersonLike = {
     { key: "parents", label: t("info.parents"), count: relatedData.parents.length },
     { key: "partners", label: t("info.partners"), count: relatedData.partners.length },
     { key: "children", label: t("info.children"), count: relatedData.children.length },
-    { key: "sources", label: t("info.sources"), count: sources.length },
   ];
 
   return (
@@ -586,18 +573,6 @@ const np: PersonLike = {
                 setEditingEdgeKey(null);
               }}
               onCancelEditEdge={() => setEditingEdgeKey(null)}
-            />
-          )}
-
-          {tab === "sources" && (
-            <SourcesTab
-              sources={sources}
-              canEdit={canEdit}
-              onAdd={(s) => onAddSource?.(s)}
-              onUpdate={(s) => onUpdateSource?.(s)}
-              onDelete={(id) => onDeleteSource?.(id)}
-              nextId={() => nextSourceId?.() ?? `src-${Date.now()}`}
-              personId={person.id}
             />
           )}
         </div>

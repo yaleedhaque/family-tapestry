@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { PersonLike, UnionLike, EdgeLike } from "@/components/InfoPanel";
+import RelationEditorCell from "@/components/RelationEditorCell";
 
 /* ── Column definitions ──────────────────────────────────────────── */
 
@@ -259,6 +260,7 @@ interface AdminSheetProps {
   edges: EdgeLike[];
   onSavePerson: (person: PersonLike) => void;
   onImportTree?: (persons: PersonLike[], unions: UnionLike[], edges: EdgeLike[]) => void;
+  onSaveRelations?: (unions: UnionLike[], edges: EdgeLike[]) => void;
 }
 
 export default function AdminSheet({
@@ -267,6 +269,7 @@ export default function AdminSheet({
   edges,
   onSavePerson,
   onImportTree,
+  onSaveRelations,
 }: AdminSheetProps) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -702,21 +705,54 @@ export default function AdminSheet({
                       />
                     </td>
                   ))}
-                  {/* Computed relationship columns */}
-                  <td className="px-2 py-1.5 border-r border-[var(--panel-border)] bg-[var(--tapestry-bg-alt)]/50">
-                    <span className="text-[var(--parchment-dim)] text-[11px]">
-                      {rels.parents.join("; ") || "—"}
-                    </span>
+                  {/* Editable relationship columns */}
+                  <td className="px-1.5 py-1.5 border-r border-[var(--panel-border)] bg-[var(--tapestry-bg-alt)]/50">
+                    {onSaveRelations ? (
+                      <RelationEditorCell
+                        mode="parents"
+                        person={person}
+                        persons={persons}
+                        unions={unions}
+                        edges={edges}
+                        onSave={onSaveRelations}
+                      />
+                    ) : (
+                      <span className="text-[var(--parchment-dim)] text-[11px]">
+                        {rels.parents.join("; ") || "—"}
+                      </span>
+                    )}
                   </td>
-                  <td className="px-2 py-1.5 border-r border-[var(--panel-border)] bg-[var(--tapestry-bg-alt)]/50">
-                    <span className="text-[var(--parchment-dim)] text-[11px]">
-                      {rels.partners.join("; ") || "—"}
-                    </span>
+                  <td className="px-1.5 py-1.5 border-r border-[var(--panel-border)] bg-[var(--tapestry-bg-alt)]/50">
+                    {onSaveRelations ? (
+                      <RelationEditorCell
+                        mode="partners"
+                        person={person}
+                        persons={persons}
+                        unions={unions}
+                        edges={edges}
+                        onSave={onSaveRelations}
+                      />
+                    ) : (
+                      <span className="text-[var(--parchment-dim)] text-[11px]">
+                        {rels.partners.join("; ") || "—"}
+                      </span>
+                    )}
                   </td>
-                  <td className="px-2 py-1.5 bg-[var(--tapestry-bg-alt)]/50">
-                    <span className="text-[var(--parchment-dim)] text-[11px]">
-                      {rels.children.join("; ") || "—"}
-                    </span>
+                  <td className="px-1.5 py-1.5 bg-[var(--tapestry-bg-alt)]/50">
+                    {onSaveRelations ? (
+                      <RelationEditorCell
+                        mode="children"
+                        person={person}
+                        persons={persons}
+                        unions={unions}
+                        edges={edges}
+                        onSave={onSaveRelations}
+                      />
+                    ) : (
+                      <span className="text-[var(--parchment-dim)] text-[11px]">
+                        {rels.children.join("; ") || "—"}
+                      </span>
+                    )}
                   </td>
                 </tr>
               );
